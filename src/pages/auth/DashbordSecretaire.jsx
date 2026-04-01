@@ -384,11 +384,10 @@ export default function DashboardSecretaire() {
 
         <nav style={{ padding: "16px 12px", flex: 1 }}>
           <p style={{ color: P.textMuted, fontSize: "10px", letterSpacing: "0.12em", textTransform: "uppercase", padding: "0 8px", marginBottom: "8px" }}>Menu principal</p>
-          // eslint-disable-next-line no-unused-vars
-          {nav.map(({ id, label, icon: IconComponent, desc }) => {
-            const active = onglet === id
+          {nav.map((item) => {
+            const active = onglet === item.id
             return (
-              <button key={id} onClick={() => setOnglet(id)} style={{
+              <button key={item.id} onClick={() => setOnglet(item.id)} style={{
                 width: "100%", display: "flex", alignItems: "center", gap: "12px",
                 padding: "11px 12px", borderRadius: "12px", border: "none",
                 background: active ? P.greenSoft : "transparent",
@@ -402,11 +401,11 @@ export default function DashboardSecretaire() {
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent" }}
               >
                 <div style={{ width: "32px", height: "32px", borderRadius: "9px", background: active ? P.hero : "rgba(45,122,63,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <IconComponent active={active} />
+                  <item.icon active={active} />
                 </div>
                 <div>
-                  <p style={{ fontSize: "13px", fontWeight: active ? 700 : 500, color: active ? P.green : P.textPri, lineHeight: 1.2 }}>{label}</p>
-                  <p style={{ fontSize: "10px", color: P.textMuted, lineHeight: 1.2, marginTop: "1px" }}>{desc}</p>
+                  <p style={{ fontSize: "13px", fontWeight: active ? 700 : 500, color: active ? P.green : P.textPri, lineHeight: 1.2 }}>{item.label}</p>
+                  <p style={{ fontSize: "10px", color: P.textMuted, lineHeight: 1.2, marginTop: "1px" }}>{item.desc}</p>
                 </div>
               </button>
             )
