@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import Login from "./pages/auth/Login"
+import Login from "./pages/Auth/Login"
 import DashboardSecretaire from "./pages/auth/DashbordSecretaire"
 
 function App() {
