@@ -6,6 +6,12 @@ import logo from "../../assets/images/logo.jpeg"
 // import photoEquipe from "../../assets/images/equipe.jpeg"
 // Pour l'instant on affiche un placeholder visuel
 
+const UTILISATEURS = [
+  { email: "secretaire@clinique.com",    motDePasse: "1234", route: "/secretaire"              },
+  { email: "medecin@clinique.com",       motDePasse: "1234", route: "/medecin"                  },
+  { email: "chef@clinique.com",          motDePasse: "1234", route: "/dashboard-medecin-chef"   },
+]
+
 export default function Login() {
   const [email, setEmail]           = useState("")
   const [motDePasse, setMotDePasse] = useState("")
@@ -21,8 +27,13 @@ export default function Login() {
       setErreur("Veuillez remplir tous les champs.")
       return
     }
+    const user = UTILISATEURS.find(u => u.email === email && u.motDePasse === motDePasse)
+    if (!user) {
+      setErreur("Email ou mot de passe incorrect.")
+      return
+    }
     setChargement(true)
-    setTimeout(() => { setChargement(false); navigate("/secretaire") }, 1500)
+    setTimeout(() => { setChargement(false); navigate(user.route) }, 1500)
   }
 
   const focusInput = e => {
