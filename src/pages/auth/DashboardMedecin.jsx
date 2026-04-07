@@ -5,7 +5,6 @@ import logo from "../../assets/images/logo.jpeg"
 //  UTILITAIRES
 // ══════════════════════════════════════════════════════
 const today   = () => new Date().toISOString().slice(0, 10)
-const nowTime = () => new Date().toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" })
 const fmt     = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—"
 const calcAge = d => { if (!d) return 0; return Math.floor((Date.now() - new Date(d)) / (365.25 * 864e5)) }
 
@@ -31,24 +30,35 @@ const PATHOLOGIES_COMMUNES = [
 
 const EXAMENS_RAPIDES = ["ECG", "NFS", "Glycémie", "Radiographie", "Échographie", "Bilan rénal", "Bilan hépatique"]
 
-// Patients assignés à ce médecin (docteurId:2 = Dr. Camara)
+const TYPE_CONSULT_LABEL = {
+  standard:     { label:"Consultation standard", short:"Standard", emoji:"📋" },
+  prenatal:     { label:"Consultation prénatale (CPN)", short:"CPN", emoji:"🤰" },
+  accouchement: { label:"Registre d’accouchement", short:"Accouch.", emoji:"👶" },
+}
+
+const isGynecoObst = (sp) => /gynécologie|obstétrique/i.test(sp || "")
+
+// Patients assignés par le médecin chef — file d’accueil (plaintes, RDV, type de consultation)
 const PATIENTS_INIT = [
-  { id:1, pid:"CAB-A1B2C3", nom:"Bah Mariama",     dateNaissance:"1990-03-12", sexe:"F", telephone:"+224 622 11 22 33", adresse:"Ratoma",  motif:"Consultation générale", statut:"en_attente", arrivee:"08:15", docteurId:2 },
-  { id:2, pid:"CAB-D4E5F6", nom:"Diallo Ibrahima", dateNaissance:"1972-07-04", sexe:"M", telephone:"+224 628 44 55 66", adresse:"Kaloum",  motif:"Suivi cardiologie",     statut:"en_attente", arrivee:"08:45", docteurId:2 },
-  { id:3, pid:"CAB-G7H8I9", nom:"Sow Fatoumata",   dateNaissance:"1996-11-20", sexe:"F", telephone:"+224 621 77 88 99", adresse:"Dixinn",  motif:"Douleur thoracique",    statut:"en_salle",   arrivee:"09:00", docteurId:2 },
-  { id:4, pid:"CAB-J1K2L3", nom:"Kouyaté Mamadou", dateNaissance:"1963-01-15", sexe:"M", telephone:"+224 624 33 44 55", adresse:"Matam",   motif:"Palpitations",          statut:"en_attente", arrivee:"09:30", docteurId:3 },
-  { id:5, pid:"CAB-M4N5O6", nom:"Baldé Aissatou",  dateNaissance:"2018-06-08", sexe:"F", telephone:"+224 625 66 77 88", adresse:"Matoto",  motif:"Fièvre persistante",    statut:"en_attente", arrivee:"10:00", docteurId:4 },
+  { id:1, pid:"CAB-A1B2C3", nom:"Bah Mariama",     dateNaissance:"1990-03-12", sexe:"F", telephone:"+224 622 11 22 33", adresse:"Ratoma",  motif:"Consultation générale", statut:"en_attente", arrivee:"08:15", docteurId:2, typeVisite:"spontane", motifRdv:"", plaintesChef:"Céphalées, courbatures", symptomesChef:"Fièvre à 38.2°C", antecedentsChef:"Néant", diagnosticPreliminaireChef:"Syndrome grippal ?", typeConsultation:"standard" },
+  { id:2, pid:"CAB-D4E5F6", nom:"Diallo Ibrahima", dateNaissance:"1972-07-04", sexe:"M", telephone:"+224 628 44 55 66", adresse:"Kaloum",  motif:"Suivi cardiologie",     statut:"en_attente", arrivee:"08:45", docteurId:2, typeVisite:"rendez_vous", motifRdv:"Contrôle tension et bilan post-hospitalisation (6 mois)", plaintesChef:"— (RDV programmé)", symptomesChef:"—", antecedentsChef:"HTA connue", diagnosticPreliminaireChef:"Suivi HTA / bilan", typeConsultation:"standard" },
+  { id:3, pid:"CAB-G7H8I9", nom:"Sow Fatoumata",   dateNaissance:"1996-11-20", sexe:"F", telephone:"+224 621 77 88 99", adresse:"Dixinn",  motif:"Douleur thoracique",    statut:"en_salle",   arrivee:"09:00", docteurId:2, typeVisite:"spontane", motifRdv:"", plaintesChef:"Douleur rétrosternale depuis 6h", symptomesChef:"Palpitations, sueurs", antecedentsChef:"Tabagisme", diagnosticPreliminaireChef:"Douleur thoracique à explorer", typeConsultation:"standard" },
+  { id:4, pid:"CAB-J1K2L3", nom:"Kouyaté Mamadou", dateNaissance:"1963-01-15", sexe:"M", telephone:"+224 624 33 44 55", adresse:"Matam",   motif:"Palpitations",          statut:"en_attente", arrivee:"09:30", docteurId:3, typeVisite:"spontane", motifRdv:"", plaintesChef:"", symptomesChef:"", antecedentsChef:"", diagnosticPreliminaireChef:"", typeConsultation:"standard" },
+  { id:5, pid:"CAB-M4N5O6", nom:"Baldé Aissatou",  dateNaissance:"2018-06-08", sexe:"F", telephone:"+224 625 66 77 88", adresse:"Matoto",  motif:"Fièvre persistante",    statut:"en_attente", arrivee:"10:00", docteurId:4, typeVisite:"spontane", motifRdv:"", plaintesChef:"", symptomesChef:"", antecedentsChef:"", diagnosticPreliminaireChef:"", typeConsultation:"standard" },
+  { id:6, pid:"CAB-P9Q0R1", nom:"Touré Aminata",   dateNaissance:"1994-08-22", sexe:"F", telephone:"+224 620 12 34 56", adresse:"Coyah",   motif:"CPN — suivi grossesse", statut:"en_attente", arrivee:"10:30", docteurId:5, typeVisite:"rendez_vous", motifRdv:"CPN 3e trimestre + bilan prénatal", plaintesChef:"Fatigue, œdèmes légers", symptomesChef:"TA 12/8, HU 32 cm", antecedentsChef:"G2P1", diagnosticPreliminaireChef:"Grossesse à terme proche", typeConsultation:"prenatal" },
+  { id:7, pid:"CAB-S2T3U4", nom:"Camara Oumou",     dateNaissance:"1991-01-10", sexe:"F", telephone:"+224 623 98 76 54", adresse:"Matam",   motif:"Travail obstétrical",   statut:"en_salle",   arrivee:"11:00", docteurId:5, typeVisite:"spontane", motifRdv:"", plaintesChef:"Contractions régulières", symptomesChef:"BPP 140, col 6 cm", antecedentsChef:"G3P2", diagnosticPreliminaireChef:"Travail évolutif", typeConsultation:"accouchement" },
 ]
 
 const CONSULTATIONS_INIT = [
-  { id:1, patientId:1, date:"2026-03-15", motif:"Fièvre persistante",  service:"Cardiologie", docteurId:2, observations:"TA 13/8, pouls 90", symptomes:"Fièvre, fatigue", diagnostics:["Infection virale"], pathologies:["Anémie"], examens:["NFS"], traitements:["Paracétamol 500mg"], commentaires:"Repos 3 jours", signe:true,  signeLe:"15/03/2026 10:30" },
-  { id:2, patientId:2, date:"2026-03-28", motif:"Suivi cardiologie",   service:"Cardiologie", docteurId:2, observations:"Tension stable 12/8", symptomes:"Palpitations", diagnostics:["HTA stable"],         pathologies:["HTA"],    examens:["ECG"], traitements:["Amlodipine 5mg"],  commentaires:"Contrôle dans 1 mois", signe:true,  signeLe:"28/03/2026 11:00" },
-  { id:3, patientId:3, date:today(),      motif:"Douleur thoracique",  service:"Cardiologie", docteurId:2, observations:"",                   symptomes:"",              diagnostics:[],                      pathologies:[],         examens:[],      traitements:[],                  commentaires:"",                     signe:false, signeLe:null },
+  { id:10, patientId:1, date:"2025-11-10", motif:"Migraine, fatigue", service:"Médecine générale", docteurId:1, observations:"Repos", symptomes:"Céphalée", diagnostics:["Migraine"], pathologies:[], examens:[], traitements:["Antalgique"], commentaires:"Autre service", signe:true, signeLe:"10/11/2025 09:00", typeConsultation:"standard" },
+  { id:1, patientId:1, date:"2026-03-15", motif:"Fièvre persistante",  service:"Cardiologie", docteurId:2, observations:"TA 13/8, pouls 90", symptomes:"Fièvre, fatigue", diagnostics:["Infection virale"], pathologies:["Anémie"], examens:["NFS"], traitements:["Paracétamol 500mg"], commentaires:"Repos 3 jours", signe:true,  signeLe:"15/03/2026 10:30", typeConsultation:"standard" },
+  { id:2, patientId:2, date:"2026-03-28", motif:"Suivi cardiologie",   service:"Cardiologie", docteurId:2, observations:"Tension stable 12/8", symptomes:"Palpitations", diagnostics:["HTA stable"],         pathologies:["HTA"],    examens:["ECG"], traitements:["Amlodipine 5mg"],  commentaires:"Contrôle dans 1 mois", signe:true,  signeLe:"28/03/2026 11:00", typeConsultation:"standard" },
+  { id:3, patientId:3, date:today(),      motif:"Douleur thoracique",  service:"Cardiologie", docteurId:2, observations:"",                   symptomes:"",              diagnostics:[],                      pathologies:[],         examens:[],      traitements:[],                  commentaires:"",                     signe:false, signeLe:null, typeConsultation:"standard" },
+  { id:4, patientId:6, date:"2026-02-01", motif:"CPN 2e trimestre",    service:"Gynécologie", docteurId:5, observations:"Échographie normale", symptomes:"—", diagnostics:["Grossesse évolutive"], pathologies:[], examens:["Échographie"], traitements:["Acide folique"], commentaires:"", signe:true, signeLe:"01/02/2026 14:00", typeConsultation:"prenatal", donneesPrenatal:{ ddr:"2025-07-10", termeSA:"32 sa", gestiteParite:"G2P1", ta:"12/8", hu:"24", bcf:"140", presentation:"Céphalique", visiteCpn:"2", albumine:"négatif", sucre:"négatif", vat:"VAT2" } },
 ]
 
-// Médecin connecté (simulé — viendra de AuthContext plus tard)
-const MEDECIN_CONNECTE = { id:2, nom:"Dr. Camara", specialite:"Cardiologie" }
-
+// Médecin connecté (simulé). Pour CPN / accouchement : { id:5, nom:"Dr. Keïta", specialite:"Gynécologie" }
+const MEDECIN_CONNECTE = { id:5, nom:"Dr. Keïta", specialite:"Gynécologie" }
 // ══════════════════════════════════════════════════════
 //  COULEURS
 // ══════════════════════════════════════════════════════
@@ -61,6 +71,24 @@ const C = {
   slate:"#475569", slateSoft:"#e2e8f0",
   purple:"#7c3aed",purpleSoft:"#ede9fe",
   orange:"#ea580c",orangeSoft:"#ffedd5",
+}
+
+function TypeConsultBadge({ type }) {
+  const t = TYPE_CONSULT_LABEL[type] || TYPE_CONSULT_LABEL.standard
+  return (
+    <span style={{ display:"inline-flex", alignItems:"center", gap:4, fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:8, background:C.purpleSoft, color:C.purple, border:"1px solid "+C.purple+"33" }} title={t.label}>
+      {t.emoji} {t.short}
+    </span>
+  )
+}
+
+function RdvBadge({ patient }) {
+  if (patient.typeVisite !== "rendez_vous") return null
+  return (
+    <span style={{ fontSize:11, fontWeight:700, background:C.blueSoft, color:C.blue, padding:"2px 8px", borderRadius:8, border:"1px solid "+C.blue+"33" }} title={patient.motifRdv || "Rendez-vous"}>
+      📅 RDV
+    </span>
+  )
 }
 
 // ══════════════════════════════════════════════════════
@@ -132,23 +160,85 @@ function Btn({ children, onClick, variant="primary", small=false, disabled=false
 const inputSt = { width:"100%", padding:"10px 14px", fontSize:14, border:"1.5px solid "+C.border, borderRadius:10, background:C.white, color:C.textPri, outline:"none", fontFamily:"inherit", resize:"vertical" }
 const labelSt = { display:"block", fontSize:12, fontWeight:600, color:C.textSec, marginBottom:6 }
 
+/** Aligné sur le registre papier « Registre de consultation prénatale » */
+const PRENATAL_DEFAULT = {
+  ddr: "", termeSA: "", gestiteParite: "", dateRdv: "",
+  visiteCpn: "", risque: "", tailleCm: "",
+  poids: "", ta: "", hu: "",
+  bcf: "", maf: "",
+  presentation: "",
+  albumine: "", sucre: "",
+  vat: "", fer: "", acideFolique: "", tpi: "", miiMild: "",
+  ptmeConseil: "", ptmeTest: "", ptmeResultat: "", ptmeArv: "", ptmePartenaire: "",
+  constatsProblemes: "", notesCpn: "",
+}
+
+/** Aligné sur le registre « Registre de l’accouchement dans les CS » */
+const ACCOUCH_DEFAULT = {
+  dateAcc: "", heureAcc: "",
+  dateSortie: "", joursHospitalisation: "", sangPerduMl: "",
+  dernierNeVivant: "", avantDernierNeVivant: "", vatMere: "",
+  voie: "", sexeNN: "", poidsNN: "", tailleNN: "", pc: "",
+  apgar1: "", apgar5: "", apgar10: "",
+  modeSortie: "", soinCordon: "", miseAuSein1h: "", soinYeux: "", vitamineK1: "",
+  vpo0: "", bcg: "",
+  etatSortieMere: "", etatSortieEnfant: "",
+  partogramme: "", personnelQualifie: "",
+  complicationsMere: "", notes: "",
+}
+
+function mergePrenatalInit(dp) {
+  return {
+    ...PRENATAL_DEFAULT,
+    ...dp,
+    termeSA: dp.terme || dp.termeSA || PRENATAL_DEFAULT.termeSA,
+    gestiteParite: dp.gestiteParite || dp.parite || PRENATAL_DEFAULT.gestiteParite,
+  }
+}
+
+function mergeAccouchInit(da) {
+  const parts = da.apgar ? String(da.apgar).split(/[/\s]+/).filter(Boolean) : []
+  return {
+    ...ACCOUCH_DEFAULT,
+    ...da,
+    apgar1: da.apgar1 || parts[0] || "",
+    apgar5: da.apgar5 || parts[1] || "",
+    apgar10: da.apgar10 || parts[2] || "",
+  }
+}
+
+function RegSection({ title, children }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      <p style={{ fontSize:11, fontWeight:700, color:C.blue, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10, borderBottom:"1px solid "+C.border, paddingBottom:6 }}>{title}</p>
+      {children}
+    </div>
+  )
+}
+
 // ══════════════════════════════════════════════════════
 //  MODAL — FICHE PATIENT
 // ══════════════════════════════════════════════════════
-function ModalFichePatient({ patient, consultations, onClose, onConsulter }) {
+function ModalFichePatient({ patient, consultations, medecin, onClose, onConsulter }) {
   if (!patient) return null
   const visites = consultations.filter(c=>c.patientId===patient.id).sort((a,b)=>b.date.localeCompare(a.date))
+  const tc = patient.typeConsultation || "standard"
+  const hasChef = patient.plaintesChef || patient.symptomesChef || patient.diagnosticPreliminaireChef
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,0.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
       onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white, borderRadius:20, width:"100%", maxWidth:580, maxHeight:"90vh", overflow:"auto", boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
+      <div style={{ background:C.white, borderRadius:20, width:"100%", maxWidth:600, maxHeight:"90vh", overflow:"auto", boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
 
         {/* Header */}
         <div style={{ padding:"22px 28px 18px", borderBottom:"1px solid "+C.border, display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
           <div style={{ display:"flex", alignItems:"center", gap:14 }}>
             <Avatar name={patient.nom} size={48} />
             <div>
-              <p style={{ fontSize:18, fontWeight:800, color:C.textPri, marginBottom:3 }}>{patient.nom}</p>
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                <p style={{ fontSize:18, fontWeight:800, color:C.textPri, marginBottom:3 }}>{patient.nom}</p>
+                <RdvBadge patient={patient} />
+                {tc !== "standard" && <TypeConsultBadge type={tc} />}
+              </div>
               <p style={{ fontSize:13, color:C.textSec }}>{patient.pid} · {calcAge(patient.dateNaissance)} ans · {patient.sexe==="F"?"Féminin":"Masculin"}</p>
             </div>
           </div>
@@ -157,6 +247,23 @@ function ModalFichePatient({ patient, consultations, onClose, onConsulter }) {
 
         {/* Infos */}
         <div style={{ padding:"20px 28px" }}>
+          {patient.typeVisite === "rendez_vous" && patient.motifRdv && (
+            <div style={{ background:C.blueSoft, border:"1px solid "+C.blue+"33", borderRadius:12, padding:"12px 16px", marginBottom:16 }}>
+              <p style={{ fontSize:11, fontWeight:700, color:C.blue, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Objet du rendez-vous</p>
+              <p style={{ fontSize:14, color:C.textPri, lineHeight:1.45 }}>{patient.motifRdv}</p>
+            </div>
+          )}
+
+          {hasChef && (
+            <div style={{ background:C.greenSoft, border:"1px solid "+C.green+"33", borderRadius:12, padding:"12px 16px", marginBottom:16 }}>
+              <p style={{ fontSize:11, fontWeight:700, color:C.green, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>File d’accueil — médecin chef</p>
+              {patient.plaintesChef && <p style={{ fontSize:13, color:C.textPri, marginBottom:4 }}><strong>Plaintes :</strong> {patient.plaintesChef}</p>}
+              {patient.symptomesChef && <p style={{ fontSize:13, color:C.textPri, marginBottom:4 }}><strong>Signes / symptômes :</strong> {patient.symptomesChef}</p>}
+              {patient.antecedentsChef && <p style={{ fontSize:13, color:C.textPri, marginBottom:4 }}><strong>Antécédents :</strong> {patient.antecedentsChef}</p>}
+              {patient.diagnosticPreliminaireChef && <p style={{ fontSize:13, color:C.textPri }}><strong>Hypothèse préliminaire :</strong> {patient.diagnosticPreliminaireChef}</p>}
+            </div>
+          )}
+
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20 }}>
             {[
               { l:"Téléphone",    v:patient.telephone },
@@ -171,21 +278,30 @@ function ModalFichePatient({ patient, consultations, onClose, onConsulter }) {
             ))}
           </div>
 
-          {/* Historique */}
+          {/* Historique — toute la clinique */}
           {visites.length > 0 && (
             <>
-              <p style={{ fontSize:11, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Historique des consultations</p>
+              <p style={{ fontSize:11, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Historique dans la clinique (tous services)</p>
               <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-                {visites.map((v,i)=>(
-                  <div key={v.id} style={{ background:C.bg, borderRadius:10, padding:"12px 16px", border:"1px solid "+C.border }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:6 }}>
-                      <p style={{ fontSize:13, fontWeight:700, color:C.textPri }}>{fmt(v.date)} — {v.motif}</p>
-                      <Badge statut={v.signe?"signe":"non_signe"} />
+                {visites.map((v)=>{
+                  const autreService = v.service && v.service !== medecin.specialite
+                  return (
+                    <div key={v.id} style={{ background:C.bg, borderRadius:10, padding:"12px 16px", border:"1px solid "+C.border, borderLeft:"4px solid "+(autreService?C.amber:C.blue) }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8, marginBottom:6, flexWrap:"wrap" }}>
+                        <div>
+                          <p style={{ fontSize:13, fontWeight:700, color:C.textPri }}>{fmt(v.date)} — {v.motif}</p>
+                          <p style={{ fontSize:11, color:C.textMuted }}>{v.service || "—"}{autreService && <span style={{ color:C.amber, fontWeight:700 }}> · autre service</span>}</p>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                          {v.typeConsultation && v.typeConsultation !== "standard" && <TypeConsultBadge type={v.typeConsultation} />}
+                          <Badge statut={v.signe?"signe":"non_signe"} />
+                        </div>
+                      </div>
+                      {(v.diagnostics||[]).length>0 && <p style={{ fontSize:12, color:C.textSec, marginBottom:2 }}>Diag : {(v.diagnostics||[]).join(", ")}</p>}
+                      {(v.traitements||[]).length>0 && <p style={{ fontSize:12, color:C.textSec }}>Traitement : {(v.traitements||[]).join(", ")}</p>}
                     </div>
-                    {v.diagnostics.length>0 && <p style={{ fontSize:12, color:C.textSec, marginBottom:2 }}>Diag : {v.diagnostics.join(", ")}</p>}
-                    {v.traitements.length>0 && <p style={{ fontSize:12, color:C.textSec }}>Traitement : {v.traitements.join(", ")}</p>}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </>
           )}
@@ -204,10 +320,17 @@ function ModalFichePatient({ patient, consultations, onClose, onConsulter }) {
 //  MODAL — FORMULAIRE CONSULTATION
 // ══════════════════════════════════════════════════════
 function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegarder, onSigner }) {
-  if (!patient) return null
+  const mode = patient?.typeConsultation || consultation?.typeConsultation || "standard"
+  const specGyn = isGynecoObst(medecin?.specialite)
+  const showPrenatal = specGyn && mode === "prenatal"
+  const showAcc = specGyn && mode === "accouchement"
+  const warnWrongService = !specGyn && mode !== "standard"
+
+  const dp = consultation?.donneesPrenatal || {}
+  const da = consultation?.donneesAccouchement || {}
 
   const [form, setForm] = useState({
-    motif:        consultation?.motif        || patient.motif || "",
+    motif:        consultation?.motif        || patient?.motif || "",
     symptomes:    consultation?.symptomes    || "",
     observations: consultation?.observations || "",
     diagnostics:  (consultation?.diagnostics||[]).join(", "),
@@ -216,8 +339,12 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
     traitements:  (consultation?.traitements||[]).join(", "),
     commentaires: consultation?.commentaires || "",
   })
+  const [prenatal, setPrenatal] = useState(() => mergePrenatalInit(dp))
+  const [accouch, setAccouch] = useState(() => mergeAccouchInit(da))
   const [suggestions, setSuggestions] = useState([])
   const f = (k,v) => setForm(p=>({...p,[k]:v}))
+  const fp = (k,v) => setPrenatal(p=>({...p,[k]:v}))
+  const fa = (k,v) => setAccouch(p=>({...p,[k]:v}))
 
   const genSuggestions = (txt) => {
     const mots = txt.toLowerCase().split(/[,\s]+/).filter(Boolean)
@@ -231,6 +358,8 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
     setSuggestions(Array.from(res))
   }
 
+  if (!patient) return null
+
   const ajouterTag = (champ, val) => {
     const curr = form[champ].split(",").map(x=>x.trim()).filter(Boolean)
     if (!curr.includes(val)) f(champ, [...curr, val].join(", "))
@@ -241,6 +370,12 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
   const valider = (signer) => {
     if (!form.observations.trim()) { alert("Les observations cliniques sont obligatoires."); return }
     if (signer && !form.diagnostics.trim()) { alert("Le diagnostic est obligatoire pour signer."); return }
+    if (showPrenatal && !prenatal.ddr.trim() && !prenatal.termeSA.trim()) {
+      alert("Pour une CPN, indiquez au minimum la DDR ou le terme (semaines d’aménorrhée)."); return
+    }
+    if (showAcc && !accouch.dateAcc.trim()) {
+      alert("Pour le registre d’accouchement, la date de l’accouchement est obligatoire."); return
+    }
     const data = {
       motif:        form.motif,
       symptomes:    form.symptomes,
@@ -250,6 +385,9 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
       examens:      parseList(form.examens),
       traitements:  parseList(form.traitements),
       commentaires: form.commentaires,
+      typeConsultation: mode,
+      ...(showPrenatal && { donneesPrenatal: { ...prenatal, parite: prenatal.gestiteParite, terme: prenatal.termeSA } }),
+      ...(showAcc && { donneesAccouchement: { ...accouch } }),
     }
     if (signer) onSigner(data)
     else onSauvegarder(data)
@@ -258,7 +396,7 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,0.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
       onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white, borderRadius:20, width:"100%", maxWidth:680, maxHeight:"92vh", overflow:"auto", boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
+      <div style={{ background:C.white, borderRadius:20, width:"100%", maxWidth: showPrenatal || showAcc ? 960 : 680, maxHeight:"92vh", overflow:"auto", boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
 
         {/* Header bleu */}
         <div style={{ padding:"22px 28px 20px", borderBottom:"1px solid "+C.border, background:"linear-gradient(135deg,#1e40af,#2563eb)", borderRadius:"20px 20px 0 0", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -266,13 +404,248 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
             <Avatar name={patient.nom} size={46} bg="rgba(255,255,255,0.25)" />
             <div>
               <p style={{ fontSize:16, fontWeight:800, color:"#fff", marginBottom:3 }}>{patient.nom}</p>
-              <p style={{ fontSize:12, color:"rgba(255,255,255,0.75)" }}>{patient.pid} · {calcAge(patient.dateNaissance)} ans · {medecin.specialite}</p>
+              <p style={{ fontSize:12, color:"rgba(255,255,255,0.75)", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                {patient.pid} · {calcAge(patient.dateNaissance)} ans · {medecin.specialite}
+                <TypeConsultBadge type={mode} />
+              </p>
             </div>
           </div>
           <button onClick={onClose} style={{ background:"rgba(255,255,255,0.15)", border:"none", borderRadius:8, color:"#fff", cursor:"pointer", width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>×</button>
         </div>
 
         <div style={{ padding:"24px 28px", display:"flex", flexDirection:"column", gap:16 }}>
+
+          {warnWrongService && (
+            <div style={{ background:C.amberSoft, border:"1px solid "+C.amber+"44", borderRadius:12, padding:"12px 14px" }}>
+              <p style={{ fontSize:13, color:"#92400e", fontWeight:600 }}>Ce dossier est typé « {TYPE_CONSULT_LABEL[mode]?.label || mode} ». Vous n’êtes pas en gynécologie — le formulaire spécialisé est masqué ; utilisez la consultation standard.</p>
+            </div>
+          )}
+
+          {patient.typeVisite === "rendez_vous" && patient.motifRdv && (
+            <div style={{ background:C.blueSoft, border:"1px solid "+C.blue+"33", borderRadius:12, padding:"12px 14px" }}>
+              <p style={{ fontSize:11, fontWeight:700, color:C.blue, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Pourquoi ce rendez-vous</p>
+              <p style={{ fontSize:14, color:C.textPri, lineHeight:1.45 }}>{patient.motifRdv}</p>
+            </div>
+          )}
+
+          {(patient.plaintesChef || patient.symptomesChef || patient.diagnosticPreliminaireChef) && (
+            <div style={{ background:C.greenSoft, border:"1px solid "+C.green+"33", borderRadius:12, padding:"12px 14px" }}>
+              <p style={{ fontSize:11, fontWeight:700, color:C.green, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>Transmis par le médecin chef (accueil)</p>
+              {patient.plaintesChef && <p style={{ fontSize:13, marginBottom:4 }}><strong>Plaintes :</strong> {patient.plaintesChef}</p>}
+              {patient.symptomesChef && <p style={{ fontSize:13, marginBottom:4 }}><strong>Symptômes :</strong> {patient.symptomesChef}</p>}
+              {patient.antecedentsChef && <p style={{ fontSize:13, marginBottom:4 }}><strong>Antécédents :</strong> {patient.antecedentsChef}</p>}
+              {patient.diagnosticPreliminaireChef && <p style={{ fontSize:13 }}><strong>Hypothèse :</strong> {patient.diagnosticPreliminaireChef}</p>}
+            </div>
+          )}
+
+          {showPrenatal && (
+            <div style={{ background:C.bg, border:"1px solid "+C.border, borderRadius:14, padding:"16px 18px" }}>
+              <p style={{ fontSize:13, fontWeight:800, color:C.textPri, marginBottom:4 }}>🤰 Registre de consultation prénatale (CPN)</p>
+              <p style={{ fontSize:11, color:C.textMuted, marginBottom:16 }}>Champs calqués sur le registre papier — saisie par sections.</p>
+
+              <div style={{ background:C.white, border:"1px dashed "+C.border, borderRadius:10, padding:"10px 12px", marginBottom:16, fontSize:12, color:C.textSec }}>
+                <strong style={{ color:C.textPri }}>Patient :</strong> {patient.nom} · {patient.pid} · {calcAge(patient.dateNaissance)} ans · {patient.adresse || "—"}
+              </div>
+
+              <RegSection title="Suivi de grossesse & rendez-vous">
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
+                  <div><label style={labelSt}>DDR</label><input value={prenatal.ddr} onChange={e=>fp("ddr",e.target.value)} type="date" style={inputSt} /></div>
+                  <div><label style={labelSt}>Âge de la grossesse (terme)</label><input value={prenatal.termeSA} onChange={e=>fp("termeSA",e.target.value)} placeholder="ex. 36 sa" style={inputSt} /></div>
+                  <div><label style={labelSt}>Gestité / parité (G / P)</label><input value={prenatal.gestiteParite} onChange={e=>fp("gestiteParite",e.target.value)} placeholder="G2P1" style={inputSt} /></div>
+                  <div><label style={labelSt}>Date du RDV</label><input value={prenatal.dateRdv} onChange={e=>fp("dateRdv",e.target.value)} type="date" style={inputSt} /></div>
+                  <div><label style={labelSt}>Visite CPN (n°)</label>
+                    <select value={prenatal.visiteCpn} onChange={e=>fp("visiteCpn",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="1">1re visite</option>
+                      <option value="2">2e visite</option>
+                      <option value="3">3e visite</option>
+                      <option value="4+">4e et +</option>
+                    </select>
+                  </div>
+                  <div><label style={labelSt}>Risque</label>
+                    <select value={prenatal.risque} onChange={e=>fp("risque",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="non">Non signalé</option>
+                      <option value="oui">Grossesse à risque</option>
+                    </select>
+                  </div>
+                </div>
+              </RegSection>
+
+              <RegSection title="Taille & signes vitaux (P, TA, HU)">
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:12 }}>
+                  <div><label style={labelSt}>Taille (cm)</label><input value={prenatal.tailleCm} onChange={e=>fp("tailleCm",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>P — Poids (kg)</label><input value={prenatal.poids} onChange={e=>fp("poids",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>TA</label><input value={prenatal.ta} onChange={e=>fp("ta",e.target.value)} placeholder="12/8" style={inputSt} /></div>
+                  <div><label style={labelSt}>HU (cm)</label><input value={prenatal.hu} onChange={e=>fp("hu",e.target.value)} style={inputSt} /></div>
+                </div>
+              </RegSection>
+
+              <RegSection title="Foetus — BCF, MAF, présentation">
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
+                  <div><label style={labelSt}>BDCF / BCF (bpm)</label><input value={prenatal.bcf} onChange={e=>fp("bcf",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>MAF (mouvements actifs fœtaux)</label><input value={prenatal.maf} onChange={e=>fp("maf",e.target.value)} placeholder="Normaux / diminués…" style={inputSt} /></div>
+                  <div><label style={labelSt}>Présentation</label><input value={prenatal.presentation} onChange={e=>fp("presentation",e.target.value)} placeholder="Céphalique…" style={inputSt} /></div>
+                </div>
+              </RegSection>
+
+              <RegSection title="Bandelette — albumine / sucre">
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                  <div><label style={labelSt}>Albumine</label><input value={prenatal.albumine} onChange={e=>fp("albumine",e.target.value)} placeholder="Négatif / +…" style={inputSt} /></div>
+                  <div><label style={labelSt}>Sucre</label><input value={prenatal.sucre} onChange={e=>fp("sucre",e.target.value)} placeholder="Négatif / +…" style={inputSt} /></div>
+                </div>
+              </RegSection>
+
+              <RegSection title="Vaccination (VAT) & suppléments — Fer / acide folique — TPI — MII / MILD">
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
+                  <div><label style={labelSt}>VAT (doses / statut)</label><input value={prenatal.vat} onChange={e=>fp("vat",e.target.value)} placeholder="ex. VAT3" style={inputSt} /></div>
+                  <div><label style={labelSt}>Fer</label><input value={prenatal.fer} onChange={e=>fp("fer",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>Acide folique</label><input value={prenatal.acideFolique} onChange={e=>fp("acideFolique",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>TPI (paludisme)</label><input value={prenatal.tpi} onChange={e=>fp("tpi",e.target.value)} placeholder="C1, C2, C3…" style={inputSt} /></div>
+                  <div><label style={labelSt}>MII / MILD (moustiquaire)</label>
+                    <select value={prenatal.miiMild} onChange={e=>fp("miiMild",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="oui">Oui</option>
+                      <option value="non">Non</option>
+                    </select>
+                  </div>
+                </div>
+              </RegSection>
+
+              <RegSection title="PTME (prévention transmission mère-enfant)">
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
+                  <div><label style={labelSt}>Conseil</label><input value={prenatal.ptmeConseil} onChange={e=>fp("ptmeConseil",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>Test</label><input value={prenatal.ptmeTest} onChange={e=>fp("ptmeTest",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>Résultat</label><input value={prenatal.ptmeResultat} onChange={e=>fp("ptmeResultat",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>ARV</label><input value={prenatal.ptmeArv} onChange={e=>fp("ptmeArv",e.target.value)} style={inputSt} /></div>
+                  <div style={{ gridColumn:"1 / -1" }}><label style={labelSt}>Partenaire</label><input value={prenatal.ptmePartenaire} onChange={e=>fp("ptmePartenaire",e.target.value)} style={inputSt} /></div>
+                </div>
+              </RegSection>
+
+              <RegSection title="Constats / problèmes & notes CPN">
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  <div><label style={labelSt}>Constats / problèmes</label><textarea value={prenatal.constatsProblemes} onChange={e=>fp("constatsProblemes",e.target.value)} rows={2} style={inputSt} /></div>
+                  <div><label style={labelSt}>Observations & notes (suivi prochain RDV, écho…)</label><textarea value={prenatal.notesCpn} onChange={e=>fp("notesCpn",e.target.value)} rows={2} style={inputSt} /></div>
+                </div>
+              </RegSection>
+            </div>
+          )}
+
+          {showAcc && (
+            <div style={{ background:C.bg, border:"1px solid "+C.border, borderRadius:14, padding:"16px 18px" }}>
+              <p style={{ fontSize:13, fontWeight:800, color:C.textPri, marginBottom:4 }}>👶 Registre de l’accouchement (CS)</p>
+              <p style={{ fontSize:11, color:C.textMuted, marginBottom:16 }}>Aligné sur le registre papier — sections détaillées.</p>
+
+              <RegSection title="Accouchement & séjour">
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
+                  <div><label style={labelSt}>Date d’accouchement <span style={{ color:C.red }}>*</span></label><input value={accouch.dateAcc} onChange={e=>fa("dateAcc",e.target.value)} type="date" style={inputSt} /></div>
+                  <div><label style={labelSt}>Heure</label><input value={accouch.heureAcc} onChange={e=>fa("heureAcc",e.target.value)} type="time" style={inputSt} /></div>
+                  <div><label style={labelSt}>Date de sortie</label><input value={accouch.dateSortie} onChange={e=>fa("dateSortie",e.target.value)} type="date" style={inputSt} /></div>
+                  <div><label style={labelSt}>Journées d’hospitalisation</label><input value={accouch.joursHospitalisation} onChange={e=>fa("joursHospitalisation",e.target.value)} placeholder="ex. 2" style={inputSt} /></div>
+                  <div style={{ gridColumn:"1 / -1" }}><label style={labelSt}>Quantité de sang perdu (ml)</label><input value={accouch.sangPerduMl} onChange={e=>fa("sangPerduMl",e.target.value)} style={inputSt} /></div>
+                </div>
+              </RegSection>
+
+              <RegSection title="Antécédents — derniers nés & VAT mère">
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                  <div><label style={labelSt}>Dernier né vivant</label><input value={accouch.dernierNeVivant} onChange={e=>fa("dernierNeVivant",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>Avant-dernier né vivant</label><input value={accouch.avantDernierNeVivant} onChange={e=>fa("avantDernierNeVivant",e.target.value)} style={inputSt} /></div>
+                  <div style={{ gridColumn:"1 / -1" }}><label style={labelSt}>Vaccination mère (VAT)</label><input value={accouch.vatMere} onChange={e=>fa("vatMere",e.target.value)} style={inputSt} /></div>
+                </div>
+              </RegSection>
+
+              <RegSection title="Voie d’accouchement & nouveau-né">
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
+                  <div style={{ gridColumn:"1 / -1" }}><label style={labelSt}>Voie</label>
+                    <select value={accouch.voie} onChange={e=>fa("voie",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="basse">Voie basse</option>
+                      <option value="cesarienne">Césarienne</option>
+                      <option value="instrumentale">Instrumentale</option>
+                    </select>
+                  </div>
+                  <div><label style={labelSt}>Sexe</label>
+                    <select value={accouch.sexeNN} onChange={e=>fa("sexeNN",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="F">F</option>
+                      <option value="M">M</option>
+                    </select>
+                  </div>
+                  <div><label style={labelSt}>Poids (g)</label><input value={accouch.poidsNN} onChange={e=>fa("poidsNN",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>Taille (cm)</label><input value={accouch.tailleNN} onChange={e=>fa("tailleNN",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>PC (cm)</label><input value={accouch.pc} onChange={e=>fa("pc",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>APGAR 1 min</label><input value={accouch.apgar1} onChange={e=>fa("apgar1",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>APGAR 5 min</label><input value={accouch.apgar5} onChange={e=>fa("apgar5",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>APGAR 10 min</label><input value={accouch.apgar10} onChange={e=>fa("apgar10",e.target.value)} style={inputSt} /></div>
+                </div>
+              </RegSection>
+
+              <RegSection title="Soins immédiats — cordon, sein, yeux, Vit K1, vaccins">
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12 }}>
+                  <div><label style={labelSt}>Mode de sortie NN</label>
+                    <select value={accouch.modeSortie} onChange={e=>fa("modeSortie",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="vivant">Vivant</option>
+                      <option value="decede">Décédé</option>
+                      <option value="transfere">Transféré</option>
+                    </select>
+                  </div>
+                  <div><label style={labelSt}>Soin du cordon</label><input value={accouch.soinCordon} onChange={e=>fa("soinCordon",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>Mise au sein dans l’heure</label>
+                    <select value={accouch.miseAuSein1h} onChange={e=>fa("miseAuSein1h",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="oui">Oui</option>
+                      <option value="non">Non</option>
+                    </select>
+                  </div>
+                  <div><label style={labelSt}>Soin des yeux (ex. tétracycline)</label><input value={accouch.soinYeux} onChange={e=>fa("soinYeux",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>Vitamine K1</label>
+                    <select value={accouch.vitamineK1} onChange={e=>fa("vitamineK1",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="oui">Oui</option>
+                      <option value="non">Non</option>
+                    </select>
+                  </div>
+                  <div><label style={labelSt}>VPO 0</label>
+                    <select value={accouch.vpo0} onChange={e=>fa("vpo0",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="oui">Oui</option>
+                      <option value="non">Non</option>
+                    </select>
+                  </div>
+                  <div><label style={labelSt}>BCG</label>
+                    <select value={accouch.bcg} onChange={e=>fa("bcg",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="oui">Oui</option>
+                      <option value="non">Non</option>
+                    </select>
+                  </div>
+                </div>
+              </RegSection>
+
+              <RegSection title="État à la sortie — partogramme — personnel">
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                  <div><label style={labelSt}>État à la sortie (mère)</label><input value={accouch.etatSortieMere} onChange={e=>fa("etatSortieMere",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>État à la sortie (enfant)</label><input value={accouch.etatSortieEnfant} onChange={e=>fa("etatSortieEnfant",e.target.value)} style={inputSt} /></div>
+                  <div><label style={labelSt}>Partogramme</label>
+                    <select value={accouch.partogramme} onChange={e=>fa("partogramme",e.target.value)} style={{ ...inputSt, cursor:"pointer" }}>
+                      <option value="">—</option>
+                      <option value="oui">Rempli</option>
+                      <option value="non">Non</option>
+                    </select>
+                  </div>
+                  <div><label style={labelSt}>Personnel qualifié (nom / signature)</label><input value={accouch.personnelQualifie} onChange={e=>fa("personnelQualifie",e.target.value)} style={inputSt} /></div>
+                </div>
+              </RegSection>
+
+              <RegSection title="Complications & observations">
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  <div><label style={labelSt}>Complications (mère / enfant)</label><textarea value={accouch.complicationsMere} onChange={e=>fa("complicationsMere",e.target.value)} rows={2} style={inputSt} /></div>
+                  <div><label style={labelSt}>Observations</label><textarea value={accouch.notes} onChange={e=>fa("notes",e.target.value)} rows={2} style={inputSt} /></div>
+                </div>
+              </RegSection>
+            </div>
+          )}
 
           {/* Motif */}
           <div>
@@ -425,7 +798,10 @@ export default function DashboardMedecin() {
   const patientsFiltres = mesPatients.filter(p=>{
     const q=recherche.toLowerCase()
     return !q||p.nom.toLowerCase().includes(q)||p.pid.toLowerCase().includes(q)||p.motif.toLowerCase().includes(q)
+      ||(p.motifRdv||"").toLowerCase().includes(q)||(TYPE_CONSULT_LABEL[p.typeConsultation]?.label||"").toLowerCase().includes(q)
   })
+
+  const nextConsultId = (prev) => (prev.length ? Math.max(...prev.map(c => c.id)) : 0) + 1
 
   const ouvrirConsultation = (patient) => {
     const existing = consultations.find(c=>c.patientId===patient.id&&c.date===today()&&c.docteurId===medecin.id)
@@ -438,7 +814,7 @@ export default function DashboardMedecin() {
     if (existing) {
       setConsultations(prev=>prev.map(c=>c.id===existing.id?{...c,...data}:c))
     } else {
-      setConsultations(prev=>[...prev,{ id:prev.length+1, patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:false, signeLe:null, ...data }])
+      setConsultations(prev=>[...prev,{ id:nextConsultId(prev), patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:false, signeLe:null, ...data }])
     }
     setMConsult(null)
     alert("Consultation sauvegardée.")
@@ -451,7 +827,7 @@ export default function DashboardMedecin() {
     if (existing) {
       setConsultations(prev=>prev.map(c=>c.id===existing.id?{...c,...data,signe:true,signeLe:ts}:c))
     } else {
-      setConsultations(prev=>[...prev,{ id:prev.length+1, patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:true, signeLe:ts, ...data }])
+      setConsultations(prev=>[...prev,{ id:nextConsultId(prev), patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:true, signeLe:ts, ...data }])
     }
     setPatients(prev=>prev.map(p=>p.id===patientId?{...p,statut:"termine"}:p))
     setMConsult(null)
@@ -472,12 +848,14 @@ export default function DashboardMedecin() {
         <ModalFichePatient
           patient={mFiche}
           consultations={consultations}
+          medecin={medecin}
           onClose={()=>setMFiche(null)}
           onConsulter={p=>{ ouvrirConsultation(p) }}
         />
       )}
       {mConsult && (
         <ModalConsultation
+          key={mConsult.patient.id + "-" + (mConsult.consultation?.id || "nouveau")}
           patient={mConsult.patient}
           medecin={medecin}
           consultation={mConsult.consultation}
@@ -626,7 +1004,11 @@ export default function DashboardMedecin() {
                       <Avatar name={p.nom} size={36} />
                       <div>
                         <p style={{ fontSize:13, fontWeight:600, color:C.textPri }}>{p.nom}</p>
-                        <p style={{ fontSize:11, color:C.textSec }}>{p.motif} · Arrivé à {p.arrivee}</p>
+                        <p style={{ fontSize:11, color:C.textSec, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                          <RdvBadge patient={p} />
+                          {(p.typeConsultation && p.typeConsultation !== "standard") && <TypeConsultBadge type={p.typeConsultation} />}
+                          <span>{p.motif} · Arrivé à {p.arrivee}</span>
+                        </p>
                       </div>
                     </div>
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -661,7 +1043,7 @@ export default function DashboardMedecin() {
             <table style={{ width:"100%", borderCollapse:"collapse" }}>
               <thead>
                 <tr style={{ background:C.slateSoft }}>
-                  {["Patient","Motif","Arrivée","Statut","Actions"].map(h=>(
+                  {["Patient","Motif / file","Arrivée","Statut","Actions"].map(h=>(
                     <th key={h} style={{ padding:"11px 16px", textAlign:"left", fontSize:11, fontWeight:700, color:C.textSec, letterSpacing:"0.06em", textTransform:"uppercase" }}>{h}</th>
                   ))}
                 </tr>
@@ -669,7 +1051,7 @@ export default function DashboardMedecin() {
               <tbody>
                 {patientsFiltres.length===0
                   ? <tr><td colSpan={5} style={{ padding:40, textAlign:"center", color:C.textMuted }}>Aucun patient trouvé</td></tr>
-                  : patientsFiltres.sort((a,b)=>a.statut==="en_attente"?-1:1).map((p,i,arr)=>(
+                  : patientsFiltres.sort((a)=>a.statut==="en_attente"?-1:1).map((p,i,arr)=>(
                     <tr key={p.id} style={{ borderBottom:i<arr.length-1?"1px solid "+C.border:"none", transition:"background .15s" }}
                       onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
                       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -682,7 +1064,15 @@ export default function DashboardMedecin() {
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding:"13px 16px", fontSize:13, color:C.textSec }}>{p.motif}</td>
+                      <td style={{ padding:"13px 16px", fontSize:13, color:C.textSec }}>
+                        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                          <span>{p.motif}</span>
+                          <span style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                            <RdvBadge patient={p} />
+                            {(p.typeConsultation && p.typeConsultation !== "standard") && <TypeConsultBadge type={p.typeConsultation} />}
+                          </span>
+                        </div>
+                      </td>
                       <td style={{ padding:"13px 16px", fontSize:13, fontWeight:700, color:C.blue, fontVariantNumeric:"tabular-nums" }}>{p.arrivee}</td>
                       <td style={{ padding:"13px 16px" }}><Badge statut={p.statut} /></td>
                       <td style={{ padding:"13px 16px" }}>
@@ -721,14 +1111,14 @@ export default function DashboardMedecin() {
               <table style={{ width:"100%", borderCollapse:"collapse" }}>
                 <thead>
                   <tr style={{ background:C.slateSoft }}>
-                    {["Patient","Date","Motif","Diagnostic","Traitement","Signature","Action"].map(h=>(
+                    {["Patient","Date","Type","Motif","Diagnostic","Traitement","Signature","Action"].map(h=>(
                       <th key={h} style={{ padding:"11px 16px", textAlign:"left", fontSize:11, fontWeight:700, color:C.textSec, letterSpacing:"0.06em", textTransform:"uppercase" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {mesConsultations.length===0
-                    ? <tr><td colSpan={7} style={{ padding:40, textAlign:"center", color:C.textMuted }}>Aucune consultation enregistrée</td></tr>
+                    ? <tr><td colSpan={8} style={{ padding:40, textAlign:"center", color:C.textMuted }}>Aucune consultation enregistrée</td></tr>
                     : [...mesConsultations].sort((a,b)=>b.date.localeCompare(a.date)).map((c,i,arr)=>{
                         const p = patients.find(pt=>pt.id===c.patientId)
                         if (!p) return null
@@ -743,6 +1133,10 @@ export default function DashboardMedecin() {
                               </div>
                             </td>
                             <td style={{ padding:"13px 16px", fontSize:12, color:C.textMuted }}>{fmt(c.date)}</td>
+                            <td style={{ padding:"13px 16px" }}>{c.typeConsultation && c.typeConsultation !== "standard"
+                              ? <TypeConsultBadge type={c.typeConsultation} />
+                              : <span style={{ fontSize:12, color:C.textMuted }}>Standard</span>}
+                            </td>
                             <td style={{ padding:"13px 16px", fontSize:12, color:C.textSec }}>{c.motif||"—"}</td>
                             <td style={{ padding:"13px 16px", fontSize:12, color:C.textPri }}>{c.diagnostics?.join(", ")||"—"}</td>
                             <td style={{ padding:"13px 16px", fontSize:12, color:C.textSec }}>{c.traitements?.join(", ")||"—"}</td>

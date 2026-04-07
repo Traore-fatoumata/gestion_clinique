@@ -70,7 +70,7 @@ export default function Login() {
 
         {/* ── ZONE PHOTO — remplace le placeholder par ton image ── */}
         {/* Quand tu as la photo : remplace tout ce bloc par :
-            <img src={photoEquipe} alt="Équipe Clinique Marouane"
+            <img src={photoEquipe} alt="Équipe Clinique ABC Marouane"
               style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover" }}/>
         */}
         <div style={{
@@ -115,7 +115,7 @@ export default function Login() {
           <div style={{ display:"flex", alignItems:"center", gap:"16px", marginBottom:"28px" }}>
            
             <div>
-              <p style={{ color:"white", fontSize:"35px", fontWeight:600, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:"2px" }}>Clinique Médicale Marouane</p>
+              <p style={{ color:"white", fontSize:"35px", fontWeight:600, letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:"2px" }}>Clinique Médicale ABC Marouane</p>
               
             </div>
           </div>
@@ -203,7 +203,7 @@ export default function Login() {
             </div>
 
             <h1 style={{ color:"#0f1f0f", fontSize:"28px", fontWeight:800, letterSpacing:"-0.5px", marginBottom:"6px" }}>
-              Clinique Marouane
+              Clinique ABC Marouane
             </h1>
             <p style={{ color:"#8aaa90", fontSize:"14px", fontWeight:400 }}>
               Système de Gestion Intégré
@@ -291,14 +291,6 @@ export default function Login() {
                 </button>
               </div>
             </div>
-
-            {/* Mot de passe oublié */}
-            <div style={{ textAlign:"right", marginTop:"-6px" }}>
-              <button type="button" style={{ background:"none", border:"none", fontSize:"13px", color:"#2d7a3f", cursor:"pointer", fontFamily:"inherit", fontWeight:600 }}>
-                Mot de passe oublié ?
-              </button>
-            </div>
-
             {/* Bouton Se connecter */}
             <button
               type="submit" disabled={chargement}
@@ -344,7 +336,7 @@ export default function Login() {
           </div>
 
           <p style={{ textAlign:"center", fontSize:"11px", color:"#c0d4c0", marginTop:"12px" }}>
-            © 2025 Clinique Médicale Marouane · Conakry, Guinée
+            © 2025 Clinique Médicale ABC Marouane · Conakry, Guinée
           </p>
         </div>
       </div>
