@@ -1,46 +1,107 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useEffect, createContext, useContext, useRef } from 'react'
 
 const ClinicSettingsContext = createContext()
 
-const DEFAULT_SETTINGS = {
-  backgroundColor: '#f8f9fa',
-  backgroundImage: '',
-  backgroundType: 'color',
-  gradientStart: '#667eea',
-  gradientEnd: '#764ba2',
-  fontSize: 14,
-  fontFamily: "'Segoe UI', system-ui, sans-serif",
-  theme: 'light',
-  primaryColor: '#2563eb',
-  secondaryColor: '#64748b',
-  accentColor: '#16a34a',
-  sidebarCollapsed: false,
-  compactMode: false,
-  showAnimations: true,
-  borderRadius: 12,
-  soundEnabled: true,
-  notificationPosition: 'top-right',
-  language: 'fr',
+// ══════════════════════════════════════════════════════════════════
+//  PARAMÈTRES PAR DÉFAUT — orientés gestion clinique réelle
+// ══════════════════════════════════════════════════════════════════
+export const DEFAULT_SETTINGS = {
+
+  // ── 1. IDENTITÉ ──────────────────────────────────────────────
+  nomClinique:       'Clinique Médicale ABC Marouane',
+  nomCourt:          'Marouane',
+  slogan:            'Des soins de qualité, une gestion simplifiée.',
+  adresse:           'Quartier Almamya, Commune de Kaloum, Conakry',
+  telephone:         '+224 624 00 00 00',
+  telephone2:        '',
+  email:             'clinique.abc.marouane@gmail.com',
+  siteWeb:           '',
+  pays:              'République de Guinée',
+  ville:             'Conakry',
+  numeroAgrément:    '',
+  numeroCNSS:        '',
+  devise:            'GNF',
+  langue:            'fr',
+
+  // ── 2. HORAIRES ───────────────────────────────────────────────
+  urgences24h: true,
+  horaires: {
+    lundi:    { ouvert: true,  debut: '08:00', fin: '18:00' },
+    mardi:    { ouvert: true,  debut: '08:00', fin: '18:00' },
+    mercredi: { ouvert: true,  debut: '08:00', fin: '18:00' },
+    jeudi:    { ouvert: true,  debut: '08:00', fin: '18:00' },
+    vendredi: { ouvert: true,  debut: '08:00', fin: '17:00' },
+    samedi:   { ouvert: true,  debut: '09:00', fin: '13:00' },
+    dimanche: { ouvert: false, debut: '00:00', fin: '00:00' },
+  },
+
+  // ── 3. TARIFS ─────────────────────────────────────────────────
+  tarifConsultation:     50000,
+  tarifRendezVous:       75000,
+  tarifLaboratoire:      30000,
+  tarifUrgence:          100000,
+  tarifHospitalisation:  200000,
+  tvaActif:              false,
+  tvaTaux:               18,
+  remiseMaxPct:          20,   // remise max autorisée sans validation chef
+
+  // ── 4. DOSSIER PATIENT ────────────────────────────────────────
+  ageMajoriteAns:        18,
+  prefixeDossier:        'CAB',
+  conservationDossierAns: 10,
+  alerteDoublonActif:    true,
+  champsObligatoires:    ['nom', 'prenom', 'sexe', 'telephone'],
+
+  // ── 5. RENDEZ-VOUS ────────────────────────────────────────────
+  dureeRdvDefautMin:     30,
+  rappelRdvActif:        true,
+  rappelRdvDelaiH:       24,
+  capaciteJournaliere:   50,
+
+  // ── 6. NOTIFICATIONS ──────────────────────────────────────────
+  notifNouveauPatient:   true,
+  notifPaiementImpaye:   true,
+  notifAbsenceMedecin:   true,
+  notifRdvJour:          true,
+  soundActif:            true,
+
+  // ── 7. APPARENCE ─────────────────────────────────────────────
+  couleurPrimaire:    '#2d7a3f',
+  couleurSecondaire:  '#1a3a22',
+  couleurAccent:      '#4aaa5e',
+  backgroundColor:    '#f2faf5',
+  backgroundType:     'color',   // 'color' | 'gradient'
+  gradientDebut:      '#e8f5ec',
+  gradientFin:        '#f0fdf4',
+  theme:              'light',
+  fontSize:           14,
+  compactMode:        false,
+  showAnimations:     true,
 }
 
-const PRESET_THEMES = {
-  light:    { backgroundColor: '#f8f9fa', primaryColor: '#2563eb', secondaryColor: '#64748b', accentColor: '#16a34a' },
-  dark:     { backgroundColor: '#1e293b', primaryColor: '#60a5fa', secondaryColor: '#94a3b8', accentColor: '#4ade80' },
-  nature:   { backgroundColor: '#f0fdf4', primaryColor: '#16a34a', secondaryColor: '#4ade80', accentColor: '#059669' },
-  ocean:    { backgroundColor: '#f0f9ff', primaryColor: '#0284c7', secondaryColor: '#7dd3fc', accentColor: '#0ea5e9' },
-  sunset:   { backgroundColor: '#fff7ed', primaryColor: '#ea580c', secondaryColor: '#fb923c', accentColor: '#f97316' },
-  lavender: { backgroundColor: '#f5f3ff', primaryColor: '#7c3aed', secondaryColor: '#a78bfa', accentColor: '#8b5cf6' },
+export const JOURS = {
+  lundi: 'Lundi', mardi: 'Mardi', mercredi: 'Mercredi',
+  jeudi: 'Jeudi', vendredi: 'Vendredi', samedi: 'Samedi', dimanche: 'Dimanche',
 }
 
-const BACKGROUND_IMAGES = [
-  { id: 'none',      name: 'Aucun',          url: '' },
-  { id: 'gradient1', name: 'Dégradé bleu',   url: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' },
-  { id: 'gradient2', name: 'Dégradé chaud',  url: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)' },
-  { id: 'gradient3', name: 'Dégradé nature', url: 'linear-gradient(135deg, #5ee7df 0%, #b490ca 100%)' },
-  { id: 'gradient4', name: 'Dégradé océan',  url: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)' },
+export const DEVISES = [
+  { code: 'GNF', label: 'GNF — Franc Guinéen' },
+  { code: 'USD', label: 'USD — Dollar américain' },
+  { code: 'EUR', label: 'EUR — Euro' },
+  { code: 'XOF', label: 'XOF — Franc CFA UEMOA' },
+  { code: 'XAF', label: 'XAF — Franc CFA CEMAC' },
 ]
 
-const FONT_SIZES = [
+export const THEMES_PRESET = {
+  'Clinique verte':    { couleurPrimaire:'#2d7a3f', couleurSecondaire:'#1a3a22', couleurAccent:'#4aaa5e', backgroundColor:'#f2faf5', theme:'light' },
+  'Médical bleu':      { couleurPrimaire:'#1d4ed8', couleurSecondaire:'#1e3a8a', couleurAccent:'#3b82f6', backgroundColor:'#f0f7ff', theme:'light' },
+  'Hôpital neutre':    { couleurPrimaire:'#475569', couleurSecondaire:'#1e293b', couleurAccent:'#64748b', backgroundColor:'#f8fafc', theme:'light' },
+  'Urgences rouge':    { couleurPrimaire:'#dc2626', couleurSecondaire:'#7f1d1d', couleurAccent:'#f87171', backgroundColor:'#fff5f5', theme:'light' },
+  'Nuit (sombre)':     { couleurPrimaire:'#60a5fa', couleurSecondaire:'#93c5fd', couleurAccent:'#34d399', backgroundColor:'#0f172a', theme:'dark'  },
+}
+
+export const FONT_SIZES = [
   { value: 12, label: 'Très petit' },
   { value: 13, label: 'Petit'      },
   { value: 14, label: 'Normal'     },
@@ -48,107 +109,85 @@ const FONT_SIZES = [
   { value: 16, label: 'Très grand' },
 ]
 
-// ── Named export du hook ───────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+//  HOOK
+// ══════════════════════════════════════════════════════════════════
 export function useClinicSettings() {
-  const context = useContext(ClinicSettingsContext)
-  if (!context) {
-    throw new Error('useClinicSettings must be used within a ClinicSettingsProvider')
-  }
-  return context
+  const ctx = useContext(ClinicSettingsContext)
+  if (!ctx) throw new Error('useClinicSettings must be used within ClinicSettingsProvider')
+  return ctx
 }
 
-// ── Named export du Provider ───────────────────────────
+// ══════════════════════════════════════════════════════════════════
+//  PROVIDER
+// ══════════════════════════════════════════════════════════════════
 export function ClinicSettingsProvider({ children }) {
   const [settings, setSettings] = useState(() => {
     try {
-      const saved = localStorage.getItem('clinique_settings')
+      const saved = localStorage.getItem('clinique_settings_v3')
       if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) }
-    } catch (e) {
-      console.error('Erreur chargement paramètres:', e)
-    }
+    } catch { /* ignore */ }
     return DEFAULT_SETTINGS
   })
 
-  const isInitialized = useRef(false)
+  const initialized = useRef(false)
 
-  const applySettingsToDOM = (s) => {
-    const root = document.documentElement
-    root.style.setProperty('--base-font-size',   `${s.fontSize}px`)
-    root.style.setProperty('--font-family',       s.fontFamily)
-    root.style.setProperty('--primary-color',     s.primaryColor)
-    root.style.setProperty('--secondary-color',   s.secondaryColor)
-    root.style.setProperty('--accent-color',      s.accentColor)
-    root.style.setProperty('--background-color',  s.backgroundColor)
-
-    if (s.backgroundType === 'gradient') {
-      root.style.setProperty('--background-image',
-        `linear-gradient(135deg, ${s.gradientStart} 0%, ${s.gradientEnd} 100%)`)
-    } else if (s.backgroundType === 'image' && s.backgroundImage) {
-      root.style.setProperty('--background-image', `url(${s.backgroundImage})`)
-    } else {
-      root.style.setProperty('--background-image', 'none')
-    }
-
-    s.theme === 'dark'
-      ? root.setAttribute('data-theme', 'dark')
-      : root.removeAttribute('data-theme')
-
-    s.compactMode
-      ? root.setAttribute('data-compact', 'true')
-      : root.removeAttribute('data-compact')
+  const applyToDOM = (s) => {
+    const r = document.documentElement
+    r.style.setProperty('--color-primary',   s.couleurPrimaire)
+    r.style.setProperty('--color-secondary', s.couleurSecondaire)
+    r.style.setProperty('--color-accent',    s.couleurAccent)
+    r.style.setProperty('--bg-app',          s.backgroundColor)
+    r.style.setProperty('--font-size-base', `${s.fontSize}px`)
+    s.theme === 'dark' ? r.setAttribute('data-theme','dark') : r.removeAttribute('data-theme')
+    s.compactMode      ? r.setAttribute('data-compact','true') : r.removeAttribute('data-compact')
   }
 
   useEffect(() => {
-    if (!isInitialized.current) {
-      isInitialized.current = true
-      applySettingsToDOM(settings)
-      return
-    }
-    localStorage.setItem('clinique_settings', JSON.stringify(settings))
-    applySettingsToDOM(settings)
+    if (!initialized.current) { initialized.current = true; applyToDOM(settings); return }
+    localStorage.setItem('clinique_settings_v3', JSON.stringify(settings))
+    applyToDOM(settings)
   }, [settings])
 
-  const updateSetting    = (key, value) => setSettings(prev => ({ ...prev, [key]: value }))
+  const updateSetting  = (key, val) => setSettings(p => ({ ...p, [key]: val }))
 
-  const applyPresetTheme = (name) => {
-    const theme = PRESET_THEMES[name]
-    if (theme) setSettings(prev => ({ ...prev, ...theme, theme: name }))
+  const updateHoraire  = (jour, field, val) =>
+    setSettings(p => ({
+      ...p,
+      horaires: { ...p.horaires, [jour]: { ...p.horaires[jour], [field]: val } }
+    }))
+
+  const applyTheme = (name) => {
+    const t = THEMES_PRESET[name]
+    if (t) setSettings(p => ({ ...p, ...t }))
   }
 
   const resetSettings = () => {
     setSettings(DEFAULT_SETTINGS)
-    localStorage.removeItem('clinique_settings')
+    localStorage.removeItem('clinique_settings_v3')
   }
 
   const exportSettings = () => {
     const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' })
     const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url
-    a.download = 'clinique-abc-marouane-settings.json'
-    a.click()
-    URL.revokeObjectURL(url)
+    const a    = Object.assign(document.createElement('a'), { href: url, download: 'parametres-clinique-marouane.json' })
+    a.click(); URL.revokeObjectURL(url)
   }
 
-  const importSettings = (jsonString) => {
-    try {
-      const parsed = JSON.parse(jsonString)
-      setSettings(prev => ({ ...prev, ...parsed }))
-      return { success: true }
-    } catch (e) {
-      return { success: false, error: e.message }
-    }
+  const importSettings = (jsonStr) => {
+    try { setSettings(p => ({ ...p, ...JSON.parse(jsonStr) })); return { success: true } }
+    catch (e) { return { success: false, error: e.message } }
   }
 
   return (
     <ClinicSettingsContext.Provider value={{
-      settings, updateSetting, applyPresetTheme,
-      resetSettings, exportSettings, importSettings,
-      PRESET_THEMES, BACKGROUND_IMAGES, FONT_SIZES,
+      settings, updateSetting, updateHoraire,
+      applyTheme, resetSettings, exportSettings, importSettings,
+      JOURS, DEVISES, THEMES_PRESET, FONT_SIZES, DEFAULT_SETTINGS,
     }}>
       {children}
     </ClinicSettingsContext.Provider>
   )
 }
 
-// ── PAS de export default — uniquement named exports ──
+// ── PAS de export default intentionnel ──

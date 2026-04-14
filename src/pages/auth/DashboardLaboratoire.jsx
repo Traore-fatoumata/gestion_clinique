@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react"
 import logo from "../../assets/images/logo.jpeg"
+import { useAuth } from "../../hooks/useAuth.jsx"
+import { useNavigate } from "react-router-dom"
 
 // ══════════════════════════════════════════════════════
 //  UTILITAIRES
@@ -129,15 +131,17 @@ const DEMANDES_INIT = [
 //  COULEURS (unifié avec les autres dashboards)
 // ══════════════════════════════════════════════════════
 const C = {
-  bg: "#f8f9fa", white: "#ffffff",
-  textPri: "#0f172a", textSec: "#64748b", textMuted: "#94a3b8", border: "#e2e8f0",
-  green: "#16a34a", greenSoft: "#dcfce7", greenDark: "#15803d",
-  blue: "#2563eb",  blueSoft: "#dbeafe",  blueDark: "#1d4ed8",
-  amber: "#d97706", amberSoft: "#fef3c7",
-  red: "#dc2626",   redSoft: "#fee2e2",
-  slate: "#475569", slateSoft: "#e2e8f0",
-  purple: "#7c3aed",purpleSoft: "#ede9fe",
-  orange: "#ea580c",orangeSoft: "#ffedd5",
+  bg:"#f7f9f8",      white:"#ffffff",
+  textPri:"#111827", textSec:"#374151", textMuted:"#6b7280",
+  border:"#e2ebe4",
+  green:"#16a34a",   greenSoft:"#dcfce7",  greenDark:"#15803d", greenLight:"#bbf7d0",
+  blue:"#1d6fa4",    blueSoft:"#e8f4fb",   blueDark:"#155e8b",
+  amber:"#b45309",   amberSoft:"#fef3c7",
+  red:"#dc2626",     redSoft:"#fef2f2",
+  slate:"#475569",   slateSoft:"#f1f5f9",
+  purple:"#6d28d9",  purpleSoft:"#ede9fe",
+  orange:"#c2410c",  orangeSoft:"#fff7ed",
+  teal:"#0f766e",    tealSoft:"#f0fdfa",
 }
 
 // ══════════════════════════════════════════════════════
@@ -145,7 +149,7 @@ const C = {
 // ══════════════════════════════════════════════════════
 function Badge({ statut }) {
   const cfg = {
-    en_attente:{ label:"En attente", color:C.amber, bg:C.amberSoft },
+    en_attente:{ label:"En attente", color:C.slate, bg:C.slateSoft },
     en_cours:  { label:"En cours",   color:C.blue,  bg:C.blueSoft  },
     termine:   { label:"Terminé",    color:C.green, bg:C.greenSoft },
     annule:    { label:"Annulé",     color:C.slate, bg:C.slateSoft },
@@ -161,8 +165,8 @@ function Badge({ statut }) {
 
 function Avatar({ name, size = 36 }) {
   const palettes = [
-    { bg:"#dbeafe", fg:"#2563eb" }, { bg:"#dcfce7", fg:"#16a34a" },
-    { bg:"#ede9fe", fg:"#7c3aed" }, { bg:"#fef3c7", fg:"#d97706" },
+    { bg:"#e8f5ec", fg:"#2d7a3f" }, { bg:"#dcfce7", fg:"#16a34a" },
+    { bg:"#d8eed8", fg:"#1a4a25" }, { bg:"#eeeeee", fg:"#444444" },
     { bg:"#ccfbf1", fg:"#0d9488" },
   ]
   const p = palettes[(name?.charCodeAt(0) || 0) % palettes.length]
@@ -274,7 +278,7 @@ function ModalNouvelleDemande({ patients, onClose, onCreate }) {
           <CloseBtn onClose={onClose} />
         </div>
         <div style={{ padding:"22px 24px", display:"flex", flexDirection:"column", gap:18 }}>
-          <SectionCard label="Informations du patient" icon="👤" color={C.blue}>
+          <SectionCard label="Informations du patient" icon="user" color={C.blue}>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
               <Field label="Patient" required>
                 <select value={form.patientId} onChange={e => setF("patientId", e.target.value)} style={iSt()}>
@@ -292,7 +296,7 @@ function ModalNouvelleDemande({ patients, onClose, onCreate }) {
                 <div onClick={() => setF("urgent", !form.urgent)} style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderRadius:10, cursor:"pointer", background:form.urgent?C.redSoft:C.slateSoft, border:"1.5px solid "+(form.urgent?C.red+"50":C.border), transition:"all .15s", width:"100%" }}>
                   <input type="checkbox" checked={form.urgent} onChange={() => {}} style={{ width:17, height:17, accentColor:C.red, cursor:"pointer" }} />
                   <div>
-                    <p style={{ fontSize:13, fontWeight:700, color:form.urgent?C.red:C.textSec }}>⚡ Demande urgente</p>
+                    <p style={{ fontSize:13, fontWeight:700, color:form.urgent?C.red:C.textSec }}>Demande urgente</p>
                     <p style={{ fontSize:11, color:C.textMuted }}>Priorité élevée</p>
                   </div>
                 </div>
@@ -300,7 +304,7 @@ function ModalNouvelleDemande({ patients, onClose, onCreate }) {
             </div>
           </SectionCard>
 
-          <SectionCard label="Examens à réaliser" icon="🔬" color={C.purple}>
+          <SectionCard label="Examens à réaliser" icon="micro" color={C.purple}>
             {form.examens.map((examen, idx) => (
               <div key={idx} style={{ display:"grid", gridTemplateColumns:"1fr 1.4fr 110px 36px", gap:10, alignItems:"flex-end", paddingBottom:idx<form.examens.length-1?12:0, marginBottom:idx<form.examens.length-1?12:0, borderBottom:idx<form.examens.length-1?"1px dashed "+C.border:"none" }}>
                 <Field label="Type">
@@ -337,7 +341,7 @@ function ModalNouvelleDemande({ patients, onClose, onCreate }) {
 
           <div style={{ display:"flex", justifyContent:"flex-end", gap:10, paddingTop:8, borderTop:"1px solid "+C.border }}>
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
-            <Btn onClick={() => { if (ok) { onCreate(form); onClose() } }} disabled={!ok} variant="success">✓ Créer la demande</Btn>
+            <Btn onClick={() => { if (ok) { onCreate(form); onClose() } }} disabled={!ok} variant="success">Créer la demande</Btn>
           </div>
         </div>
       </div>
@@ -410,14 +414,14 @@ function ModalSaisieResultats({ demande, onClose, onSave, onValider }) {
       <div style={{ background:C.white, borderRadius:20, width:"100%", maxWidth:760, maxHeight:"92vh", overflow:"auto", boxShadow:"0 25px 60px rgba(0,0,0,0.25)" }}>
         <div style={{ padding:"18px 24px 14px", borderBottom:"1px solid "+C.border, display:"flex", justifyContent:"space-between", alignItems:"center", background:C.blueSoft, borderRadius:"20px 20px 0 0" }}>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            <div style={{ width:44, height:44, borderRadius:12, background:C.blue, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>🔬</div>
+            <div style={{ width:44, height:44, borderRadius:12, background:C.blue, display:"flex", alignItems:"center", justifyContent:"center", color:"#fff" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14.5 2 20 9l-5.5 7H7l-5.5-7L7 2z"/><path d="M7 2v20M14.5 2v20"/></svg></div>
             <div>
               <p style={{ fontSize:16, fontWeight:800, color:C.blueDark }}>Saisie des résultats</p>
-              <p style={{ fontSize:12, color:C.blue }}>{demande.patient.nom} — {demande.patient.pid}</p>
+              <p style={{ fontSize:12, color:C.textPri }}>{demande.patient.nom} — {demande.patient.pid}</p>
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:12, color:C.blue, fontWeight:600 }}>{nbExamensRemplis}/{demande.examens.length} examen{demande.examens.length>1?"s":""} saisi{nbExamensRemplis>1?"s":""}</span>
+            <span style={{ fontSize:12, color:C.textPri, fontWeight:600 }}>{nbExamensRemplis}/{demande.examens.length} examen{demande.examens.length>1?"s":""} saisi{nbExamensRemplis>1?"s":""}</span>
             <CloseBtn onClose={onClose} />
           </div>
         </div>
@@ -437,7 +441,7 @@ function ModalSaisieResultats({ demande, onClose, onSave, onValider }) {
                     <p style={{ fontSize:11, color:C.textMuted }}>{ex.type} · {ex.prix.toLocaleString("fr-FR")} GNF</p>
                   </div>
                   {saisi
-                    ? <span style={{ fontSize:11, fontWeight:700, color:C.green, background:C.greenSoft, padding:"4px 10px", borderRadius:8 }}>✓ Saisi</span>
+                    ? <span style={{ fontSize:11, fontWeight:700, color:C.green, background:C.greenSoft, padding:"4px 10px", borderRadius:8 }}>Saisi</span>
                     : <Btn onClick={() => initExamen(ex.nom)} small variant="primary">+ Saisir les résultats</Btn>
                   }
                 </div>
@@ -454,7 +458,7 @@ function ModalSaisieResultats({ demande, onClose, onSave, onValider }) {
                       return (
                         <div key={param} style={{ display:"grid", gridTemplateColumns:"1.4fr 1fr 1fr 1fr 32px", gap:8, alignItems:"center" }}>
                           <p style={{ fontSize:13, fontWeight:600, color:anormal?C.red:C.textPri, display:"flex", alignItems:"center", gap:4 }}>
-                            {anormal && <span>⚠️</span>}{param}
+                            {anormal && <span></span>}{param}
                           </p>
                           <input value={data.valeur} onChange={e => setValeur(ex.nom,param,"valeur",e.target.value)} placeholder="—" style={iSt({ padding:"7px 10px", fontSize:13, borderColor:anormal?C.red:C.border })} />
                           <input value={data.unite} onChange={e => setValeur(ex.nom,param,"unite",e.target.value)} placeholder="g/dL…" style={iSt({ padding:"7px 10px", fontSize:13 })} />
@@ -484,8 +488,8 @@ function ModalSaisieResultats({ demande, onClose, onSave, onValider }) {
 
           <div style={{ display:"flex", justifyContent:"flex-end", gap:10, paddingTop:10, borderTop:"1px solid "+C.border }}>
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
-            <Btn onClick={() => onSave(resultats, commentaireGlobal)} variant="primary" disabled={nbExamensRemplis===0}>💾 Sauvegarder (brouillon)</Btn>
-            <Btn onClick={() => onValider(resultats, commentaireGlobal)} variant="success" disabled={nbExamensRemplis===0}>✓ Valider et signer</Btn>
+            <Btn onClick={() => onSave(resultats, commentaireGlobal)} variant="primary" disabled={nbExamensRemplis===0}>Sauvegarder (brouillon)</Btn>
+            <Btn onClick={() => onValider(resultats, commentaireGlobal)} variant="success" disabled={nbExamensRemplis===0}>Valider et signer</Btn>
           </div>
         </div>
       </div>
@@ -515,7 +519,7 @@ function ModalFicheLaboratoire({ demande, onClose }) {
           <td style="color:${anormal?"#dc2626":"#16a34a"};font-weight:${anormal?700:400}">${d.valeur||"—"}</td>
           <td>${d.unite||"—"}</td>
           <td>${d.norme||"—"}</td>
-          <td style="color:${anormal?"#dc2626":"#16a34a"}">${anormal?"↑↓ Anormal":"✓ Normal"}</td>
+          <td style="color:${anormal?"#dc2626":"#16a34a"}">${anormal?"↑↓ Anormal":"Normal"}</td>
         </tr>`)
       })
     })
@@ -561,13 +565,13 @@ function ModalFicheLaboratoire({ demande, onClose }) {
             <p style={{ fontSize:13, color:C.textSec, marginTop:2 }}>{demande.patient.nom} · {demande.patient.pid}</p>
           </div>
           <div style={{ display:"flex", gap:10 }}>
-            <Btn onClick={handlePrint} variant="success" small>🖨️ Imprimer</Btn>
+            <Btn onClick={handlePrint} variant="success" small>Imprimer</Btn>
             <CloseBtn onClose={onClose} />
           </div>
         </div>
         <div style={{ padding:"28px 36px", background:"#fff" }}>
           <div style={{ textAlign:"center", borderBottom:"2px solid "+C.green, paddingBottom:16, marginBottom:22 }}>
-            <div style={{ fontSize:28, marginBottom:6 }}>🏥</div>
+            
             <p style={{ fontSize:20, fontWeight:900, color:C.green }}>CLINIQUE ABC MAROUANE</p>
             <p style={{ fontSize:13, color:C.textSec }}>Service de Laboratoire d'Analyses Médicales</p>
             <p style={{ fontSize:12, color:C.textMuted }}>Conakry, Guinée · cabinet.marouane@clinique.gn</p>
@@ -608,7 +612,7 @@ function ModalFicheLaboratoire({ demande, onClose }) {
                           <td style={{ padding:"10px 12px", color:C.textSec, border:"1px solid "+C.border }}>{d.unite||"—"}</td>
                           <td style={{ padding:"10px 12px", color:C.textSec, border:"1px solid "+C.border }}>{d.norme||"—"}</td>
                           <td style={{ padding:"10px 12px", border:"1px solid "+C.border }}>
-                            {anormal?<span style={{ color:C.red, fontWeight:700 }}>↑↓ Anormal</span>:<span style={{ color:C.green }}>✓ Normal</span>}
+                            {anormal?<span style={{ color:C.red, fontWeight:700 }}>↑↓ Anormal</span>:<span style={{ color:C.green }}>Normal</span>}
                           </td>
                         </tr>
                       )
@@ -620,7 +624,7 @@ function ModalFicheLaboratoire({ demande, onClose }) {
           {Object.entries(demande.resultats||{}).some(([,d])=>d.commentaire)&&(
             <div style={{ marginTop:18 }}>
               {Object.entries(demande.resultats||{}).map(([nom,d])=>d.commentaire?(
-                <div key={nom} style={{ marginBottom:8, padding:"10px 14px", background:C.amberSoft, borderRadius:8, fontSize:13 }}><strong>{nom} :</strong> {d.commentaire}</div>
+                <div key={nom} style={{ marginBottom:8, padding:"10px 14px", background:C.slateSoft, borderRadius:8, fontSize:13 }}><strong>{nom} :</strong> {d.commentaire}</div>
               ):null)}
             </div>
           )}
@@ -644,6 +648,10 @@ function ModalFicheLaboratoire({ demande, onClose }) {
 //  COMPOSANT PRINCIPAL
 // ══════════════════════════════════════════════════════
 export default function DashboardLaboratoire() {
+  const { user, logout } = useAuth()
+  const navigate   = useNavigate()
+  const handleLogout = () => { logout(); navigate("/login") }
+
   const [onglet,              setOnglet]              = useState("toutes")
   const [sidebarOpen,         setSidebarOpen]         = useState(false)
   const [demandes,            setDemandes]            = useState(DEMANDES_INIT)
@@ -723,11 +731,11 @@ export default function DashboardLaboratoire() {
   }
 
   const NAV = [
-    { id:"toutes",     label:"Toutes",     icon:"📋", count:stats.total,      color:C.blue   },
-    { id:"en_attente", label:"En attente", icon:"⏳", count:stats.en_attente, color:C.amber  },
-    { id:"en_cours",   label:"En cours",   icon:"🔬", count:stats.en_cours,   color:C.blue   },
-    { id:"termines",   label:"Terminés",   icon:"✅", count:stats.termine,    color:C.green  },
-    { id:"historique", label:"Historique", icon:"📊", count:stats.total,      color:C.purple },
+    { id:"toutes",     label:"Toutes",     icon:"doc", count:stats.total,      color:C.blue   },
+    { id:"en_attente", label:"En attente", icon:"⏳", count:stats.en_attente, color:C.slate  },
+    { id:"en_cours",   label:"En cours",   icon:"micro", count:stats.en_cours,   color:C.blue   },
+    { id:"termines",   label:"Terminés",   icon:"check", count:stats.termine,    color:C.green  },
+    { id:"historique", label:"Historique", icon:"bar", count:stats.total,      color:C.purple },
   ]
 
   const titres = {
@@ -789,14 +797,14 @@ export default function DashboardLaboratoire() {
           <div style={{ width:20, height:2, background:C.textPri, borderRadius:2 }}/>
         </button>
         <div style={{ flex:1, marginLeft:20 }}>
-          <p style={{ fontSize:15, fontWeight:700, color:C.textPri, lineHeight:1.2 }}>🔬 Laboratoire d'Analyses Médicales</p>
+          <p style={{ fontSize:15, fontWeight:700, color:C.textPri, lineHeight:1.2 }}>Laboratoire d'Analyses Médicales</p>
           <p style={{ fontSize:12, color:C.textMuted, textTransform:"capitalize" }}>{dateStr}</p>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           {stats.en_attente>0&&(
-            <div style={{ display:"flex", alignItems:"center", gap:6, background:C.amberSoft, border:"1px solid "+C.amber+"40", borderRadius:10, padding:"6px 12px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6, background:C.slateSoft, border:"1px solid "+C.slate+"40", borderRadius:10, padding:"6px 12px" }}>
               <span>⏳</span>
-              <span style={{ fontSize:12, fontWeight:700, color:C.amber }}>{stats.en_attente} en attente</span>
+              <span style={{ fontSize:12, fontWeight:700, color:C.slate }}>{stats.en_attente} en attente</span>
             </div>
           )}
           <div style={{ background:C.purpleSoft, border:"1px solid "+C.purple+"33", borderRadius:10, padding:"6px 14px", fontSize:14, fontWeight:700, color:C.purple, fontVariantNumeric:"tabular-nums" }}>
@@ -804,11 +812,15 @@ export default function DashboardLaboratoire() {
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div style={{ textAlign:"right" }}>
-              <p style={{ fontSize:13, fontWeight:700, color:C.textPri }}>M. Baldé</p>
-              <p style={{ fontSize:11, color:C.textSec }}>Technicien labo</p>
+              <p style={{ fontSize:13, fontWeight:700, color:C.textPri }}>{user?.nom||"Laborantin"}</p>
+              <p style={{ fontSize:11, color:C.textSec }}>{user?.titre||"Biologiste · Labo"}</p>
             </div>
-            <Avatar name="M. Baldé" size={36}/>
+            <Avatar name={user?.nom||"L"} size={36}/>
           </div>
+          <button onClick={handleLogout} title="Se déconnecter"
+            style={{ width:36,height:36,borderRadius:8,border:"1px solid #fca5a5",background:"#fff5f5",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cc2222" strokeWidth="2" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </header>
 
@@ -816,17 +828,17 @@ export default function DashboardLaboratoire() {
         {/* KPIs */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24 }}>
           {[
-            { label:"En attente",      val:stats.en_attente, icon:"⏳", color:C.amber,  bg:C.amberSoft  },
-            { label:"En analyse",      val:stats.en_cours,   icon:"🔬", color:C.blue,   bg:C.blueSoft   },
-            { label:"Résultats prêts", val:stats.termine,    icon:"✅", color:C.green,  bg:C.greenSoft  },
-            { label:"Total",           val:stats.total,      icon:"📊", color:C.purple, bg:C.purpleSoft },
+            { label:"En attente",      val:stats.en_attente, color:C.slate,  bg:C.slateSoft,  icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+            { label:"En analyse",      val:stats.en_cours,   color:C.blue,   bg:C.blueSoft,   icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M18.4 2.6a2 2 0 0 1 1 1.8V8l-4 4-4 1 1-4 4-4V2.6"/></svg> },
+            { label:"Résultats prêts", val:stats.termine,    color:C.green,  bg:C.greenSoft,  icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg> },
+            { label:"Total demandes",  val:stats.total,      color:C.purple, bg:C.purpleSoft, icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> },
           ].map(k=>(
             <div key={k.label} style={{ background:C.white, borderRadius:16, border:"1px solid "+C.border, padding:"18px 20px", boxShadow:"0 1px 3px rgba(0,0,0,0.04)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
                 <p style={{ fontSize:28, fontWeight:900, color:k.color, lineHeight:1, marginBottom:6 }}>{k.val}</p>
                 <p style={{ fontSize:12, color:C.textMuted }}>{k.label}</p>
               </div>
-              <div style={{ width:48, height:48, borderRadius:14, background:k.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>{k.icon}</div>
+              <div style={{ width:48, height:48, borderRadius:14, background:k.bg, display:"flex", alignItems:"center", justifyContent:"center", color:k.color }}>{k.icon}</div>
             </div>
           ))}
         </div>
@@ -876,7 +888,7 @@ export default function DashboardLaboratoire() {
               {demandesFiltrees.length===0?(
                 <tr>
                   <td colSpan={7} style={{ padding:"60px 40px", textAlign:"center" }}>
-                    <div style={{ fontSize:40, marginBottom:12 }}>🔬</div>
+                    
                     <p style={{ fontSize:15, fontWeight:600, color:C.textSec, marginBottom:4 }}>Aucune demande dans cette catégorie</p>
                     <p style={{ fontSize:13, color:C.textMuted }}>{recherche?`Aucun résultat pour "${recherche}"`:"Les demandes apparaîtront ici"}</p>
                   </td>
@@ -891,7 +903,7 @@ export default function DashboardLaboratoire() {
                       <div>
                         <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                           <p style={{ fontSize:13, fontWeight:700, color:C.textPri }}>{d.patient.nom}</p>
-                          {d.urgent&&<span style={{ fontSize:10, fontWeight:800, color:C.red, background:C.redSoft, padding:"1px 6px", borderRadius:6 }}>⚡ URGENT</span>}
+                          {d.urgent&&<span style={{ fontSize:10, fontWeight:800, color:C.red, background:C.redSoft, padding:"1px 6px", borderRadius:6 }}>URGENT</span>}
                         </div>
                         <p style={{ fontSize:11, color:C.textMuted }}>{d.patient.pid}</p>
                       </div>
@@ -908,7 +920,7 @@ export default function DashboardLaboratoire() {
                   <td style={{ padding:"14px 14px", maxWidth:220 }}>
                     <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
                       {d.examens.map((e,idx)=>(
-                        <span key={idx} style={{ fontSize:11, fontWeight:600, background:C.blueSoft, color:C.blue, padding:"3px 8px", borderRadius:6 }}>{e.nom}</span>
+                        <span key={idx} style={{ fontSize:11, fontWeight:600, background:C.blueSoft, color:C.textPri, padding:"3px 8px", borderRadius:6 }}>{e.nom}</span>
                       ))}
                     </div>
                   </td>
@@ -917,21 +929,21 @@ export default function DashboardLaboratoire() {
                   </td>
                   <td style={{ padding:"14px 14px" }}>
                     <Badge statut={d.statut}/>
-                    {d.valide&&<p style={{ fontSize:10, color:C.textMuted, marginTop:4 }}>✓ Signé par {d.validePar}</p>}
+                    {d.valide&&<p style={{ fontSize:10, color:C.textMuted, marginTop:4 }}>Signé par {d.validePar}</p>}
                   </td>
                   <td style={{ padding:"14px 14px" }}>
                     <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                       {d.statut==="en_attente"&&(
                         <>
                           <Btn onClick={()=>handleDemarrerPrelevement(d.id)} small variant="success">▶ Prélever</Btn>
-                          <Btn onClick={()=>setShowSaisie(d)} small variant="primary">✏️ Résultats</Btn>
+                          <Btn onClick={()=>setShowSaisie(d)} small variant="primary">Résultats</Btn>
                         </>
                       )}
                       {d.statut==="en_cours"&&(
-                        <Btn onClick={()=>{ const updated=demandes.find(x=>x.id===d.id); setShowSaisie(updated) }} small variant="primary">✏️ Compléter</Btn>
+                        <Btn onClick={()=>{ const updated=demandes.find(x=>x.id===d.id); setShowSaisie(updated) }} small variant="primary">Compléter</Btn>
                       )}
                       {d.statut==="termine"&&(
-                        <Btn onClick={()=>setShowFiche(d)} small variant="secondary">📄 Voir fiche</Btn>
+                        <Btn onClick={()=>setShowFiche(d)} small variant="secondary">Voir fiche</Btn>
                       )}
                     </div>
                   </td>

@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react"
 import logo from "../../assets/images/logo.jpeg"
+import { useAuth } from "../../hooks/useAuth.jsx"
+import { useNavigate } from "react-router-dom"
+import { useSharedData } from "../../hooks/useSharedData.jsx"
 
 // ══════════════════════════════════════════════════════
 //  UTILITAIRES
@@ -31,9 +34,9 @@ const PATHOLOGIES_COMMUNES = [
 const EXAMENS_RAPIDES = ["ECG", "NFS", "Glycémie", "Radiographie", "Échographie", "Bilan rénal", "Bilan hépatique"]
 
 const TYPE_CONSULT_LABEL = {
-  standard:     { label:"Consultation standard", short:"Standard", emoji:"📋" },
-  prenatal:     { label:"Consultation prénatale (CPN)", short:"CPN", emoji:"🤰" },
-  accouchement: { label:"Registre d’accouchement", short:"Accouch.", emoji:"👶" },
+  standard:     { label:"Consultation standard",        short:"Standard" },
+  prenatal:     { label:"Consultation prénatale (CPN)", short:"CPN"      },
+  accouchement: { label:"Registre d’accouchement",      short:"Accouch." },
 }
 
 const isGynecoObst = (sp) => /gynécologie|obstétrique/i.test(sp || "")
@@ -63,21 +66,24 @@ const MEDECIN_CONNECTE = { id:5, nom:"Dr. Keïta", specialite:"Gynécologie" }
 //  COULEURS
 // ══════════════════════════════════════════════════════
 const C = {
-  bg:"#f8f9fa", white:"#ffffff", textPri:"#0f172a", textSec:"#64748b", textMuted:"#94a3b8", border:"#e2e8f0",
-  green:"#16a34a", greenSoft:"#dcfce7",
-  blue:"#2563eb",  blueSoft:"#dbeafe",
-  amber:"#d97706", amberSoft:"#fef3c7",
-  red:"#dc2626",   redSoft:"#fee2e2",
-  slate:"#475569", slateSoft:"#e2e8f0",
-  purple:"#7c3aed",purpleSoft:"#ede9fe",
-  orange:"#ea580c",orangeSoft:"#ffedd5",
+  bg:"#f7f9f8",      white:"#ffffff",
+  textPri:"#111827", textSec:"#374151", textMuted:"#6b7280",
+  border:"#e2ebe4",
+  green:"#16a34a",   greenSoft:"#dcfce7",  greenDark:"#15803d", greenLight:"#bbf7d0",
+  blue:"#1d6fa4",    blueSoft:"#e8f4fb",
+  amber:"#b45309",   amberSoft:"#fef3c7",
+  red:"#dc2626",     redSoft:"#fef2f2",
+  slate:"#475569",   slateSoft:"#f1f5f9",
+  purple:"#6d28d9",  purpleSoft:"#ede9fe",
+  orange:"#c2410c",  orangeSoft:"#fff7ed",
+  teal:"#0f766e",    tealSoft:"#f0fdfa",
 }
 
 function TypeConsultBadge({ type }) {
   const t = TYPE_CONSULT_LABEL[type] || TYPE_CONSULT_LABEL.standard
   return (
     <span style={{ display:"inline-flex", alignItems:"center", gap:4, fontSize:11, fontWeight:700, padding:"2px 8px", borderRadius:8, background:C.purpleSoft, color:C.purple, border:"1px solid "+C.purple+"33" }} title={t.label}>
-      {t.emoji} {t.short}
+      {t.short}
     </span>
   )
 }
@@ -85,8 +91,8 @@ function TypeConsultBadge({ type }) {
 function RdvBadge({ patient }) {
   if (patient.typeVisite !== "rendez_vous") return null
   return (
-    <span style={{ fontSize:11, fontWeight:700, background:C.blueSoft, color:C.blue, padding:"2px 8px", borderRadius:8, border:"1px solid "+C.blue+"33" }} title={patient.motifRdv || "Rendez-vous"}>
-      📅 RDV
+    <span style={{ fontSize:11, fontWeight:700, background:C.blueSoft, color:C.textPri, padding:"2px 8px", borderRadius:8, border:"1px solid "+C.blue+"33" }} title={patient.motifRdv || "Rendez-vous"}>
+      RDV
     </span>
   )
 }
@@ -96,11 +102,11 @@ function RdvBadge({ patient }) {
 // ══════════════════════════════════════════════════════
 function Badge({ statut }) {
   const cfg = {
-    en_attente: { label:"En attente",  color:C.amber, bg:C.amberSoft },
+    en_attente: { label:"En attente",  color:C.slate, bg:C.slateSoft },
     en_salle:   { label:"En salle",    color:C.green, bg:C.greenSoft, pulse:true },
     termine:    { label:"Terminé",     color:C.slate, bg:C.slateSoft },
-    signe:      { label:"✓ Signé",     color:C.green, bg:C.greenSoft },
-    non_signe:  { label:"⚠ Non signé", color:C.red,   bg:C.redSoft   },
+    signe:      { label:"Signé",     color:C.green, bg:C.greenSoft },
+    non_signe:  { label:"Non signé", color:C.red,   bg:C.redSoft   },
   }
   const s = cfg[statut] || cfg.en_attente
   return (
@@ -112,8 +118,8 @@ function Badge({ statut }) {
 }
 
 function Avatar({ name, size=36, bg }) {
-  const bgs = [C.blueSoft,C.greenSoft,C.purpleSoft,C.amberSoft,C.orangeSoft]
-  const fgs = [C.blue,C.green,C.purple,C.amber,C.orange]
+  const bgs = [C.blueSoft,C.greenSoft,C.purpleSoft,C.slateSoft,C.orangeSoft]
+  const fgs = [C.blue,C.green,C.purple,C.slate,C.orange]
   const i   = (name?.charCodeAt(0)||0) % bgs.length
   return (
     <div style={{ width:size, height:size, borderRadius:"50%", background:bg||bgs[i], display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
@@ -142,8 +148,8 @@ function CardHeader({ title, sub, action }) {
 
 function Btn({ children, onClick, variant="primary", small=false, disabled=false, full=false }) {
   const cfg = {
-    primary:  { bg:C.blue,  hov:"#1d4ed8", color:"#fff", border:"none" },
-    success:  { bg:C.green, hov:"#15803d", color:"#fff", border:"none" },
+    primary:  { bg:C.blue,  hov:"#155e8b", color:"#fff", border:"none" },
+    success:  { bg:C.green, hov:"#166534", color:"#fff", border:"none" },
     danger:   { bg:C.red,   hov:"#b91c1c", color:"#fff", border:"none" },
     secondary:{ bg:"transparent", hov:C.slateSoft, color:C.textSec, border:"1px solid "+C.border },
   }
@@ -210,7 +216,7 @@ function mergeAccouchInit(da) {
 function RegSection({ title, children }) {
   return (
     <div style={{ marginBottom:16 }}>
-      <p style={{ fontSize:11, fontWeight:700, color:C.blue, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10, borderBottom:"1px solid "+C.border, paddingBottom:6 }}>{title}</p>
+      <p style={{ fontSize:11, fontWeight:700, color:C.textPri, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:10, borderBottom:"1px solid "+C.border, paddingBottom:6 }}>{title}</p>
       {children}
     </div>
   )
@@ -249,7 +255,7 @@ function ModalFichePatient({ patient, consultations, medecin, onClose, onConsult
         <div style={{ padding:"20px 28px" }}>
           {patient.typeVisite === "rendez_vous" && patient.motifRdv && (
             <div style={{ background:C.blueSoft, border:"1px solid "+C.blue+"33", borderRadius:12, padding:"12px 16px", marginBottom:16 }}>
-              <p style={{ fontSize:11, fontWeight:700, color:C.blue, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Objet du rendez-vous</p>
+              <p style={{ fontSize:11, fontWeight:700, color:C.textPri, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Objet du rendez-vous</p>
               <p style={{ fontSize:14, color:C.textPri, lineHeight:1.45 }}>{patient.motifRdv}</p>
             </div>
           )}
@@ -286,11 +292,11 @@ function ModalFichePatient({ patient, consultations, medecin, onClose, onConsult
                 {visites.map((v)=>{
                   const autreService = v.service && v.service !== medecin.specialite
                   return (
-                    <div key={v.id} style={{ background:C.bg, borderRadius:10, padding:"12px 16px", border:"1px solid "+C.border, borderLeft:"4px solid "+(autreService?C.amber:C.blue) }}>
+                    <div key={v.id} style={{ background:C.bg, borderRadius:10, padding:"12px 16px", border:"1px solid "+C.border, borderLeft:"4px solid "+(autreService?C.slate:C.blue) }}>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8, marginBottom:6, flexWrap:"wrap" }}>
                         <div>
                           <p style={{ fontSize:13, fontWeight:700, color:C.textPri }}>{fmt(v.date)} — {v.motif}</p>
-                          <p style={{ fontSize:11, color:C.textMuted }}>{v.service || "—"}{autreService && <span style={{ color:C.amber, fontWeight:700 }}> · autre service</span>}</p>
+                          <p style={{ fontSize:11, color:C.textMuted }}>{v.service || "—"}{autreService && <span style={{ color:C.slate, fontWeight:700 }}> · autre service</span>}</p>
                         </div>
                         <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
                           {v.typeConsultation && v.typeConsultation !== "standard" && <TypeConsultBadge type={v.typeConsultation} />}
@@ -341,6 +347,11 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
   })
   const [prenatal, setPrenatal] = useState(() => mergePrenatalInit(dp))
   const [accouch, setAccouch] = useState(() => mergeAccouchInit(da))
+  const STAGIAIRE_VIDE = { nom:"", service:"", participation:0, connaissances:0, comportement:0, commentaire:"" }
+  const [stagiaires, setStagiaires] = useState(consultation?.stagiaires || [])
+  const addStagiaire = () => setStagiaires(p=>[...p, { ...STAGIAIRE_VIDE, id: Date.now() }])
+  const removeStagiaire = id => setStagiaires(p=>p.filter(s=>s.id!==id))
+  const updateStagiaire = (id, k, v) => setStagiaires(p=>p.map(s=>s.id===id?{...s,[k]:v}:s))
   const [suggestions, setSuggestions] = useState([])
   const f = (k,v) => setForm(p=>({...p,[k]:v}))
   const fp = (k,v) => setPrenatal(p=>({...p,[k]:v}))
@@ -386,6 +397,7 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
       traitements:  parseList(form.traitements),
       commentaires: form.commentaires,
       typeConsultation: mode,
+      stagiaires:   stagiaires.filter(s=>s.nom.trim()),
       ...(showPrenatal && { donneesPrenatal: { ...prenatal, parite: prenatal.gestiteParite, terme: prenatal.termeSA } }),
       ...(showAcc && { donneesAccouchement: { ...accouch } }),
     }
@@ -416,14 +428,14 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
         <div style={{ padding:"24px 28px", display:"flex", flexDirection:"column", gap:16 }}>
 
           {warnWrongService && (
-            <div style={{ background:C.amberSoft, border:"1px solid "+C.amber+"44", borderRadius:12, padding:"12px 14px" }}>
+            <div style={{ background:C.slateSoft, border:"1px solid "+C.slate+"44", borderRadius:12, padding:"12px 14px" }}>
               <p style={{ fontSize:13, color:"#92400e", fontWeight:600 }}>Ce dossier est typé « {TYPE_CONSULT_LABEL[mode]?.label || mode} ». Vous n’êtes pas en gynécologie — le formulaire spécialisé est masqué ; utilisez la consultation standard.</p>
             </div>
           )}
 
           {patient.typeVisite === "rendez_vous" && patient.motifRdv && (
             <div style={{ background:C.blueSoft, border:"1px solid "+C.blue+"33", borderRadius:12, padding:"12px 14px" }}>
-              <p style={{ fontSize:11, fontWeight:700, color:C.blue, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Pourquoi ce rendez-vous</p>
+              <p style={{ fontSize:11, fontWeight:700, color:C.textPri, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:6 }}>Pourquoi ce rendez-vous</p>
               <p style={{ fontSize:14, color:C.textPri, lineHeight:1.45 }}>{patient.motifRdv}</p>
             </div>
           )}
@@ -440,7 +452,7 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
 
           {showPrenatal && (
             <div style={{ background:C.bg, border:"1px solid "+C.border, borderRadius:14, padding:"16px 18px" }}>
-              <p style={{ fontSize:13, fontWeight:800, color:C.textPri, marginBottom:4 }}>🤰 Registre de consultation prénatale (CPN)</p>
+              <p style={{ fontSize:13, fontWeight:800, color:C.textPri, marginBottom:4 }}>Registre de consultation prénatale (CPN)</p>
               <p style={{ fontSize:11, color:C.textMuted, marginBottom:16 }}>Champs calqués sur le registre papier — saisie par sections.</p>
 
               <div style={{ background:C.white, border:"1px dashed "+C.border, borderRadius:10, padding:"10px 12px", marginBottom:16, fontSize:12, color:C.textSec }}>
@@ -533,7 +545,7 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
 
           {showAcc && (
             <div style={{ background:C.bg, border:"1px solid "+C.border, borderRadius:14, padding:"16px 18px" }}>
-              <p style={{ fontSize:13, fontWeight:800, color:C.textPri, marginBottom:4 }}>👶 Registre de l’accouchement (CS)</p>
+              <p style={{ fontSize:13, fontWeight:800, color:C.textPri, marginBottom:4 }}>Registre de l’accouchement (CS)</p>
               <p style={{ fontSize:11, color:C.textMuted, marginBottom:16 }}>Aligné sur le registre papier — sections détaillées.</p>
 
               <RegSection title="Accouchement & séjour">
@@ -671,7 +683,7 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
               onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
             {suggestions.length > 0 && (
               <div style={{ marginTop:8, padding:"10px 14px", background:C.blueSoft, borderRadius:10, border:"1px solid "+C.blue+"33" }}>
-                <p style={{ fontSize:12, fontWeight:700, color:C.blue, marginBottom:8 }}>💡 Suggestions de diagnostic basées sur les symptômes :</p>
+                <p style={{ fontSize:12, fontWeight:700, color:C.textPri, marginBottom:8 }}>Suggestions de diagnostic basées sur les symptômes :</p>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                   {suggestions.map(s=>(
                     <button key={s} type="button" onClick={()=>ajouterTag("diagnostics",s)}
@@ -740,23 +752,158 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
               onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
           </div>
 
+          {/* ── Évaluation des Stagiaires ── */}
+          <div style={{ border:"1px solid "+C.border, borderRadius:14, overflow:"hidden" }}>
+            <div style={{ padding:"14px 18px", background:C.greenSoft, borderBottom:"1px solid "+C.border, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ width:32, height:32, borderRadius:8, background:C.green, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <div>
+                  <p style={{ fontSize:14, fontWeight:700, color:C.textPri }}>Stagiaires présents</p>
+                  <p style={{ fontSize:11, color:C.textSec }}>{stagiaires.length === 0 ? "Aucun stagiaire · cliquez pour en ajouter" : `${stagiaires.length} stagiaire${stagiaires.length>1?"s":""} enregistré${stagiaires.length>1?"s":""}`}</p>
+                </div>
+              </div>
+              <button onClick={addStagiaire}
+                style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", background:C.green, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Ajouter
+              </button>
+            </div>
+
+            {stagiaires.length > 0 && (
+              <div style={{ padding:"14px 18px", display:"flex", flexDirection:"column", gap:14 }}>
+                {stagiaires.map((st, idx) => (
+                  <div key={st.id} style={{ border:"1px solid "+C.border, borderRadius:10, overflow:"hidden" }}>
+                    {/* En-tête du stagiaire */}
+                    <div style={{ padding:"10px 14px", background:"#f9fafb", borderBottom:"1px solid "+C.border, display:"flex", alignItems:"center", gap:10 }}>
+                      <div style={{ width:28, height:28, borderRadius:"50%", background:C.green+"22", display:"flex", alignItems:"center", justifyContent:"center", color:C.green, fontSize:12, fontWeight:800, flexShrink:0 }}>{idx+1}</div>
+                      <input value={st.nom} onChange={e=>updateStagiaire(st.id,"nom",e.target.value)}
+                        placeholder="Nom du stagiaire"
+                        style={{ ...inputSt, flex:1, marginBottom:0, padding:"6px 10px" }}
+                        onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
+                      <input value={st.service} onChange={e=>updateStagiaire(st.id,"service",e.target.value)}
+                        placeholder="Service / Spécialité"
+                        style={{ ...inputSt, flex:1, marginBottom:0, padding:"6px 10px" }}
+                        onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
+                      <button onClick={()=>removeStagiaire(st.id)}
+                        style={{ width:28, height:28, borderRadius:6, border:"1px solid "+C.red+"44", background:C.redSoft, color:C.red, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+
+                    {/* Critères d'évaluation */}
+                    <div style={{ padding:"12px 14px" }}>
+                      {[
+                        { key:"participation",  label:"Participation active",       desc:"S'implique, pose des questions, propose des hypothèses" },
+                        { key:"connaissances",  label:"Connaissances cliniques",    desc:"Maîtrise les bases théoriques liées au cas traité" },
+                        { key:"comportement",   label:"Comportement professionnel", desc:"Tenue, respect du patient, attitude en salle" },
+                      ].map(({ key, label, desc }) => (
+                        <div key={key} style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <p style={{ fontSize:12, fontWeight:600, color:C.textPri, marginBottom:1 }}>{label}</p>
+                            <p style={{ fontSize:11, color:C.textMuted }}>{desc}</p>
+                          </div>
+                          <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                            {[1,2,3,4,5].map(n=>(
+                              <button key={n} type="button" onClick={()=>updateStagiaire(st.id, key, n)}
+                                style={{ width:28, height:28, borderRadius:6, border:"none", cursor:"pointer", fontSize:16, lineHeight:1,
+                                  background: n<=st[key] ? C.green : "#e5e7eb",
+                                  color: n<=st[key] ? "#fff" : "#9ca3af",
+                                  fontWeight:700, transition:"all .15s" }}>
+                                ★
+                              </button>
+                            ))}
+                            <span style={{ fontSize:11, color:C.textMuted, width:30, textAlign:"center", lineHeight:"28px", flexShrink:0 }}>{st[key]>0?st[key]+"/5":"—"}</span>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Commentaire */}
+                      <div style={{ marginTop:8 }}>
+                        <label style={{ ...labelSt, marginBottom:4 }}>Commentaire libre <span style={{ fontWeight:400, color:C.textMuted }}>(facultatif)</span></label>
+                        <textarea value={st.commentaire} onChange={e=>updateStagiaire(st.id,"commentaire",e.target.value)}
+                          placeholder="Observations particulières sur ce stagiaire…" rows={2}
+                          style={{ ...inputSt, resize:"vertical" }}
+                          onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
+                      </div>
+
+                      {/* Score moyen */}
+                      {(st.participation+st.connaissances+st.comportement)>0 && (
+                        <div style={{ marginTop:10, padding:"8px 12px", background:C.greenSoft, borderRadius:8, display:"flex", alignItems:"center", gap:8 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          <p style={{ fontSize:12, color:C.green, fontWeight:600 }}>
+                            Score moyen : {((st.participation+st.connaissances+st.comportement)/[st.participation,st.connaissances,st.comportement].filter(n=>n>0).length).toFixed(1)} / 5
+                            {" · "}
+                            {(st.participation+st.connaissances+st.comportement)/[st.participation,st.connaissances,st.comportement].filter(n=>n>0).length >= 4 ? "Excellent" :
+                             (st.participation+st.connaissances+st.comportement)/[st.participation,st.connaissances,st.comportement].filter(n=>n>0).length >= 3 ? "Satisfaisant" :
+                             (st.participation+st.connaissances+st.comportement)/[st.participation,st.connaissances,st.comportement].filter(n=>n>0).length >= 2 ? "À améliorer" : "Insuffisant"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Avertissement signature */}
           <div style={{ background:C.redSoft, border:"1px solid "+C.red+"33", borderRadius:10, padding:"12px 16px" }}>
             <p style={{ fontSize:12, color:C.red, fontWeight:600 }}>
-              🔒 La signature est <strong>obligatoire et définitive</strong>. Une consultation non signée est une anomalie détectée dans le système d'audit.
+              La signature est <strong>obligatoire et définitive</strong>. Une consultation non signée est une anomalie détectée dans le système d'audit.
             </p>
           </div>
 
           {/* Boutons */}
-          <div style={{ display:"flex", justifyContent:"flex-end", gap:10, paddingTop:8, borderTop:"1px solid "+C.border }}>
-            <Btn onClick={onClose} variant="secondary">Annuler</Btn>
-            <Btn onClick={()=>valider(false)} variant="secondary">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              Sauvegarder
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, paddingTop:8, borderTop:"1px solid "+C.border }}>
+            <Btn onClick={()=>{
+              const date = new Date().toLocaleDateString("fr-FR")
+              const traitement = form.traitements||"—"
+              const diagnostic = form.diagnostics||"—"
+              const w = window.open("","_blank","width=700,height=900")
+              w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ordonnance</title><style>
+                body{font-family:'Segoe UI',sans-serif;margin:0;padding:32px;color:#000}
+                .header{text-align:center;border-bottom:2px solid #2d7a3f;padding-bottom:16px;margin-bottom:24px}
+                .title{font-size:22px;font-weight:800;color:#2d7a3f;margin:0}
+                .sub{font-size:13px;color:#444;margin:4px 0}
+                .section{margin-bottom:18px}
+                .label{font-size:11px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.05em;margin-bottom:4px}
+                .value{font-size:14px;padding:8px 12px;background:#f5faf5;border-radius:6px;border:1px solid #dde8dd}
+                .footer{margin-top:40px;display:flex;justify-content:space-between;font-size:12px;color:#666}
+                .sign-box{text-align:center;border-top:1px solid #000;padding-top:8px;width:200px;font-size:12px}
+                @media print{body{padding:20px}}
+              </style></head><body>
+              <div class="header">
+                <div class="title">Clinique Médicale ABC Marouane</div>
+                <div class="sub">Conakry, République de Guinée · +224 624 00 00 00</div>
+                <div class="sub" style="font-size:16px;font-weight:700;margin-top:8px">ORDONNANCE MÉDICALE</div>
+              </div>
+              <div class="section"><div class="label">Date</div><div class="value">${date}</div></div>
+              <div class="section"><div class="label">Patient</div><div class="value">${patient?.nom||"—"} · ${patient?.sexe==="F"?"Mme":"M."}</div></div>
+              <div class="section"><div class="label">Médecin prescripteur</div><div class="value">${medecin?.nom||"—"} — ${medecin?.specialite||"—"}</div></div>
+              <div class="section"><div class="label">Diagnostic</div><div class="value">${diagnostic}</div></div>
+              <div class="section"><div class="label">Prescriptions</div><div class="value" style="white-space:pre-wrap">${traitement.split(",").map((t,i)=>`${i+1}. ${t.trim()}`).join("\n")}</div></div>
+              ${form.commentaires?`<div class="section"><div class="label">Commentaires</div><div class="value">${form.commentaires}</div></div>`:""}
+              <div class="footer">
+                <div>Valable 3 mois à compter du ${date}</div>
+                <div class="sign-box">Signature &amp; Cachet du médecin</div>
+              </div></body></html>`)
+              w.document.close(); setTimeout(()=>w.print(),400)
+            }} variant="secondary">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              Imprimer ordonnance
             </Btn>
-            <Btn onClick={()=>valider(true)} variant="success">
-              ✍️ Signer &amp; Valider
-            </Btn>
+            <div style={{ display:"flex", gap:10 }}>
+              <Btn onClick={onClose} variant="secondary">Annuler</Btn>
+              <Btn onClick={()=>valider(false)} variant="secondary">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Sauvegarder
+              </Btn>
+              <Btn onClick={()=>valider(true)} variant="success">
+                Signer &amp; Valider
+              </Btn>
+            </div>
           </div>
         </div>
       </div>
@@ -768,12 +915,18 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
 //  COMPOSANT PRINCIPAL — DASHBOARD MÉDECIN
 // ══════════════════════════════════════════════════════
 export default function DashboardMedecin() {
-  const medecin = MEDECIN_CONNECTE
+  const { user, logout } = useAuth()
+  const navigate   = useNavigate()
+  const handleLogout = () => { logout(); navigate("/login") }
+
+  const { patients: sharedPatients, consultations: sharedConsultations, updateConsultation, addConsultation, file, updateFileEntry } = useSharedData()
+
+  const medecin = { id: user?.id || 2, nom: user?.nom || "Dr. Keïta", specialite: user?.specialite || "Médecine générale" }
 
   const [onglet, setOnglet]               = useState("accueil")
   const [sidebarOpen, setSidebarOpen]     = useState(false)
-  const [patients, setPatients]           = useState(PATIENTS_INIT)
-  const [consultations, setConsultations] = useState(CONSULTATIONS_INIT)
+  const patients      = sharedPatients.length > 0 ? sharedPatients : PATIENTS_INIT
+  const consultations = sharedConsultations
   const [heure, setHeure]                 = useState("")
   const [dateStr, setDateStr]             = useState("")
   const [recherche, setRecherche]         = useState("")
@@ -801,8 +954,6 @@ export default function DashboardMedecin() {
       ||(p.motifRdv||"").toLowerCase().includes(q)||(TYPE_CONSULT_LABEL[p.typeConsultation]?.label||"").toLowerCase().includes(q)
   })
 
-  const nextConsultId = (prev) => (prev.length ? Math.max(...prev.map(c => c.id)) : 0) + 1
-
   const ouvrirConsultation = (patient) => {
     const existing = consultations.find(c=>c.patientId===patient.id&&c.date===today()&&c.docteurId===medecin.id)
     setMConsult({ patient, consultation:existing||null })
@@ -812,9 +963,9 @@ export default function DashboardMedecin() {
     const patientId = mConsult.patient.id
     const existing  = consultations.find(c=>c.patientId===patientId&&c.date===today()&&c.docteurId===medecin.id)
     if (existing) {
-      setConsultations(prev=>prev.map(c=>c.id===existing.id?{...c,...data}:c))
+      updateConsultation(existing.id, data)
     } else {
-      setConsultations(prev=>[...prev,{ id:nextConsultId(prev), patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:false, signeLe:null, ...data }])
+      addConsultation({ patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:false, signeLe:null, ...data })
     }
     setMConsult(null)
     alert("Consultation sauvegardée.")
@@ -825,19 +976,20 @@ export default function DashboardMedecin() {
     const ts        = new Date().toLocaleString("fr-FR")
     const existing  = consultations.find(c=>c.patientId===patientId&&c.date===today()&&c.docteurId===medecin.id)
     if (existing) {
-      setConsultations(prev=>prev.map(c=>c.id===existing.id?{...c,...data,signe:true,signeLe:ts}:c))
+      updateConsultation(existing.id, { ...data, signe:true, signeLe:ts })
     } else {
-      setConsultations(prev=>[...prev,{ id:nextConsultId(prev), patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:true, signeLe:ts, ...data }])
+      addConsultation({ patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:true, signeLe:ts, ...data })
     }
-    setPatients(prev=>prev.map(p=>p.id===patientId?{...p,statut:"termine"}:p))
+    const fileEntry = file.find(f=>f.patientId===patientId)
+    if (fileEntry) updateFileEntry(fileEntry.id, { statut:"termine" })
     setMConsult(null)
     alert("Consultation signée et validée.")
   }
 
   const NAV = [
-    { id:"accueil",       label:"Accueil",         icon:"🏠", desc:"Vue d'ensemble",      badge:0          },
-    { id:"patients",      label:"Mes patients",     icon:"👥", desc:"Liste du jour",       badge:enAttente  },
-    { id:"consultations", label:"Mes consultations",icon:"📋", desc:"Historique & signature", badge:nonSignees },
+    { id:"accueil",       label:"Accueil",         icon:"home", desc:"Vue d'ensemble",      badge:0          },
+    { id:"patients",      label:"Mes patients",     icon:"users", desc:"Liste du jour",       badge:enAttente  },
+    { id:"consultations", label:"Mes consultations",icon:"doc", desc:"Historique & signature", badge:nonSignees },
   ]
 
   return (
@@ -903,7 +1055,7 @@ export default function DashboardMedecin() {
                 <Avatar name={medecin.nom} size={36} bg={C.blue} />
                 <div>
                   <p style={{ fontSize:13, fontWeight:700, color:C.textPri, lineHeight:1.2 }}>{medecin.nom}</p>
-                  <p style={{ fontSize:11, color:C.blue, fontWeight:600, marginTop:1 }}>{medecin.specialite}</p>
+                  <p style={{ fontSize:11, color:C.textPri, fontWeight:600, marginTop:1 }}>{medecin.specialite}</p>
                 </div>
               </div>
             </div>
@@ -934,7 +1086,7 @@ export default function DashboardMedecin() {
           {/* Alerte non signées */}
           {nonSignees>0 && (
             <button onClick={()=>setOnglet("consultations")} style={{ background:C.redSoft, border:"1px solid "+C.red+"44", borderRadius:10, padding:"7px 14px", fontSize:12, fontWeight:700, color:C.red, cursor:"pointer", fontFamily:"inherit" }}>
-              🔒 {nonSignees} à signer
+              {nonSignees} à signer
             </button>
           )}
           {/* Horloge */}
@@ -947,6 +1099,10 @@ export default function DashboardMedecin() {
             </div>
             <Avatar name={medecin.nom} size={36} bg={C.blue} />
           </div>
+          <button onClick={handleLogout} title="Se déconnecter"
+            style={{ width:36,height:36,borderRadius:8,border:"1px solid #fca5a5",background:"#fff5f5",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cc2222" strokeWidth="2" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </header>
 
@@ -960,13 +1116,13 @@ export default function DashboardMedecin() {
             {/* KPIs */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
               {[
-                { val:mesPatients.length,                         label:"Patients assignés",     bg:C.blueSoft,  fg:C.blue,  icon:"👥" },
-                { val:enAttente,                                  label:"En attente",             bg:C.amberSoft, fg:C.amber, icon:"⏳" },
-                { val:mesConsultations.filter(c=>c.signe).length, label:"Consultations signées",  bg:C.greenSoft, fg:C.green, icon:"✅" },
+                { val:mesPatients.length,                         label:"Patients assignés",    bg:C.blueSoft,  fg:C.blue,  icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+                { val:enAttente,                                  label:"En attente",           bg:C.slateSoft, fg:C.slate, icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+                { val:mesConsultations.filter(c=>c.signe).length, label:"Consultations signées", bg:C.greenSoft, fg:C.green, icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 15 11 17 15 13"/></svg> },
               ].map(({val,label,bg,fg,icon})=>(
                 <Card key={label} style={{ padding:"22px 20px" }}>
-                  <div style={{ width:44, height:44, borderRadius:12, background:bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, marginBottom:14 }}>{icon}</div>
-                  <p style={{ fontSize:32, fontWeight:800, color:fg, letterSpacing:"-1px", lineHeight:1 }}>{val}</p>
+                  <div style={{ width:46, height:46, borderRadius:12, background:bg, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14, color:fg }}>{icon}</div>
+                  <p style={{ fontSize:32, fontWeight:800, color:C.textPri, letterSpacing:"-1px", lineHeight:1 }}>{val}</p>
                   <p style={{ fontSize:12, color:C.textMuted, marginTop:6 }}>{label}</p>
                 </Card>
               ))}
@@ -975,7 +1131,9 @@ export default function DashboardMedecin() {
             {/* Alerte consultations non signées */}
             {nonSignees>0 && (
               <div style={{ background:C.redSoft, border:"1px solid "+C.red+"33", borderRadius:14, padding:"14px 20px", display:"flex", alignItems:"center", gap:12, cursor:"pointer" }} onClick={()=>setOnglet("consultations")}>
-                <span style={{ fontSize:22 }}>⚠️</span>
+                <div style={{ width:40,height:40,borderRadius:10,background:C.red+"22",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2" strokeLinecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                </div>
                 <div style={{ flex:1 }}>
                   <p style={{ fontSize:14, fontWeight:700, color:C.red }}>
                     {nonSignees} consultation{nonSignees>1?"s":""} non signée{nonSignees>1?"s":""} — signature requise
@@ -1073,7 +1231,7 @@ export default function DashboardMedecin() {
                           </span>
                         </div>
                       </td>
-                      <td style={{ padding:"13px 16px", fontSize:13, fontWeight:700, color:C.blue, fontVariantNumeric:"tabular-nums" }}>{p.arrivee}</td>
+                      <td style={{ padding:"13px 16px", fontSize:13, fontWeight:700, color:C.textPri, fontVariantNumeric:"tabular-nums" }}>{p.arrivee}</td>
                       <td style={{ padding:"13px 16px" }}><Badge statut={p.statut} /></td>
                       <td style={{ padding:"13px 16px" }}>
                         <div style={{ display:"flex", gap:6 }}>
@@ -1101,7 +1259,7 @@ export default function DashboardMedecin() {
             {nonSignees>0 && (
               <div style={{ background:C.redSoft, border:"1px solid "+C.red+"33", borderRadius:12, padding:"14px 20px" }}>
                 <p style={{ fontSize:14, fontWeight:700, color:C.red, marginBottom:2 }}>
-                  🔒 {nonSignees} consultation{nonSignees>1?"s":""} non signée{nonSignees>1?"s":""} — action requise
+                  {nonSignees} consultation{nonSignees>1?"s":""} non signée{nonSignees>1?"s":""} — action requise
                 </p>
                 <p style={{ fontSize:13, color:"#991b1b" }}>Signez chaque consultation pour valider votre travail.</p>
               </div>
@@ -1152,7 +1310,7 @@ export default function DashboardMedecin() {
                             <td style={{ padding:"13px 16px" }}>
                               {!c.signe && (
                                 <Btn onClick={()=>setMConsult({patient:p,consultation:c})} small variant="success">
-                                  ✍️ Signer
+                                  Signer
                                 </Btn>
                               )}
                             </td>

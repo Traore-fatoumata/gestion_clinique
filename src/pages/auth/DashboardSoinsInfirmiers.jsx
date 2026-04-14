@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react"
 import logo from "../../assets/images/logo.jpeg"
+import { useAuth } from "../../hooks/useAuth.jsx"
+import { useNavigate } from "react-router-dom"
 
 // ══════════════════════════════════════════════════════
 //  UTILITAIRES
@@ -79,20 +81,17 @@ const SOINS_INIT = [
 //  COULEURS (unifié avec les autres dashboards)
 // ══════════════════════════════════════════════════════
 const C = {
-  bg: "#f8f9fa",
-  white: "#ffffff",
-  textPri: "#0f172a",
-  textSec: "#64748b",
-  textMuted: "#94a3b8",
-  border: "#e2e8f0",
-  green: "#16a34a", greenSoft: "#dcfce7", greenDark: "#15803d",
-  blue: "#2563eb",  blueSoft: "#dbeafe",  blueDark: "#1d4ed8",
-  amber: "#d97706", amberSoft: "#fef3c7",
-  red: "#dc2626",   redSoft: "#fee2e2",
-  slate: "#475569", slateSoft: "#e2e8f0",
-  purple: "#7c3aed",purpleSoft: "#ede9fe",
-  orange: "#ea580c",orangeSoft: "#ffedd5",
-  teal: "#0d9488",  tealSoft: "#ccfbf1",
+  bg:"#f7f9f8",      white:"#ffffff",
+  textPri:"#111827", textSec:"#374151", textMuted:"#6b7280",
+  border:"#e2ebe4",
+  green:"#16a34a",   greenSoft:"#dcfce7",  greenDark:"#15803d", greenLight:"#bbf7d0",
+  blue:"#1d6fa4",    blueSoft:"#e8f4fb",   blueDark:"#155e8b",
+  amber:"#b45309",   amberSoft:"#fef3c7",
+  red:"#dc2626",     redSoft:"#fef2f2",
+  slate:"#475569",   slateSoft:"#f1f5f9",
+  purple:"#6d28d9",  purpleSoft:"#ede9fe",
+  orange:"#c2410c",  orangeSoft:"#fff7ed",
+  teal:"#0f766e",    tealSoft:"#f0fdfa",
 }
 
 // ══════════════════════════════════════════════════════
@@ -101,7 +100,7 @@ const C = {
 function Badge({ statut }) {
   const cfg = {
     programme: { label: "Programmé",  color: C.blue,   bg: C.blueSoft   },
-    en_cours:  { label: "En cours",   color: C.amber,  bg: C.amberSoft  },
+    en_cours:  { label: "En cours",   color: C.slate,  bg: C.slateSoft  },
     fait:      { label: "Réalisé",    color: C.green,  bg: C.greenSoft  },
     retarde:   { label: "Retardé",    color: C.red,    bg: C.redSoft    },
     annule:    { label: "Annulé",     color: C.slate,  bg: C.slateSoft  },
@@ -124,8 +123,8 @@ function Badge({ statut }) {
 // ══════════════════════════════════════════════════════
 function Avatar({ name, size = 36 }) {
   const palettes = [
-    { bg: "#dbeafe", fg: "#2563eb" }, { bg: "#dcfce7", fg: "#16a34a" },
-    { bg: "#ede9fe", fg: "#7c3aed" }, { bg: "#fef3c7", fg: "#d97706" },
+    { bg: "#e8f5ec", fg: "#2d7a3f" }, { bg: "#dcfce7", fg: "#16a34a" },
+    { bg: "#d8eed8", fg: "#1a4a25" }, { bg: "#eeeeee", fg: "#444444" },
     { bg: "#ccfbf1", fg: "#0d9488" },
   ]
   const p = palettes[(name?.charCodeAt(0) || 0) % palettes.length]
@@ -153,7 +152,7 @@ function Btn({ children, onClick, variant = "primary", small = false, disabled =
     success:   { bg: C.green, hov: C.greenDark,  color: "#fff" },
     secondary: { bg: C.white, hov: C.slateSoft,  color: C.textSec, border: "1.5px solid " + C.border },
     danger:    { bg: C.red,   hov: "#b91c1c",    color: "#fff" },
-    warning:   { bg: C.amber, hov: "#b45309",    color: "#fff" },
+    warning:   { bg: C.slate, hov: "#b45309",    color: "#fff" },
     ghost:     { bg: "transparent", hov: C.slateSoft, color: C.textSec },
   }
   const s = cfg[variant] || cfg.primary
@@ -275,9 +274,9 @@ function InfoGrid({ soin }) {
 // ══════════════════════════════════════════════════════
 function ModalDetailSoin({ soin, onClose }) {
   const toleranceCfg = {
-    bonne:    { label: "Bonne",    icon: "😊", color: C.green },
-    moyenne:  { label: "Moyenne",  icon: "😐", color: C.amber },
-    mauvaise: { label: "Mauvaise", icon: "😣", color: C.red   },
+    bonne:    { label: "Bonne",    icon: "Bon", color: C.green },
+    moyenne:  { label: "Moyenne",  icon: "Moyen", color: C.slate },
+    mauvaise: { label: "Mauvaise", icon: "Douleur", color: C.red   },
   }
   const tol = toleranceCfg[soin.tolerance]
   return (
@@ -285,7 +284,7 @@ function ModalDetailSoin({ soin, onClose }) {
       <div style={{ background: C.white, borderRadius: 20, width: "100%", maxWidth: 560, maxHeight: "90vh", overflow: "auto", boxShadow: "0 25px 60px rgba(0,0,0,0.25)" }}>
         <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid " + C.border, display: "flex", justifyContent: "space-between", alignItems: "center", background: C.greenSoft, borderRadius: "20px 20px 0 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>✅</div>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: C.green, display: "flex", alignItems: "center", justifyContent: "center", color:"#fff" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
             <div>
               <p style={{ fontSize: 16, fontWeight: 800, color: C.greenDark }}>Soin réalisé</p>
               <p style={{ fontSize: 12, color: C.green }}>{soin.heure} — {soin.infirmier}</p>
@@ -387,7 +386,7 @@ function ModalNouveauSoin({ patients, onClose, onCreate }) {
           }} onClick={() => setF("urgent", !form.urgent)}>
             <input type="checkbox" checked={form.urgent} onChange={() => {}} style={{ width: 18, height: 18, accentColor: C.red, cursor: "pointer" }} />
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: form.urgent ? C.red : C.textSec }}>⚡ Marquer comme urgent</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: form.urgent ? C.red : C.textSec }}>Marquer comme urgent</p>
               <p style={{ fontSize: 11, color: C.textMuted }}>Ce soin apparaîtra en priorité dans la liste</p>
             </div>
           </div>
@@ -399,7 +398,7 @@ function ModalNouveauSoin({ patients, onClose, onCreate }) {
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 8, borderTop: "1px solid " + C.border }}>
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
             <Btn onClick={() => { if (ok) { onCreate(form); onClose() } }} disabled={!ok} variant="success">
-              ✓ Programmer le soin
+              Programmer le soin
             </Btn>
           </div>
         </div>
@@ -421,10 +420,10 @@ function ModalExecutionSoin({ soin, onClose, onValider }) {
       <div style={{ background: C.white, borderRadius: 20, width: "100%", maxWidth: 580, maxHeight: "90vh", overflow: "auto", boxShadow: "0 25px 60px rgba(0,0,0,0.25)" }}>
         <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid " + C.border, display: "flex", justifyContent: "space-between", alignItems: "center", background: C.blueSoft, borderRadius: "20px 20px 0 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: C.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>💉</div>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: C.blue, display: "flex", alignItems: "center", justifyContent: "center", color:"#fff" }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="m18 2 4 4-14 14H4v-4L18 2z"/><path d="m14.5 5.5 4 4"/></svg></div>
             <div>
               <p style={{ fontSize: 16, fontWeight: 800, color: C.blueDark }}>Exécuter le soin</p>
-              <p style={{ fontSize: 12, color: C.blue }}>{soin.patient.nom} — {soin.typeSoin}</p>
+              <p style={{ fontSize: 12, color: C.textPri }}>{soin.patient.nom} — {soin.typeSoin}</p>
             </div>
           </div>
           <CloseBtn onClose={onClose} />
@@ -441,9 +440,9 @@ function ModalExecutionSoin({ soin, onClose, onValider }) {
             <p style={{ fontSize: 13, fontWeight: 600, color: C.textPri, marginBottom: 10 }}>Tolérance du patient</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
               {[
-                { val: "bonne",    label: "Bonne",    icon: "😊", color: C.green, bg: C.greenSoft },
-                { val: "moyenne",  label: "Moyenne",  icon: "😐", color: C.amber, bg: C.amberSoft },
-                { val: "mauvaise", label: "Mauvaise", icon: "😣", color: C.red,   bg: C.redSoft   },
+                { val: "bonne",    label: "Bonne",    icon: "Bon", color: C.green, bg: C.greenSoft },
+                { val: "moyenne",  label: "Moyenne",  icon: "Moyen", color: C.slate, bg: C.slateSoft },
+                { val: "mauvaise", label: "Mauvaise", icon: "Douleur", color: C.red,   bg: C.redSoft   },
               ].map(opt => (
                 <div key={opt.val} onClick={() => setTolerance(opt.val)} style={{
                   padding: "14px 10px", borderRadius: 12, cursor: "pointer",
@@ -465,7 +464,7 @@ function ModalExecutionSoin({ soin, onClose, onValider }) {
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 8, borderTop: "1px solid " + C.border }}>
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
             <Btn onClick={() => onValider(observations, tolerance, infirmier)} variant="success">
-              ✓ Valider l'exécution
+              Valider l'exécution
             </Btn>
           </div>
         </div>
@@ -478,6 +477,10 @@ function ModalExecutionSoin({ soin, onClose, onValider }) {
 //  COMPOSANT PRINCIPAL
 // ══════════════════════════════════════════════════════
 export default function DashboardSoinsInfirmiers() {
+  const { user, logout } = useAuth()
+  const navigate   = useNavigate()
+  const handleLogout = () => { logout(); navigate("/login") }
+
   const [onglet,       setOnglet]       = useState("today")
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
   const [soins,        setSoins]        = useState(SOINS_INIT)
@@ -566,12 +569,12 @@ export default function DashboardSoinsInfirmiers() {
 
   // ── Navigation ────────────────────────────────────
   const NAV = [
-    { id: "today",      label: "Aujourd'hui", icon: "📅", count: stats.total    },
-    { id: "programmes", label: "À faire",     icon: "⏰", count: stats.programmes, color: C.blue  },
-    { id: "en_cours",   label: "En cours",    icon: "💉", count: stats.en_cours,   color: C.amber },
-    { id: "faits",      label: "Réalisés",    icon: "✅", count: stats.faits,      color: C.green },
-    { id: "retardes",   label: "Retardés",    icon: "⚠️", count: stats.retardes,   color: C.red   },
-    { id: "historique", label: "Historique",  icon: "📊", count: soins.length     },
+    { id: "today",      label: "Aujourd'hui", icon: "today",   count: stats.total    },
+    { id: "programmes", label: "À faire",     icon: "clock",   count: stats.programmes, color: C.blue  },
+    { id: "en_cours",   label: "En cours",    icon: "inject",  count: stats.en_cours,   color: C.slate },
+    { id: "faits",      label: "Réalisés",    icon: "check",   count: stats.faits,      color: C.green },
+    { id: "retardes",   label: "Retardés",    icon: "warn",    count: stats.retardes,   color: C.red   },
+    { id: "historique", label: "Historique",  icon: "history", count: soins.length     },
   ]
 
   const titres = {
@@ -581,7 +584,7 @@ export default function DashboardSoinsInfirmiers() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'Segoe UI', system-ui, sans-serif", color: C.textPri }}>
+    <div style={{ minHeight: "100vh", background: "#ffffff", fontFamily: "'Segoe UI', system-ui, sans-serif", color: C.textPri }}>
 
       {/* MODALS */}
       {showNouveau   && <ModalNouveauSoin patients={patients} onClose={() => setShowNouveau(false)} onCreate={handleCreerSoin} />}
@@ -633,10 +636,10 @@ export default function DashboardSoinsInfirmiers() {
             {/* Profil */}
             <div style={{ padding: "14px 16px 20px", borderTop: "1px solid " + C.border }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.greenSoft, borderRadius: 12, border: "1px solid " + C.green + "33" }}>
-                <Avatar name="Mme. Diallo" size={36} />
+                <Avatar name={user?.nom||"Infirmière"} size={36} />
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: C.textPri }}>Mme. Diallo</p>
-                  <p style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>Infirmière principale</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: C.textPri }}>{user?.nom||"Infirmière"}</p>
+                  <p style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>{user?.titre||"Infirmière Principale"}</p>
                 </div>
               </div>
             </div>
@@ -663,7 +666,7 @@ export default function DashboardSoinsInfirmiers() {
         {/* Titre */}
         <div style={{ flex: 1, marginLeft: 20 }}>
           <p style={{ fontSize: 15, fontWeight: 700, color: C.textPri, lineHeight: 1.2 }}>
-            🏥 Module Soins Infirmiers
+            Module Soins Infirmiers
           </p>
           <p style={{ fontSize: 12, color: C.textMuted, textTransform: "capitalize" }}>{dateStr}</p>
         </div>
@@ -671,9 +674,9 @@ export default function DashboardSoinsInfirmiers() {
         {/* Droite */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {stats.programmes > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, background: C.amberSoft, border: "1px solid " + C.amber + "40", borderRadius: 10, padding: "6px 12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, background: C.slateSoft, border: "1px solid " + C.slate + "40", borderRadius: 10, padding: "6px 12px" }}>
               <span style={{ fontSize: 14 }}>⏰</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: C.amber }}>{stats.programmes} soin{stats.programmes > 1 ? "s" : ""} en attente</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: C.slate }}>{stats.programmes} soin{stats.programmes > 1 ? "s" : ""} en attente</span>
             </div>
           )}
           <div style={{ background: C.greenSoft, border: "1px solid " + C.green + "33", borderRadius: 10, padding: "6px 14px", fontSize: 14, fontWeight: 700, color: C.green, fontVariantNumeric: "tabular-nums" }}>
@@ -681,11 +684,15 @@ export default function DashboardSoinsInfirmiers() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: C.textPri }}>Mme. Diallo</p>
-              <p style={{ fontSize: 11, color: C.textSec }}>Infirmière principale</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: C.textPri }}>{user?.nom||"Infirmière"}</p>
+              <p style={{ fontSize: 11, color: C.textSec }}>{user?.titre||"Infirmière Principale"}</p>
             </div>
             <Avatar name="Mme. Diallo" size={36} />
           </div>
+          <button onClick={handleLogout} title="Se déconnecter"
+            style={{ width:36,height:36,borderRadius:8,border:"1px solid #fca5a5",background:"#fff5f5",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cc2222" strokeWidth="2" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </header>
 
@@ -695,17 +702,17 @@ export default function DashboardSoinsInfirmiers() {
         {/* KPIs */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
           {[
-            { label: "À faire",          val: stats.programmes, icon: "⏰", color: C.blue,   bg: C.blueSoft   },
-            { label: "En cours",          val: stats.en_cours,   icon: "💉", color: C.amber,  bg: C.amberSoft  },
-            { label: "Réalisés",          val: stats.faits,      icon: "✅", color: C.green,  bg: C.greenSoft  },
-            { label: "Total aujourd'hui", val: stats.total,      icon: "📊", color: C.purple, bg: C.purpleSoft },
+            { label: "Soins à faire",     val: stats.programmes, color: C.blue,   bg: C.blueSoft,   icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg> },
+            { label: "En cours",          val: stats.en_cours,   color: C.slate,  bg: C.slateSoft,  icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+            { label: "Soins réalisés",    val: stats.faits,      color: C.green,  bg: C.greenSoft,  icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
+            { label: "Total aujourd'hui", val: stats.total,      color: C.purple, bg: C.purpleSoft, icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
           ].map(k => (
             <div key={k.label} style={{ background: C.white, borderRadius: 16, border: "1px solid " + C.border, padding: "18px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <p style={{ fontSize: 28, fontWeight: 900, color: k.color, lineHeight: 1, marginBottom: 6 }}>{k.val}</p>
                 <p style={{ fontSize: 12, color: C.textMuted, fontWeight: 500 }}>{k.label}</p>
               </div>
-              <div style={{ width: 48, height: 48, borderRadius: 14, background: k.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{k.icon}</div>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: k.bg, display: "flex", alignItems: "center", justifyContent: "center", color: k.color }}>{k.icon}</div>
             </div>
           ))}
         </div>
@@ -770,7 +777,7 @@ export default function DashboardSoinsInfirmiers() {
                 <tr>
                   <td colSpan={8} style={{ padding: "60px 40px", textAlign: "center" }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>
-                      {onglet === "faits" ? "✅" : onglet === "en_cours" ? "💉" : "📋"}
+                      {"—"}
                     </div>
                     <p style={{ fontSize: 15, fontWeight: 600, color: C.textSec, marginBottom: 4 }}>Aucun soin dans cette catégorie</p>
                     <p style={{ fontSize: 13, color: C.textMuted }}>
@@ -791,7 +798,7 @@ export default function DashboardSoinsInfirmiers() {
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <p style={{ fontSize: 13, fontWeight: 700, color: C.textPri }}>{s.patient.nom}</p>
-                          {s.urgent && <span style={{ fontSize: 10, fontWeight: 800, color: C.red, background: C.redSoft, padding: "1px 6px", borderRadius: 6 }}>⚡ URGENT</span>}
+                          {s.urgent && <span style={{ fontSize: 10, fontWeight: 800, color: C.red, background: C.redSoft, padding: "1px 6px", borderRadius: 6 }}>URGENT</span>}
                         </div>
                         <p style={{ fontSize: 11, color: C.textMuted }}>{s.patient.pid}</p>
                       </div>
@@ -808,7 +815,7 @@ export default function DashboardSoinsInfirmiers() {
 
                   {/* Type */}
                   <td style={{ padding: "14px 14px" }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, background: C.blueSoft, color: C.blue, padding: "5px 10px", borderRadius: 8, display: "inline-block" }}>{s.typeSoin}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, background: C.blueSoft, color: C.textPri, padding: "5px 10px", borderRadius: 8, display: "inline-block" }}>{s.typeSoin}</span>
                   </td>
 
                   {/* Médicament */}
@@ -828,7 +835,7 @@ export default function DashboardSoinsInfirmiers() {
                     <Badge statut={s.statut} />
                     {s.tolerance && (
                       <p style={{ fontSize: 10, color: C.textMuted, marginTop: 4 }}>
-                        {s.tolerance === "bonne" ? "😊" : s.tolerance === "moyenne" ? "😐" : "😣"} Tolérance {s.tolerance}
+                        {s.tolerance === "bonne" ? "Bon" : s.tolerance === "moyenne" ? "Moyen" : "Douleur"} Tolérance {s.tolerance}
                       </p>
                     )}
                   </td>
@@ -838,24 +845,24 @@ export default function DashboardSoinsInfirmiers() {
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                       {s.statut === "programme" && (
                         <>
-                          <Btn onClick={() => { handleDemarrer(s.id); setShowExecution({ ...s, statut: "en_cours" }) }} small variant="success">✏️ Exécuter</Btn>
+                          <Btn onClick={() => { handleDemarrer(s.id); setShowExecution({ ...s, statut: "en_cours" }) }} small variant="success">Exécuter</Btn>
                           <Btn onClick={() => handleRetarder(s.id)} small variant="warning">⏸ Retarder</Btn>
                         </>
                       )}
                       {s.statut === "en_cours" && (
                         <>
-                          <Btn onClick={() => setShowExecution(s)} small variant="success">✓ Terminer</Btn>
-                          <Btn onClick={() => handleAnnuler(s.id)} small variant="danger">✕ Annuler</Btn>
+                          <Btn onClick={() => setShowExecution(s)} small variant="success">Terminer</Btn>
+                          <Btn onClick={() => handleAnnuler(s.id)} small variant="danger">× Annuler</Btn>
                         </>
                       )}
                       {s.statut === "retarde" && (
                         <>
                           <Btn onClick={() => handleDemarrer(s.id)} small variant="success">▶ Reprendre</Btn>
-                          <Btn onClick={() => handleAnnuler(s.id)} small variant="danger">✕ Annuler</Btn>
+                          <Btn onClick={() => handleAnnuler(s.id)} small variant="danger">× Annuler</Btn>
                         </>
                       )}
                       {s.statut === "fait" && (
-                        <Btn onClick={() => setShowDetail(s)} small variant="secondary">📄 Rapport</Btn>
+                        <Btn onClick={() => setShowDetail(s)} small variant="secondary">Rapport</Btn>
                       )}
                       {s.statut === "annule" && (
                         <span style={{ fontSize: 12, color: C.textMuted, fontStyle: "italic" }}>Annulé</span>

@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react"
 import logo from "../../assets/images/logo.jpeg"
-import SettingsModal from "../../components/SettingsModal"
 import { useClinicSettings } from "../../hooks/useClinicSettings.jsx"
+import { useAuth } from "../../hooks/useAuth.jsx"
+import { useNavigate } from "react-router-dom"
+import { useSharedData } from "../../hooks/useSharedData.jsx"
 
 // ══════════════════════════════════════════════════════
 //  UTILITAIRES
@@ -61,14 +63,17 @@ const FILE_INIT = [
 //  COULEURS
 // ══════════════════════════════════════════════════════
 const C = {
-  bg:"#f8f9fa", white:"#ffffff", textPri:"#0f172a", textSec:"#64748b", textMuted:"#94a3b8", border:"#e2e8f0",
-  green:"#16a34a", greenSoft:"#dcfce7",
-  blue:"#2563eb",  blueSoft:"#dbeafe",
-  amber:"#d97706", amberSoft:"#fef3c7",
-  red:"#dc2626",   redSoft:"#fee2e2",
-  slate:"#475569", slateSoft:"#e2e8f0",
-  purple:"#7c3aed",purpleSoft:"#ede9fe",
-  orange:"#ea580c",orangeSoft:"#ffedd5",
+  bg:"#f7f9f8",      white:"#ffffff",
+  textPri:"#111827", textSec:"#374151", textMuted:"#6b7280",
+  border:"#e2ebe4",
+  green:"#16a34a",   greenSoft:"#dcfce7",  greenDark:"#15803d", greenLight:"#bbf7d0",
+  blue:"#1d6fa4",    blueSoft:"#e8f4fb",
+  amber:"#b45309",   amberSoft:"#fef3c7",
+  red:"#dc2626",     redSoft:"#fef2f2",
+  slate:"#475569",   slateSoft:"#f1f5f9",
+  purple:"#6d28d9",  purpleSoft:"#ede9fe",
+  orange:"#c2410c",  orangeSoft:"#fff7ed",
+  teal:"#0f766e",    tealSoft:"#f0fdfa",
 }
 
 // ══════════════════════════════════════════════════════
@@ -76,13 +81,13 @@ const C = {
 // ══════════════════════════════════════════════════════
 function Badge({ statut }) {
   const cfg = {
-    en_attente:{ label:"En attente",  color:C.amber,  bg:C.amberSoft },
+    en_attente:{ label:"En attente",  color:C.slate,  bg:C.slateSoft },
     en_salle:  { label:"En salle",    color:C.green,  bg:C.greenSoft, pulse:true },
     consultation:{label:"Consultation",color:C.green,  bg:C.greenSoft },
     rendez_vous: {label:"Rendez-vous", color:C.purple, bg:C.purpleSoft},
     parti:     { label:"Parti",       color:C.slate,  bg:C.slateSoft },
     paye:      { label:"Payé",        color:C.green,  bg:C.greenSoft },
-    partiel:   { label:"Partiel",     color:C.amber,  bg:C.amberSoft },
+    partiel:   { label:"Partiel",     color:C.slate,  bg:C.slateSoft },
     impaye:    { label:"Impayé",      color:C.red,    bg:C.redSoft   },
   }
   const s = cfg[statut]||cfg.en_attente
@@ -95,8 +100,8 @@ function Badge({ statut }) {
 }
 
 function Avatar({ name, size=36 }) {
-  const bgs=[C.blueSoft,C.greenSoft,C.purpleSoft,C.amberSoft,C.orangeSoft]
-  const fgs=[C.blue,C.green,C.purple,C.amber,C.orange]
+  const bgs=[C.blueSoft,C.greenSoft,C.purpleSoft,C.slateSoft,C.orangeSoft]
+  const fgs=[C.blue,C.green,C.purple,C.slate,C.orange]
   const i=(name?.charCodeAt(0)||0)%bgs.length
   return (
     <div style={{ width:size,height:size,borderRadius:"50%",background:bgs[i],display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
@@ -118,7 +123,7 @@ function CardHeader({ title, action }) {
   )
 }
 function Btn({ children, onClick, variant="primary", small=false, disabled=false }) {
-  const cfg={ primary:{bg:C.blue,hov:"#1d4ed8",color:"#fff",border:"none"}, success:{bg:C.green,hov:"#15803d",color:"#fff",border:"none"}, secondary:{bg:"transparent",hov:C.slateSoft,color:C.textSec,border:"1px solid "+C.border} }
+  const cfg={ primary:{bg:C.blue,hov:"#155e8b",color:"#fff",border:"none"}, success:{bg:C.green,hov:"#166534",color:"#fff",border:"none"}, secondary:{bg:"transparent",hov:C.slateSoft,color:C.textSec,border:"1px solid "+C.border} }
   const s=cfg[variant]||cfg.primary
   return (
     <button onClick={onClick} disabled={disabled}
@@ -157,7 +162,7 @@ function ModalNouveauPatient({ onClose, onEnregistrer }) {
             style={{ display:"flex",alignItems:"center",gap:6,padding:"8px 16px",border:"1px solid "+C.border,borderRadius:10,background:C.white,color:C.textSec,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}
             onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
             onMouseLeave={e=>e.currentTarget.style.background=C.white}>
-            ✕ Fermer
+            Fermer
           </button>
         </div>
 
@@ -229,8 +234,8 @@ function ModalNouveauPatient({ onClose, onEnregistrer }) {
             <p style={{ fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>Type de visite</p>
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
               {[
-                { val:"consultation",label:"Consultation",   desc:"Visite sans rendez-vous",      icon:"🏥" },
-                { val:"rendez_vous", label:"Rendez-vous",    desc:"RDV programmé à l'avance",     icon:"📅" },
+                { val:"consultation",label:"Consultation",   desc:"Visite sans rendez-vous",      icon:"C" },
+                { val:"rendez_vous", label:"Rendez-vous",    desc:"RDV programmé à l'avance",     icon:"rdv" },
               ].map(opt=>(
                 <div key={opt.val} onClick={()=>setF("typeVisite",opt.val)}
                   style={{ padding:"14px 18px",borderRadius:14,border:"2px solid "+(form.typeVisite===opt.val?C.blue:C.border),background:form.typeVisite===opt.val?C.blueSoft:C.white,cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",gap:12 }}>
@@ -254,7 +259,7 @@ function ModalNouveauPatient({ onClose, onEnregistrer }) {
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
             <Btn onClick={()=>{ if(ok) onEnregistrer(form) }} disabled={!ok}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-              Enregistrer &amp; Envoyer au médecin chef
+              Enregistrer et envoyer au médecin chef
             </Btn>
           </div>
         </div>
@@ -370,13 +375,12 @@ function ModalCreerRdv({ patients, docteurs, onClose, onCreate }) {
             <input value={form.motif} onChange={e=>setF("motif",e.target.value)} placeholder="Ex : CPN suivi, Contrôle tension..." style={iSt}/>
           </div>
           <div style={{ background:C.blueSoft,border:"1px solid "+C.blue+"33",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10 }}>
-            <span style={{ fontSize:16 }}>🔔</span>
-            <p style={{ fontSize:13,color:C.blue }}>Un rappel SMS sera envoyé automatiquement au patient la veille du rendez-vous.</p>
+            <p style={{ fontSize:13,color:C.textPri }}>Un rappel SMS sera envoyé automatiquement au patient la veille du rendez-vous.</p>
           </div>
           <div style={{ display:"flex",justifyContent:"flex-end",gap:10,paddingTop:8,borderTop:"1px solid "+C.border }}>
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
             <Btn onClick={()=>{ if(ok) onCreate(form) }} disabled={!ok}>
-              <span>📅</span> Créer le rendez-vous
+               Créer le rendez-vous
             </Btn>
           </div>
         </div>
@@ -417,7 +421,7 @@ function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValide
 
           {/* Résumé des montants */}
           <div style={{ background:C.bg,borderRadius:14,padding:"16px 18px",border:"1px solid "+C.border }}>
-            <p style={{ fontSize:11,fontWeight:700,color:C.blue,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12 }}>Récapitulatif du paiement</p>
+            <p style={{ fontSize:11,fontWeight:700,color:C.textPri,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12 }}>Récapitulatif du paiement</p>
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12 }}>
               {/* Total à payer */}
               <div style={{ background:C.white,borderRadius:10,padding:"12px",border:"1px solid "+C.border }}>
@@ -434,9 +438,9 @@ function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValide
                 </p>
               </div>
               {/* Reste à payer */}
-              <div style={{ background:C.white,borderRadius:10,padding:"12px",border:"1px solid "+(resteAPayer>0?C.amber:C.border) }}>
+              <div style={{ background:C.white,borderRadius:10,padding:"12px",border:"1px solid "+(resteAPayer>0?C.slate:C.border) }}>
                 <p style={{ fontSize:11,color:C.textMuted,marginBottom:4 }}>Reste à payer</p>
-                <p style={{ fontSize:18,fontWeight:800,color:resteAPayer>0?C.amber:C.green }}>
+                <p style={{ fontSize:18,fontWeight:800,color:resteAPayer>0?C.slate:C.green }}>
                   {resteAPayer.toLocaleString("fr-FR")} <span style={{ fontSize:11,fontWeight:500 }}>GNF</span>
                 </p>
               </div>
@@ -448,9 +452,9 @@ function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValide
             <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:10 }}>Statut du paiement</label>
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10 }}>
               {[
-                { val:"total",   label:"Tout payé",        icon:"✅", color:C.green,  bg:C.greenSoft  },
-                { val:"partiel", label:"Paiement partiel", icon:"⚡", color:C.amber,  bg:C.amberSoft  },
-                { val:"impaye",  label:"Rien payé",        icon:"⏳", color:C.red,    bg:C.redSoft    },
+                { val:"total",   label:"Tout payé",        icon:"", color:C.green,  bg:C.greenSoft  },
+                { val:"partiel", label:"Paiement partiel", icon:"", color:C.slate,  bg:C.slateSoft  },
+                { val:"impaye",  label:"Rien payé",        icon:"", color:C.red,    bg:C.redSoft    },
               ].map(opt=>(
                 <div key={opt.val} onClick={()=>setStatut(opt.val)}
                   style={{ padding:"12px 10px",borderRadius:12,border:"2px solid "+(statut===opt.val?opt.color:C.border),background:statut===opt.val?opt.bg:C.white,cursor:"pointer",textAlign:"center",transition:"all .15s" }}>
@@ -467,8 +471,8 @@ function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValide
               <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:10 }}>Méthode de paiement</label>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
                 {[
-                  { val:"cash",         label:"Cash (espèces)", icon:"💵" },
-                  { val:"orange_money", label:"Orange Money",   icon:"🟠" },
+                  { val:"cash",         label:"Cash (espèces)", icon:"" },
+                  { val:"orange_money", label:"Orange Money",   icon:"" },
                 ].map(opt=>(
                   <div key={opt.val} onClick={()=>setMethode(opt.val)}
                     style={{ padding:"12px 16px",borderRadius:12,border:"2px solid "+(methode===opt.val?C.blue:C.border),background:methode===opt.val?C.blueSoft:C.white,cursor:"pointer",display:"flex",alignItems:"center",gap:10,transition:"all .15s" }}>
@@ -491,8 +495,8 @@ function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValide
                 placeholder={"Ex : "+(montantDu||50000)} style={iSt}
                 onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border}/>
               {statut==="partiel"&&montantDu&&montant&&(
-                <p style={{ fontSize:12,color:C.amber,marginTop:6,fontWeight:600 }}>
-                  ⚡ Reste à payer : {resteAPayer.toLocaleString("fr-FR")} GNF
+                <p style={{ fontSize:12,color:C.slate,marginTop:6,fontWeight:600 }}>
+                  Reste à payer : {resteAPayer.toLocaleString("fr-FR")} GNF
                 </p>
               )}
             </div>
@@ -521,7 +525,7 @@ function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValide
           {/* Avertissement impayé */}
           {statut==="impaye" && (
             <div style={{ background:C.redSoft,border:"1px solid "+C.red+"33",borderRadius:10,padding:"12px 16px" }}>
-              <p style={{ fontSize:13,color:C.red,fontWeight:600 }}>⚠️ Le patient doit régler avant la date limite pour que la consultation puisse commencer.</p>
+              <p style={{ fontSize:13,color:C.red,fontWeight:600 }}>Le patient doit régler avant la date limite pour que la consultation puisse commencer.</p>
             </div>
           )}
 
@@ -529,7 +533,7 @@ function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValide
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
             <Btn onClick={()=>{ if(statut==="impaye"&&!delai){ alert("Veuillez fixer une date limite."); return }; onValider({ statut,methode,montant:montantPaye,delai,note }); onClose() }}
               variant={statut==="total"?"success":"primary"}>
-              ✓ Valider le paiement
+              Valider le paiement
             </Btn>
           </div>
         </div>
@@ -570,8 +574,8 @@ function ModalPermission({ medecin, onClose, onValider }) {
             <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:8 }}>Type d'absence <span style={{ color:C.red }}>*</span></label>
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
               {[
-                { val:"maladie", label:"Maladie", icon:"🤒", color:C.amber },
-                { val:"urgence", label:"Urgence", icon:"🚨", color:C.red },
+                { val:"maladie", label:"Maladie", icon:"", color:C.slate },
+                { val:"urgence", label:"Urgence", icon:"", color:C.red },
               ].map(opt => (
                 <div key={opt.val} onClick={()=>setType(opt.val)}
                   style={{ padding:"12px 14px",borderRadius:12,border:"2px solid "+(type===opt.val?opt.color:C.border),background:type===opt.val?opt.color+"11":C.white,cursor:"pointer",textAlign:"center",transition:"all .15s" }}>
@@ -609,9 +613,9 @@ function ModalPermission({ medecin, onClose, onValider }) {
 
           {/* Avertissement */}
           {type && (
-            <div style={{ background:type==="maladie"?C.amberSoft:C.redSoft,border:"1px solid "+(type==="maladie"?C.amber:C.red)+"33",borderRadius:10,padding:"12px 16px" }}>
-              <p style={{ fontSize:13,color:type==="maladie"?C.amber:C.red,fontWeight:600 }}>
-                ⚠️ Cette absence sera enregistrée dans l'historique de présence
+            <div style={{ background:type==="maladie"?C.slateSoft:C.redSoft,border:"1px solid "+(type==="maladie"?C.slate:C.red)+"33",borderRadius:10,padding:"12px 16px" }}>
+              <p style={{ fontSize:13,color:type==="maladie"?C.slate:C.red,fontWeight:600 }}>
+                Cette absence sera enregistrée dans l'historique de présence
               </p>
             </div>
           )}
@@ -620,7 +624,7 @@ function ModalPermission({ medecin, onClose, onValider }) {
           <div style={{ display:"flex",justifyContent:"flex-end",gap:10,paddingTop:8,borderTop:"1px solid "+C.border }}>
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
             <Btn onClick={()=>{ if(type&&dateDebut&&dateFin) { onValider({ type, description, dateDebut, dateFin, justificatif }); onClose(); } }} variant="success" disabled={!type||!dateDebut||!dateFin}>
-              ✓ Enregistrer l'absence
+              Enregistrer l'absence
             </Btn>
           </div>
         </div>
@@ -695,12 +699,12 @@ function ModalHistorique({ medecins, historique, onClose }) {
           ) : (
             <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
               {filtreHistorique.map((h, i) => (
-                <div key={i} style={{ padding:"14px 16px",borderRadius:12,border:"1px solid "+C.border,background:h.type==="maladie"?C.amberSoft+"33":h.type==="urgence"?C.redSoft+"33":"transparent" }}>
+                <div key={i} style={{ padding:"14px 16px",borderRadius:12,border:"1px solid "+C.border,background:h.type==="maladie"?C.slateSoft+"33":h.type==="urgence"?C.redSoft+"33":"transparent" }}>
                   <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 }}>
                     <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-                      <div style={{ width:36,height:36,borderRadius:"50%",background:h.type==="maladie"?C.amberSoft:h.type==="urgence"?C.redSoft:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                      <div style={{ width:36,height:36,borderRadius:"50%",background:h.type==="maladie"?C.slateSoft:h.type==="urgence"?C.redSoft:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>
                         <span style={{ fontSize:18 }}>
-                          {h.type==="arrivée"?"✅":h.type==="départ"?"⏰":h.type==="maladie"?"🤒":h.type==="urgence"?"🚨":"—"}
+                          {h.type==="arrivée"?"↑":h.type==="départ"?"↓":h.type==="maladie"?"M":h.type==="urgence"?"U":"—"}
                         </span>
                       </div>
                       <div>
@@ -709,13 +713,13 @@ function ModalHistorique({ medecins, historique, onClose }) {
                       </div>
                     </div>
                     <div style={{ textAlign:"right" }}>
-                      <p style={{ fontSize:14,fontWeight:700,color:C.blue,fontVariantNumeric:"tabular-nums" }}>{h.heure}</p>
+                      <p style={{ fontSize:14,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{h.heure}</p>
                       {h.description && <p style={{ fontSize:11,color:C.textMuted,marginTop:2 }}>{h.description}</p>}
                     </div>
                   </div>
                   {h.justificatif && (
                     <div style={{ fontSize:11,color:C.textMuted,marginTop:6 }}>
-                      📎 Justificatif: {h.justificatif}
+                      Justificatif : {h.justificatif}
                     </div>
                   )}
                 </div>
@@ -732,11 +736,14 @@ function ModalHistorique({ medecins, historique, onClose }) {
 //  COMPOSANT PRINCIPAL
 // ══════════════════════════════════════════════════════
 export default function DashboardSecretaire() {
+  const { user, logout } = useAuth()
+  const navigate   = useNavigate()
+  const handleLogout = () => { logout(); navigate("/login") }
+
+  const { patients, addPatient, file, addToFile, updateFileEntry, rdv: rdvs, addRdv, updateRdv } = useSharedData()
+
   const [onglet,       setOnglet]       = useState("accueil")
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
-  const [patients,     setPatients]     = useState(PATIENTS_DB)
-  const [file,         setFile]         = useState(FILE_INIT)
-  const [rdvs,         setRdvs]         = useState(RDV_INIT)
   const [heure,        setHeure]        = useState("")
   const [dateStr,      setDateStr]      = useState("")
   const [showNouveau,  setShowNouveau]  = useState(false)
@@ -751,8 +758,7 @@ export default function DashboardSecretaire() {
   const [showNotifs, setShowNotifs]=useState(false)
   const [recherchePatients, setRecherchePatients]=useState("")
   const [permissionModal, setPermissionModal] = useState(null) // { medecin, type: null }
-  const [showSettings, setShowSettings] = useState(false)
-  const { settings } = useClinicSettings()
+  useClinicSettings()
 
   const patientsFiltres = patients.filter(p=>{
     const q=recherchePatients.toLowerCase().trim()
@@ -780,48 +786,49 @@ export default function DashboardSecretaire() {
     const fullNom = form.nom.trim()+" "+form.prenom.trim()
     const existing = patients.find(p=>p.nom.toLowerCase()===fullNom.toLowerCase())
     if (existing) {
-      alert("⚠️ "+fullNom+" est déjà enregistré ("+existing.pid+"). Utilisez 'Rechercher dossier' pour le signaler au médecin chef.")
+      alert(""+fullNom+" est déjà enregistré ("+existing.pid+"). Utilisez 'Rechercher dossier' pour le signaler au médecin chef.")
       setShowNouveau(false); return
     }
     let age=form.age||""
     if (!age&&form.dateNaissance) { const a=Math.floor((Date.now()-new Date(form.dateNaissance))/(365.25*24*3600*1000)); age=a+" ans" }
     const nouveau={
-      id:patients.length+1, pid:genId(Date.now()%999999),
+      id:Date.now(), pid:genId(Date.now()%999999),
       nom:fullNom, age, dateNaissance:form.dateNaissance, sexe:form.sexe,
       telephone:form.telephone, quartier:form.quartier, secteur:form.secteur,
       profession:form.profession, responsable:form.responsable,
     }
-    setPatients(prev=>[nouveau,...prev])
-    setFile(prev=>[...prev,{ id:prev.length+1, patientId:nouveau.id, pid:nouveau.pid, nom:nouveau.nom, arrivee:nowTime(), typeVisite:form.typeVisite, statut:"en_attente", montantTotal:0, paiement:null }])
+    addPatient(nouveau)
+    addToFile({ patientId:nouveau.id, pid:nouveau.pid, nom:nouveau.nom, arrivee:nowTime(), typeVisite:form.typeVisite, statut:"en_attente", montantTotal:0, paiement:null })
     setShowNouveau(false)
-    alert("✅ "+fullNom+" enregistré et ajouté à la file du médecin chef.")
+    alert(""+fullNom+" enregistré et ajouté à la file du médecin chef.")
   }
 
   const handleSignaler = (patient) => {
     const deja = file.find(f=>f.patientId===patient.id)
     if (deja) { alert(patient.nom+" est déjà dans la file d'attente."); return }
-    setFile(prev=>[...prev,{ id:prev.length+1, patientId:patient.id, pid:patient.pid, nom:patient.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantTotal:0, paiement:null }])
-    alert("✅ "+patient.nom+" signalé au médecin chef.")
+    addToFile({ patientId:patient.id, pid:patient.pid, nom:patient.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantTotal:0, paiement:null })
+    alert(""+patient.nom+" signalé au médecin chef.")
   }
 
   const handleCreerRdv = (form) => {
     const p=patients.find(pt=>pt.id===parseInt(form.patientId))
-    const nouveauRdv={ id:rdvs.length+1, patientId:parseInt(form.patientId), patient:p?.nom||"—", date:form.date, heure:form.heure, service:form.service, docteur:form.docteur, motif:form.motif, rappelEnvoye:false }
-    setRdvs(prev=>[nouveauRdv,...prev])
+    const nouveauRdv={ patientId:parseInt(form.patientId), patient:p?.nom||"—", date:form.date, heure:form.heure, service:form.service, docteur:form.docteur, motif:form.motif, rappelEnvoye:false }
+    addRdv(nouveauRdv)
     setNotifications(prev=>[{ id:prev.length+1, type:"rdv", message:"RDV créé : "+p?.nom+" le "+fmt(form.date)+" à "+form.heure+" — "+form.docteur, lu:false, date:today() },...prev])
     setShowRdv(false)
-    alert("📅 Rendez-vous créé. Un rappel sera envoyé au patient.")
+    alert("Rendez-vous créé. Un rappel sera envoyé au patient.")
   }
 
   const handlePaiement = (data) => {
     const { patientId } = paiementData
-    setFile(prev=>prev.map(f=>f.patientId===patientId?{...f,paiement:data}:f))
+    const entry = file.find(f=>f.patientId===patientId)
+    if (entry) updateFileEntry(entry.id, { paiement:data })
     setPaiementData(null)
   }
 
   const envoyerRappel = (rdvId) => {
-    setRdvs(prev=>prev.map(r=>r.id===rdvId?{...r,rappelEnvoye:true}:r))
-    alert("🔔 Rappel envoyé au patient.")
+    updateRdv(rdvId, { rappelEnvoye:true })
+    alert("Rappel envoyé au patient.")
   }
 
   // ══════════════════════════════════════════════════════
@@ -839,7 +846,7 @@ export default function DashboardSecretaire() {
             return savedMed ? { ...d, ...savedMed, historique: [] } : { ...d, arrivee: null, depart: null, present: false, historique: [] }
           })
         }
-      } catch(e) {
+      } catch {
         // Erreur de parsing, on initialise à vide
       }
     }
@@ -864,7 +871,7 @@ export default function DashboardSecretaire() {
     if (saved) {
       try {
         return JSON.parse(saved)
-      } catch(e) {
+      } catch {
         return []
       }
     }
@@ -890,7 +897,7 @@ export default function DashboardSecretaire() {
     // Ajouter à l'historique global
     setHistorique(prev => [...prev, { medecinId: id, type: 'arrivée', heure, date: today() }])
     const med = medecins.find(m => m.id === id)
-    alert(`✅ ${med.nom} est arrivé(e) à ${heure}`)
+    alert(`${med.nom} est arrivé(e) à ${heure}`)
   }
 
   const pointerDepart = (id) => {
@@ -906,7 +913,7 @@ export default function DashboardSecretaire() {
     // Ajouter à l'historique global
     setHistorique(prev => [...prev, { medecinId: id, type: 'départ', heure, date: today() }])
     const med = medecins.find(m => m.id === id)
-    alert(`✅ ${med.nom} est parti(e) à ${heure}`)
+    alert(`${med.nom} est parti(e) à ${heure}`)
   }
 
   // Gestion des permissions
@@ -944,7 +951,7 @@ export default function DashboardSecretaire() {
       ))
     }
     
-    alert(`✅ Permission enregistrée pour ${medecin.nom} (${type})`)
+    alert(`Permission enregistrée pour ${medecin.nom} (${type})`)
   }
 
   // Statistiques du jour
@@ -955,17 +962,25 @@ export default function DashboardSecretaire() {
     pourcentage: Math.round((medecins.filter(m => m.present).length / medecins.length) * 100)
   }
 
+  const NAV_ICONS = {
+    accueil:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+    file:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+    liste:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+    rdv:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+    compta:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+    presence: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  }
   const NAV=[
-    { id:"accueil",  label:"Accueil",        icon:"🏠", desc:"Vue d'ensemble"    },
-    { id:"file",     label:"File d'attente", icon:"👥", desc:"Patients du jour"  },
-    { id:"patients", label:"Tous les patients",icon:"📋",desc:"Registre complet" },
-    { id:"rdv",      label:"Rendez-vous",    icon:"📅", desc:"Planning"          },
-    { id:"compta",   label:"Comptabilité",   icon:"💰", desc:"Paiements"         },
-    { id:"presence", label:"Présence Médecins", icon:"⏰", desc:"Pointage Arrivée/Départ" }
+    { id:"accueil",  label:"Accueil",           icon:"accueil",  desc:"Vue d'ensemble"         },
+    { id:"file",     label:"File d'attente",    icon:"file",     desc:"Patients du jour"       },
+    { id:"patients", label:"Tous les patients", icon:"liste",    desc:"Registre complet"       },
+    { id:"rdv",      label:"Rendez-vous",       icon:"rdv",      desc:"Planning"               },
+    { id:"compta",   label:"Comptabilité",      icon:"compta",   desc:"Paiements"              },
+    { id:"presence", label:"Présence Médecins", icon:"presence", desc:"Pointage Arrivée/Départ"},
   ]
 
   return (
-    <div style={{ minHeight:"100vh",background:C.bg,fontFamily:"'Segoe UI',system-ui,sans-serif",color:C.textPri }}>
+    <div style={{ minHeight:"100vh",background:"#ffffff",fontFamily:"'Segoe UI',system-ui,sans-serif",color:C.textPri }}>
 
       {/* MODALS */}
       {showNouveau   && <ModalNouveauPatient patients={patients} onClose={()=>setShowNouveau(false)} onEnregistrer={handleEnregistrer}/>}
@@ -974,7 +989,6 @@ export default function DashboardSecretaire() {
       {paiementData  && <ModalPaiement patient={paiementData.patient} montantDu={paiementData.montantTotal} paiementExistant={paiementData.paiement} onClose={()=>setPaiementData(null)} onValider={handlePaiement}/>}
       {permissionModal && <ModalPermission medecin={permissionModal.medecin} onClose={()=>setPermissionModal(null)} onValider={validerPermission}/>}
       {onglet === "historique" && <ModalHistorique medecins={medecins} historique={historique} onClose={()=>setOnglet("presence")}/>}
-      {showSettings && <SettingsModal onClose={()=>setShowSettings(false)} />}
 
       {/* SIDEBAR */}
       {sidebarOpen&&(
@@ -993,7 +1007,7 @@ export default function DashboardSecretaire() {
                   style={{ width:"100%",display:"flex",alignItems:"center",gap:12,padding:"11px 12px",borderRadius:12,border:"none",background:onglet===n.id?C.blueSoft:"transparent",color:onglet===n.id?C.blue:C.textSec,fontSize:14,fontWeight:onglet===n.id?700:500,cursor:"pointer",textAlign:"left",marginBottom:3,transition:"all .15s" }}
                   onMouseEnter={e=>{ if(onglet!==n.id) e.currentTarget.style.background=C.slateSoft }}
                   onMouseLeave={e=>{ if(onglet!==n.id) e.currentTarget.style.background="transparent" }}>
-                  <span style={{ fontSize:18 }}>{n.icon}</span>
+                  <span style={{ display:"flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:7,background:onglet===n.id?"rgba(37,99,235,0.12)":"transparent",flexShrink:0 }}>{NAV_ICONS[n.icon]}</span>
                   <div>
                     <p style={{ fontSize:13 }}>{n.label}</p>
                     <p style={{ fontSize:10,color:C.textMuted,marginTop:1 }}>{n.desc}</p>
@@ -1007,8 +1021,8 @@ export default function DashboardSecretaire() {
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 </div>
                 <div>
-                  <p style={{ fontSize:13,fontWeight:700,color:C.textPri }}>Secrétaire</p>
-                  <p style={{ fontSize:11,color:C.green,fontWeight:600 }}>Accueil · Clinique ABC Marouane</p>
+                  <p style={{ fontSize:13,fontWeight:700,color:C.textPri }}>{user?.nom||"Secrétaire"}</p>
+                  <p style={{ fontSize:11,color:C.green,fontWeight:600 }}>{user?.titre||"Secrétaire"} · Accueil</p>
                 </div>
               </div>
             </div>
@@ -1037,13 +1051,13 @@ export default function DashboardSecretaire() {
               <div style={{ position:"absolute",top:48,right:0,width:320,background:C.white,borderRadius:14,border:"1px solid "+C.border,boxShadow:"0 8px 30px rgba(0,0,0,0.15)",zIndex:200 }}>
                 <div style={{ padding:"14px 16px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                   <p style={{ fontSize:14,fontWeight:700,color:C.textPri }}>Notifications</p>
-                  <button onClick={()=>setNotifications(prev=>prev.map(n=>({...n,lu:true})))} style={{ fontSize:11,color:C.blue,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit" }}>Tout lire</button>
+                  <button onClick={()=>setNotifications(prev=>prev.map(n=>({...n,lu:true})))} style={{ fontSize:11,color:C.textPri,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit" }}>Tout lire</button>
                 </div>
                 {notifications.length===0&&<p style={{ padding:20,textAlign:"center",color:C.textMuted,fontSize:13 }}>Aucune notification</p>}
                 {notifications.map(n=>(
                   <div key={n.id} onClick={()=>setNotifications(prev=>prev.map(x=>x.id===n.id?{...x,lu:true}:x))}
                     style={{ padding:"12px 16px",borderBottom:"1px solid "+C.border,cursor:"pointer",background:n.lu?"transparent":C.blueSoft+"66",display:"flex",gap:10,alignItems:"flex-start" }}>
-                    <span style={{ fontSize:16,marginTop:1 }}>{n.type==="rdv"?"📅":"🔔"}</span>
+                    <span style={{ fontSize:16,marginTop:1 }}>{n.type==="rdv"?"RDV":""}</span>
                     <div style={{ flex:1 }}>
                       <p style={{ fontSize:13,color:C.textPri,lineHeight:1.4 }}>{n.message}</p>
                       <p style={{ fontSize:11,color:C.textMuted,marginTop:2 }}>{n.date}</p>
@@ -1054,22 +1068,20 @@ export default function DashboardSecretaire() {
               </div>
             )}
           </div>
-          <div style={{ background:C.greenSoft,border:"1px solid "+C.green+"33",borderRadius:10,padding:"6px 14px",fontSize:14,fontWeight:700,color:C.green,fontVariantNumeric:"tabular-nums" }}>{heure}</div>
-          {/* Bouton Paramètres */}
-          <button onClick={()=>setShowSettings(true)}
-            style={{ width:40,height:40,borderRadius:10,border:"1px solid "+C.border,background:C.white,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}
-            title="Paramètres">
-            ⚙️
-          </button>
+          <div style={{ background:C.greenSoft,border:"1px solid "+C.green+"33",borderRadius:10,padding:"6px 14px",fontSize:14,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{heure}</div>
           <div style={{ display:"flex",alignItems:"center",gap:8 }}>
             <div style={{ textAlign:"right" }}>
-              <p style={{ fontSize:13,fontWeight:700,color:C.textPri }}>Secrétaire</p>
-              <p style={{ fontSize:11,color:C.textSec }}>Clinique ABC Marouane</p>
+              <p style={{ fontSize:13,fontWeight:700,color:C.textPri }}>{user?.nom||"Secrétaire"}</p>
+              <p style={{ fontSize:11,color:C.textSec }}>{user?.titre||"Secrétaire Médicale"}</p>
             </div>
             <div style={{ width:36,height:36,borderRadius:"50%",background:C.greenSoft,border:"2px solid "+C.green+"33",display:"flex",alignItems:"center",justifyContent:"center" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </div>
           </div>
+          <button onClick={handleLogout} title="Se déconnecter"
+            style={{ width:36,height:36,borderRadius:8,border:"1px solid #fca5a5",background:"#fff5f5",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cc2222" strokeWidth="2" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </header>
 
@@ -1081,14 +1093,14 @@ export default function DashboardSecretaire() {
             {/* KPIs */}
             <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16 }}>
               {[
-                { val:file.length,                                      label:"File d'attente",    icon:"👥", bg:C.blueSoft,  fg:C.blue  },
-                { val:file.filter(f=>f.typeVisite==="rendez_vous").length, label:"Rendez-vous du jour",icon:"📅",bg:C.purpleSoft,fg:C.purple},
-                { val:rdvs.filter(r=>r.date===today()).length,          label:"RDV aujourd'hui",   icon:"🗓", bg:C.amberSoft, fg:C.amber },
-                { val:file.filter(f=>f.paiement?.statut==="impaye").length,label:"Impayés",         icon:"⚠️",bg:C.redSoft,   fg:C.red   },
-              ].map(({val,label,icon,bg,fg})=>(
+                { val:file.length, label:"File d'attente", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, bg:C.blueSoft, fg:C.blue },
+                { val:file.filter(f=>f.typeVisite==="rendez_vous").length, label:"Rendez-vous du jour", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, bg:C.purpleSoft, fg:C.purple },
+                { val:rdvs.filter(r=>r.date===today()).length, label:"RDV aujourd'hui", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, bg:C.slateSoft, fg:C.slate },
+                { val:file.filter(f=>f.paiement?.statut==="impaye").length, label:"Impayés", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>, bg:C.redSoft, fg:C.red },
+              ].map(({val,label,svg,bg,fg})=>(
                 <Card key={label} style={{ padding:"20px" }}>
-                  <div style={{ width:42,height:42,borderRadius:10,background:bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,marginBottom:12 }}>{icon}</div>
-                  <p style={{ fontSize:28,fontWeight:800,color:fg,lineHeight:1,marginBottom:4 }}>{val}</p>
+                  <div style={{ width:42,height:42,borderRadius:10,background:bg,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:12,color:fg }}>{svg}</div>
+                  <p style={{ fontSize:28,fontWeight:800,color:C.textPri,lineHeight:1,marginBottom:4 }}>{val}</p>
                   <p style={{ fontSize:12,color:C.textMuted }}>{label}</p>
                 </Card>
               ))}
@@ -1097,15 +1109,15 @@ export default function DashboardSecretaire() {
             {/* Actions rapides */}
             <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
               {[
-                { label:"Nouveau patient",    desc:"Enregistrer un nouveau patient", icon:"👤", action:()=>setShowNouveau(true),  color:C.blue   },
-                { label:"Rechercher dossier", desc:"Patient déjà enregistré",        icon:"🔍", action:()=>setShowRecherche(true), color:C.green  },
-                { label:"Créer un RDV",       desc:"Programmer un rendez-vous",      icon:"📅", action:()=>setShowRdv(true),       color:C.purple },
-              ].map(({label,desc,icon,action,color})=>(
+                { label:"Nouveau patient",    desc:"Enregistrer un nouveau patient", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>, action:()=>setShowNouveau(true), color:C.blue },
+                { label:"Rechercher dossier", desc:"Patient déjà enregistré",        svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>, action:()=>setShowRecherche(true), color:C.green },
+                { label:"Créer un RDV",       desc:"Programmer un rendez-vous",      svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, action:()=>setShowRdv(true), color:C.purple },
+              ].map(({label,desc,svg,action,color})=>(
                 <Card key={label} style={{ padding:"20px",cursor:"pointer",transition:"all .15s",border:"1.5px solid "+C.border }}
                   onClick={action}
                   onMouseEnter={e=>{ e.currentTarget.style.border="1.5px solid "+color; e.currentTarget.style.background=color+"11" }}
                   onMouseLeave={e=>{ e.currentTarget.style.border="1.5px solid "+C.border; e.currentTarget.style.background=C.white }}>
-                  <div style={{ width:46,height:46,borderRadius:12,background:color+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:12 }}>{icon}</div>
+                  <div style={{ width:46,height:46,borderRadius:12,background:color+"22",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:12,color }}>{svg}</div>
                   <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:4 }}>{label}</p>
                   <p style={{ fontSize:12,color:C.textMuted }}>{desc}</p>
                 </Card>
@@ -1125,10 +1137,10 @@ export default function DashboardSecretaire() {
                       <p style={{ fontSize:11,color:C.textSec }}>{f.pid}</p>
                     </div>
                     {f.typeVisite==="rendez_vous"
-                      ? <span style={{ fontSize:11,fontWeight:700,background:C.purpleSoft,color:C.purple,padding:"3px 10px",borderRadius:10 }}>📅 RDV</span>
-                      : <span style={{ fontSize:11,fontWeight:700,background:C.greenSoft,color:C.green,padding:"3px 10px",borderRadius:10 }}>🏥 Consultation</span>
+                      ? <span style={{ fontSize:11,fontWeight:700,background:C.purpleSoft,color:C.purple,padding:"3px 10px",borderRadius:10 }}>RDV</span>
+                      : <span style={{ fontSize:11,fontWeight:700,background:C.greenSoft,color:C.green,padding:"3px 10px",borderRadius:10 }}>Consultation</span>
                     }
-                    <span style={{ fontSize:13,fontWeight:700,color:C.blue,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</span>
+                    <span style={{ fontSize:13,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</span>
                   </div>
                 ))
               }
@@ -1142,15 +1154,15 @@ export default function DashboardSecretaire() {
                 : rdvs.filter(r=>r.date===today()).map((r,i,arr)=>(
                   <div key={r.id} style={{ padding:"13px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:i<arr.length-1?"1px solid "+C.border:"none" }}>
                     <div style={{ width:44,height:44,borderRadius:10,background:C.purpleSoft,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
-                      <p style={{ fontSize:12,fontWeight:800,color:C.purple }}>{r.heure}</p>
+                      <p style={{ fontSize:12,fontWeight:800,color:C.textPri }}>{r.heure}</p>
                     </div>
                     <div style={{ flex:1 }}>
                       <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{r.patient}</p>
                       <p style={{ fontSize:11,color:C.textSec }}>{r.motif} · {r.docteur}</p>
                     </div>
                     {!r.rappelEnvoye
-                      ? <button onClick={()=>envoyerRappel(r.id)} style={{ padding:"5px 12px",background:C.amber,color:"#fff",border:"none",borderRadius:8,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>🔔 Rappeler</button>
-                      : <span style={{ fontSize:11,fontWeight:600,color:C.green }}>✓ Rappelé</span>
+                      ? <button onClick={()=>envoyerRappel(r.id)} style={{ padding:"5px 12px",background:C.slate,color:"#fff",border:"none",borderRadius:8,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>Rappeler</button>
+                      : <span style={{ fontSize:11,fontWeight:600,color:C.green }}>Rappelé</span>
                     }
                   </div>
                 ))
@@ -1168,8 +1180,8 @@ export default function DashboardSecretaire() {
                 <p style={{ fontSize:14,color:C.textSec }}>{file.length} patient{file.length>1?"s":""} en attente du médecin chef</p>
               </div>
               <div style={{ display:"flex",gap:10 }}>
-                <Btn onClick={()=>setShowNouveau(true)} small>👤 Nouveau patient</Btn>
-                <Btn onClick={()=>setShowRecherche(true)} small variant="secondary">🔍 Dossier existant</Btn>
+                <Btn onClick={()=>setShowNouveau(true)} small>Nouveau patient</Btn>
+                <Btn onClick={()=>setShowRecherche(true)} small variant="secondary">Dossier existant</Btn>
               </div>
             </div>
             {file.length===0
@@ -1182,8 +1194,8 @@ export default function DashboardSecretaire() {
                       <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
                         <p style={{ fontSize:15,fontWeight:700,color:C.textPri }}>{f.nom}</p>
                         {f.typeVisite==="rendez_vous"
-                          ? <span style={{ fontSize:11,fontWeight:700,background:C.purpleSoft,color:C.purple,padding:"2px 9px",borderRadius:10 }}>📅 RDV</span>
-                          : <span style={{ fontSize:11,fontWeight:700,background:C.greenSoft,color:C.green,padding:"2px 9px",borderRadius:10 }}>🏥 Consultation</span>
+                          ? <span style={{ fontSize:11,fontWeight:700,background:C.purpleSoft,color:C.purple,padding:"2px 9px",borderRadius:10 }}>RDV</span>
+                          : <span style={{ fontSize:11,fontWeight:700,background:C.greenSoft,color:C.green,padding:"2px 9px",borderRadius:10 }}>Consultation</span>
                         }
                       </div>
                       <p style={{ fontSize:12,color:C.textSec }}>{f.pid}</p>
@@ -1191,7 +1203,7 @@ export default function DashboardSecretaire() {
                     {/* Heure d'arrivée */}
                     <div style={{ textAlign:"center",padding:"8px 16px",background:C.greenSoft,border:"1px solid "+C.green+"33",borderRadius:10 }}>
                       <p style={{ fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Arrivée</p>
-                      <p style={{ fontSize:16,fontWeight:800,color:C.green,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</p>
+                      <p style={{ fontSize:16,fontWeight:800,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</p>
                     </div>
                     {/* Statut paiement */}
                     {f.paiement
@@ -1200,14 +1212,14 @@ export default function DashboardSecretaire() {
                     }
                     {/* Bouton paiement */}
                     <Btn onClick={()=>{ const p=patients.find(pt=>pt.id===f.patientId); setPaiementData({ patient:p||{nom:f.nom,id:f.patientId}, montantTotal:f.montantTotal||0, paiement:f.paiement, patientId:f.patientId }) }} small variant={f.paiement?"secondary":"success"}>
-                      💰 {f.paiement?"Modifier paiement":"Encaisser"}
+                      {f.paiement?"Modifier paiement":"Encaisser"}
                     </Btn>
                   </div>
                   {/* Délai si impayé/partiel */}
                   {f.paiement&&(f.paiement.statut==="impaye"||f.paiement.statut==="partiel")&&f.paiement.delai&&(
-                    <div style={{ marginTop:12,padding:"10px 14px",background:C.amberSoft,borderRadius:10,border:"1px solid "+C.amber+"33",display:"flex",alignItems:"center",gap:8 }}>
+                    <div style={{ marginTop:12,padding:"10px 14px",background:C.slateSoft,borderRadius:10,border:"1px solid "+C.slate+"33",display:"flex",alignItems:"center",gap:8 }}>
                       <span>⏰</span>
-                      <p style={{ fontSize:13,color:C.amber,fontWeight:600 }}>
+                      <p style={{ fontSize:13,color:C.slate,fontWeight:600 }}>
                         {f.paiement.statut==="partiel"?"Paiement partiel":"Impayé"} · Date limite : {fmt(f.paiement.delai)}
                         {f.paiement.statut==="partiel"&&f.paiement.montant?" · Versé : "+f.paiement.montant.toLocaleString("fr-FR")+" GNF":""}
                       </p>
@@ -1227,7 +1239,7 @@ export default function DashboardSecretaire() {
                 <p style={{ fontSize:22,fontWeight:800,color:C.textPri,marginBottom:4 }}>Registre des patients</p>
                 <p style={{ fontSize:14,color:C.textSec }}>{patients.length} patient{patients.length>1?"s":""} enregistrés</p>
               </div>
-              <Btn onClick={()=>setShowNouveau(true)} small>👤 Nouveau patient</Btn>
+              <Btn onClick={()=>setShowNouveau(true)} small>Nouveau patient</Btn>
             </div>
 
             {/* Barre de recherche */}
@@ -1241,7 +1253,7 @@ export default function DashboardSecretaire() {
                 onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.boxShadow="0 0 0 3px "+C.blueSoft }}
                 onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none" }}
               />
-              {recherchePatients&&<button onClick={()=>setRecherchePatients("")} style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:C.textMuted,fontSize:16 }}>✕</button>}
+              {recherchePatients&&<button onClick={()=>setRecherchePatients("")} style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:C.textMuted,fontSize:16 }}>×</button>}
             </div>
 
             <Card>
@@ -1270,7 +1282,7 @@ export default function DashboardSecretaire() {
                         onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
                         onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                         <td style={{ padding:"12px 14px" }}>
-                          <span style={{ fontFamily:"monospace",fontSize:11,fontWeight:700,color:C.blue,background:C.blueSoft,padding:"3px 9px",borderRadius:8 }}>{p.pid}</span>
+                          <span style={{ fontFamily:"monospace",fontSize:11,fontWeight:700,color:C.textPri,background:C.blueSoft,padding:"3px 9px",borderRadius:8 }}>{p.pid}</span>
                         </td>
                         <td style={{ padding:"12px 14px" }}>
                           <div style={{ display:"flex",alignItems:"center",gap:10 }}>
@@ -1280,7 +1292,7 @@ export default function DashboardSecretaire() {
                         </td>
                         <td style={{ padding:"12px 14px",fontSize:13,color:C.textSec }}>{p.age||"—"}</td>
                         <td style={{ padding:"12px 14px" }}>
-                          <span style={{ fontSize:12,fontWeight:600,background:p.sexe==="F"?C.purpleSoft:C.blueSoft,color:p.sexe==="F"?"#7c3aed":C.blue,padding:"3px 10px",borderRadius:12 }}>
+                          <span style={{ fontSize:12,fontWeight:600,background:p.sexe==="F"?C.purpleSoft:C.blueSoft,color:p.sexe==="F"?"#1a4a25":C.blue,padding:"3px 10px",borderRadius:12 }}>
                             {p.sexe==="F"?"Féminin":"Masculin"}
                           </span>
                         </td>
@@ -1294,7 +1306,7 @@ export default function DashboardSecretaire() {
                             style={{ display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:C.greenSoft,border:"1px solid "+C.green+"33",borderRadius:8,color:C.green,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap" }}
                             onMouseEnter={e=>{ e.currentTarget.style.background=C.green; e.currentTarget.style.color="#fff" }}
                             onMouseLeave={e=>{ e.currentTarget.style.background=C.greenSoft; e.currentTarget.style.color=C.green }}>
-                            → Envoyer au médecin
+                            Envoyer au médecin
                           </button>
                         </td>
                       </tr>
@@ -1316,7 +1328,7 @@ export default function DashboardSecretaire() {
                 <p style={{ fontSize:22,fontWeight:800,color:C.textPri,marginBottom:4 }}>Rendez-vous</p>
                 <p style={{ fontSize:14,color:C.textSec }}>{rdvs.length} rendez-vous programmés</p>
               </div>
-              <Btn onClick={()=>setShowRdv(true)} small>📅 Nouveau RDV</Btn>
+              <Btn onClick={()=>setShowRdv(true)} small>Nouveau RDV</Btn>
             </div>
             <Card>
               <CardHeader title="Tous les rendez-vous"/>
@@ -1340,7 +1352,7 @@ export default function DashboardSecretaire() {
                         </div>
                       </td>
                       <td style={{ padding:"13px 16px",fontSize:13,color:r.date===today()?C.green:C.textSec,fontWeight:r.date===today()?700:400 }}>{fmt(r.date)}</td>
-                      <td style={{ padding:"13px 16px",fontSize:13,fontWeight:700,color:C.blue,fontVariantNumeric:"tabular-nums" }}>{r.heure}</td>
+                      <td style={{ padding:"13px 16px",fontSize:13,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{r.heure}</td>
                       <td style={{ padding:"13px 16px" }}>
                         <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{r.docteur}</p>
                         <p style={{ fontSize:11,color:C.textSec }}>{r.service}</p>
@@ -1348,8 +1360,8 @@ export default function DashboardSecretaire() {
                       <td style={{ padding:"13px 16px",fontSize:12,color:C.textSec }}>{r.motif||"—"}</td>
                       <td style={{ padding:"13px 16px" }}>
                         {!r.rappelEnvoye
-                          ? <button onClick={()=>envoyerRappel(r.id)} style={{ padding:"5px 12px",background:C.amberSoft,color:C.amber,border:"1px solid "+C.amber+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>🔔 Envoyer rappel</button>
-                          : <span style={{ fontSize:12,fontWeight:600,color:C.green }}>✓ Rappel envoyé</span>
+                          ? <button onClick={()=>envoyerRappel(r.id)} style={{ padding:"5px 12px",background:C.slateSoft,color:C.slate,border:"1px solid "+C.slate+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>Envoyer rappel</button>
+                          : <span style={{ fontSize:12,fontWeight:600,color:C.green }}>Rappel envoyé</span>
                         }
                       </td>
                     </tr>
@@ -1371,12 +1383,12 @@ export default function DashboardSecretaire() {
             <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20 }}>
               {[
                 { label:"Total payés",    val:file.filter(f=>f.paiement?.statut==="total").length,   bg:C.greenSoft,  fg:C.green  },
-                { label:"Paiements partiels",val:file.filter(f=>f.paiement?.statut==="partiel").length,bg:C.amberSoft,fg:C.amber },
+                { label:"Paiements partiels",val:file.filter(f=>f.paiement?.statut==="partiel").length,bg:C.slateSoft,fg:C.slate },
                 { label:"Impayés",        val:file.filter(f=>f.paiement?.statut==="impaye").length,  bg:C.redSoft,    fg:C.red    },
                 { label:"Non enregistrés",val:file.filter(f=>!f.paiement).length,                    bg:C.slateSoft,  fg:C.slate  },
-              ].map(({label,val,fg})=>(
+              ].map(({label,val})=>(
                 <Card key={label} style={{ padding:"18px" }}>
-                  <p style={{ fontSize:26,fontWeight:800,color:fg,marginBottom:4 }}>{val}</p>
+                  <p style={{ fontSize:26,fontWeight:800,color:C.textPri,marginBottom:4 }}>{val}</p>
                   <p style={{ fontSize:12,color:C.textMuted }}>{label}</p>
                 </Card>
               ))}
@@ -1410,23 +1422,23 @@ export default function DashboardSecretaire() {
                               </div>
                             </div>
                           </td>
-                          <td style={{ padding:"12px 14px",fontSize:13,fontWeight:700,color:C.green,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</td>
+                          <td style={{ padding:"12px 14px",fontSize:13,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</td>
                           <td style={{ padding:"12px 14px" }}>
                             {f.typeVisite==="rendez_vous"
-                              ? <span style={{ fontSize:11,fontWeight:700,background:C.purpleSoft,color:C.purple,padding:"2px 8px",borderRadius:10 }}>📅 RDV</span>
-                              : <span style={{ fontSize:11,fontWeight:700,background:C.greenSoft,color:C.green,padding:"2px 8px",borderRadius:10 }}>🏥 Consult.</span>
+                              ? <span style={{ fontSize:11,fontWeight:700,background:C.purpleSoft,color:C.purple,padding:"2px 8px",borderRadius:10 }}>RDV</span>
+                              : <span style={{ fontSize:11,fontWeight:700,background:C.greenSoft,color:C.green,padding:"2px 8px",borderRadius:10 }}>Consult.</span>
                             }
                           </td>
                           <td style={{ padding:"12px 14px" }}>
                             {f.paiement ? <Badge statut={f.paiement.statut}/> : <span style={{ fontSize:12,color:C.textMuted }}>—</span>}
                           </td>
                           <td style={{ padding:"12px 14px",fontSize:12,color:C.textSec }}>
-                            {f.paiement?.methode==="orange_money"?"🟠 Orange Money":f.paiement?.methode==="cash"?"💵 Cash":"—"}
+                            {f.paiement?.methode==="orange_money"?"Orange Money":f.paiement?.methode==="cash"?"Cash":"—"}
                           </td>
                           <td style={{ padding:"12px 14px",fontSize:13,fontWeight:700,color:f.paiement?.montant?C.green:C.textMuted }}>
                             {f.paiement?.montant?f.paiement.montant.toLocaleString("fr-FR")+" GNF":"—"}
                           </td>
-                          <td style={{ padding:"12px 14px",fontSize:12,color:f.paiement?.delai?C.amber:C.textMuted }}>
+                          <td style={{ padding:"12px 14px",fontSize:12,color:f.paiement?.delai?C.slate:C.textMuted }}>
                             {f.paiement?.delai?fmt(f.paiement.delai):"—"}
                           </td>
                           <td style={{ padding:"12px 14px" }}>
@@ -1434,7 +1446,7 @@ export default function DashboardSecretaire() {
                               style={{ padding:"6px 12px",background:C.blueSoft,border:"1px solid "+C.blue+"33",borderRadius:8,color:C.blue,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}
                               onMouseEnter={e=>{ e.currentTarget.style.background=C.blue; e.currentTarget.style.color="#fff" }}
                               onMouseLeave={e=>{ e.currentTarget.style.background=C.blueSoft; e.currentTarget.style.color=C.blue }}>
-                              ✏️ {f.paiement?"Modifier":"Enregistrer"}
+                              {f.paiement?"Modifier":"Enregistrer"}
                             </button>
                           </td>
                         </tr>
@@ -1459,22 +1471,22 @@ export default function DashboardSecretaire() {
             {/* Statistiques du jour */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:24 }}>
               <Card style={{ padding:"20px" }}>
-                <div style={{ width:42, height:42, borderRadius:10, background:C.blueSoft, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, marginBottom:12 }}>👨‍⚕️</div>
+                <div style={{ width:42, height:42, borderRadius:10, background:C.blueSoft, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:12, color:C.blue }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
                 <p style={{ fontSize:28, fontWeight:800, color:C.blue, lineHeight:1, marginBottom:4 }}>{presenceStats.total}</p>
                 <p style={{ fontSize:12, color:C.textMuted }}>Médecins total</p>
               </Card>
               <Card style={{ padding:"20px" }}>
-                <div style={{ width:42, height:42, borderRadius:10, background:C.greenSoft, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, marginBottom:12 }}>✅</div>
+                <div style={{ width:42, height:42, borderRadius:10, background:C.greenSoft, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:12, color:C.green }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
                 <p style={{ fontSize:28, fontWeight:800, color:C.green, lineHeight:1, marginBottom:4 }}>{presenceStats.presents}</p>
                 <p style={{ fontSize:12, color:C.textMuted }}>Présents</p>
               </Card>
               <Card style={{ padding:"20px" }}>
-                <div style={{ width:42, height:42, borderRadius:10, background:C.redSoft, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, marginBottom:12 }}>⛔</div>
+                <div style={{ width:42, height:42, borderRadius:10, background:C.redSoft, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:12, color:C.red }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
                 <p style={{ fontSize:28, fontWeight:800, color:C.red, lineHeight:1, marginBottom:4 }}>{presenceStats.absents}</p>
                 <p style={{ fontSize:12, color:C.textMuted }}>Absents</p>
               </Card>
               <Card style={{ padding:"20px" }}>
-                <div style={{ width:42, height:42, borderRadius:10, background:C.purpleSoft, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, marginBottom:12 }}>📊</div>
+                <div style={{ width:42, height:42, borderRadius:10, background:C.purpleSoft, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:12, color:C.purple }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
                 <p style={{ fontSize:28, fontWeight:800, color:C.purple, lineHeight:1, marginBottom:4 }}>{presenceStats.pourcentage}%</p>
                 <p style={{ fontSize:12, color:C.textMuted }}>Taux de présence</p>
               </Card>
@@ -1483,7 +1495,7 @@ export default function DashboardSecretaire() {
             {/* Actions globales */}
             <div style={{ marginBottom:16, display:"flex", gap:12 }}>
               <Btn onClick={()=>setOnglet("historique")} variant="secondary">
-                📊 Voir l'historique
+                Voir l'historique
               </Btn>
             </div>
 
@@ -1494,7 +1506,7 @@ export default function DashboardSecretaire() {
                 action={
                   <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                     <span style={{ fontSize:12, color:C.textMuted }}>{medecins.filter(m=>m.present).length}/{medecins.length} présents</span>
-                    <div style={{ width:8, height:8, borderRadius:"50%", background:presenceStats.pourcentage>=80?C.green:presenceStats.pourcentage>=50?C.amber:C.red }}/>
+                    <div style={{ width:8, height:8, borderRadius:"50%", background:presenceStats.pourcentage>=80?C.green:presenceStats.pourcentage>=50?C.slate:C.red }}/>
                   </div>
                 } 
               />
@@ -1549,7 +1561,7 @@ export default function DashboardSecretaire() {
                         <div style={{ color:C.textMuted }}>—</div>
                       )}
                       {med.depart && (
-                        <div style={{ display:"flex", alignItems:"center", gap:6, color:C.amber, fontWeight:600, marginTop:2 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, color:C.slate, fontWeight:600, marginTop:2 }}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                           Départ : {med.depart}
                         </div>
