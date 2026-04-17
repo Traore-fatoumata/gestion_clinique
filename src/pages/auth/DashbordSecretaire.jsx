@@ -394,7 +394,7 @@ function ModalCreerRdv({ patients, docteurs, onClose, onCreate }) {
 // ══════════════════════════════════════════════════════
 function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValider }) {
   const [methode,   setMethode]   = useState(paiementExistant?.methode || "cash")
-  const [statut,    setStatut]    = useState(paiementExistant?.statut || "total")   // total | partiel | impaye
+  const [statut,    setStatut]    = useState(paiementExistant?.statut || "paye")   // paye | partiel | impaye
   const [montant,   setMontant]   = useState(paiementExistant?.montant?.toString() || (montantDu||""))
   const [delai,     setDelai]     = useState(paiementExistant?.delai || "")
   const [note,      setNote]      = useState(paiementExistant?.note || "")
@@ -452,7 +452,7 @@ function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValide
             <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:10 }}>Statut du paiement</label>
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10 }}>
               {[
-                { val:"total",   label:"Tout payé",        icon:"", color:C.green,  bg:C.greenSoft  },
+                { val:"paye",    label:"Tout payé",        icon:"", color:C.green,  bg:C.greenSoft  },
                 { val:"partiel", label:"Paiement partiel", icon:"", color:C.slate,  bg:C.slateSoft  },
                 { val:"impaye",  label:"Rien payé",        icon:"", color:C.red,    bg:C.redSoft    },
               ].map(opt=>(
