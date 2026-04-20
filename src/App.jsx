@@ -5,6 +5,7 @@ import DashboardMedecinChef from "./pages/auth/DashboardMedecinChef"
 import DashboardMedecin from "./pages/auth/DashboardMedecin"
 import DashboardLaboratoire from "./pages/auth/DashboardLaboratoire"
 import DashboardSoinsInfirmiers from "./pages/auth/DashboardSoinsInfirmiers"
+import DashboardComptabilite from "./pages/auth/DashboardComptabilite"
 import { ClinicSettingsProvider } from "./hooks/useClinicSettings.jsx"
 import { AuthProvider } from "./hooks/useAuth.jsx"
 import { SharedDataProvider } from "./hooks/useSharedData.jsx"
@@ -33,6 +34,9 @@ function App() {
               }/>
               <Route path="/soins-infirmiers" element={
                 <PrivateRoute role="infirmier"><DashboardSoinsInfirmiers /></PrivateRoute>
+              }/>
+              <Route path="/comptabilite" element={
+                <PrivateRoute role="comptable"><DashboardComptabilite /></PrivateRoute>
               }/>
               <Route path="*" element={<Navigate to="/login" />} />
             </Routes>

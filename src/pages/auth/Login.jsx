@@ -26,11 +26,29 @@ export default function Login() {
   const onBlur  = e => { e.target.style.borderColor="#e2e8e2"; e.target.style.boxShadow="none" }
 
   const COMPTES = [
-    { titre:"Secrétaire",   email:"secretaire@clinique.com" },
-    { titre:"Médecin",      email:"medecin@clinique.com"    },
-    { titre:"Médecin Chef", email:"chef@clinique.com"       },
-    { titre:"Laboratoire",  email:"labo@clinique.com"       },
-    { titre:"Infirmier(e)", email:"infirmier@clinique.com"  },
+    { groupe:"Personnel", items:[
+      { titre:"Secrétaire",      email:"secretaire@clinique.com"   },
+      { titre:"Médecin Chef",    email:"chef@clinique.com"         },
+      { titre:"Comptable",       email:"comptable@clinique.com"    },
+      { titre:"Laboratoire",     email:"labo@clinique.com"         },
+      { titre:"Infirmier(e)",    email:"infirmier@clinique.com"    },
+    ]},
+    { groupe:"Médecins", items:[
+      { titre:"Dr. Camara — Cardiologie",            email:"medecin@clinique.com"        },
+      { titre:"Dr. Barry — Diabétologie",            email:"generaliste@clinique.com"    },
+      { titre:"Dr. Souaré — Pédiatrie",              email:"pediatre@clinique.com"       },
+      { titre:"Dr. Keïta — Gynécologie",             email:"gynecologue@clinique.com"    },
+      { titre:"Dr. Bah — Ophtalmologie",             email:"ophtalmologue@clinique.com"  },
+      { titre:"Dr. Diallo — Traumatologie",          email:"traumatologue@clinique.com"  },
+      { titre:"Dr. Konaté — Neurologie",             email:"neurologue@clinique.com"     },
+      { titre:"Dr. Traoré — ORL",                    email:"orl@clinique.com"            },
+      { titre:"Dr. Baldé — Urologie",                email:"urologue@clinique.com"       },
+      { titre:"Dr. Condé — Chirurgie",               email:"chirurgien@clinique.com"     },
+      { titre:"Dr. Soumah — Dermatologie",           email:"dermatologue@clinique.com"   },
+      { titre:"Dr. Cissé — Oncologie",               email:"oncologue@clinique.com"      },
+      { titre:"Dr. Bangoura — Maladies infectieuses",email:"infectiologue@clinique.com"  },
+      { titre:"Dr. Fofana — Stomatologie",           email:"stomatologue@clinique.com"   },
+    ]},
   ]
 
   const IST = {
@@ -59,8 +77,8 @@ export default function Login() {
         {/* logo + nom */}
         <div style={{ position:"relative", zIndex:2 }}>
           <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-            <div style={{ width:60, height:60, borderRadius:14, background:"#ffffff", padding:4, boxShadow:"0 4px 20px rgba(0,0,0,0.3)", flexShrink:0 }}>
-              <img src={logo} alt="Logo" style={{ width:"100%", height:"100%", borderRadius:10, objectFit:"cover", display:"block" }}/>
+            <div style={{ width:64, height:64, borderRadius:12, background:"#ffffff", padding:5, boxShadow:"0 4px 20px rgba(0,0,0,0.3)", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <img src={logo} alt="Logo" style={{ width:"100%", height:"100%", borderRadius:8, objectFit:"contain", display:"block" }}/>
             </div>
             <div>
               <p style={{ color:"#ffffff", fontSize:"16px", fontWeight:800, lineHeight:1.3 }}>Clinique Médicale ABC Marouane</p>
@@ -93,8 +111,8 @@ export default function Login() {
 
           {/* Logo centré */}
           <div style={{ textAlign:"center", marginBottom:32 }}>
-            <div style={{ width:80, height:80, borderRadius:"50%", background:"#16a34a", margin:"0 auto 16px", padding:5, boxShadow:"0 6px 24px rgba(22,163,74,0.3)" }}>
-              <img src={logo} alt="" style={{ width:"100%", height:"100%", borderRadius:"50%", objectFit:"cover", display:"block" }}/>
+            <div style={{ width:88, height:88, borderRadius:16, background:"#ffffff", margin:"0 auto 16px", padding:6, boxShadow:"0 6px 24px rgba(22,163,74,0.25)", border:"2px solid #dcfce7", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <img src={logo} alt="" style={{ width:"100%", height:"100%", borderRadius:10, objectFit:"contain", display:"block" }}/>
             </div>
             <h1 style={{ fontSize:"22px", fontWeight:800, color:"#111", marginBottom:4 }}>Connexion</h1>
             <p style={{ fontSize:"13px", color:"#888" }}>Accès réservé au personnel</p>
@@ -169,16 +187,23 @@ export default function Login() {
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               Accès démonstration
             </summary>
-            <div style={{ marginTop:10, border:"1px solid #eee", borderRadius:8, overflow:"hidden" }}>
-              {COMPTES.map((c,i)=>(
-                <button key={c.email} type="button"
-                  onClick={()=>{ setEmail(c.email); setMotDePasse("1234"); setErreur("") }}
-                  style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", border:"none", borderBottom:i<COMPTES.length-1?"1px solid #f0f0f0":"none", background:"#fff", cursor:"pointer", fontFamily:"inherit" }}
-                  onMouseEnter={e=>e.currentTarget.style.background="#f5faf5"}
-                  onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
-                  <span style={{ fontSize:"12px", fontWeight:600, color:"#333" }}>{c.titre}</span>
-                  <span style={{ fontSize:"10px", color:"#bbb" }}>{c.email}</span>
-                </button>
+            <div style={{ marginTop:10, border:"1px solid #eee", borderRadius:8, overflow:"hidden", maxHeight:260, overflowY:"auto" }}>
+              {COMPTES.map((grp, gi) => (
+                <div key={grp.groupe}>
+                  <div style={{ padding:"5px 12px 3px", background:"#f8f8f8", borderBottom:"1px solid #eee", borderTop: gi>0?"1px solid #eee":"none" }}>
+                    <span style={{ fontSize:"9px", fontWeight:800, color:"#999", textTransform:"uppercase", letterSpacing:"0.08em" }}>{grp.groupe}</span>
+                  </div>
+                  {grp.items.map((c, i) => (
+                    <button key={c.email} type="button"
+                      onClick={()=>{ setEmail(c.email); setMotDePasse("1234"); setErreur("") }}
+                      style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 12px", border:"none", borderBottom:i<grp.items.length-1?"1px solid #f5f5f5":"none", background:"#fff", cursor:"pointer", fontFamily:"inherit" }}
+                      onMouseEnter={e=>e.currentTarget.style.background="#f5faf5"}
+                      onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
+                      <span style={{ fontSize:"12px", fontWeight:600, color:"#333" }}>{c.titre}</span>
+                      <span style={{ fontSize:"10px", color:"#bbb" }}>{c.email}</span>
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
           </details>

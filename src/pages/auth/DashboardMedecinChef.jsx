@@ -33,9 +33,13 @@ const INIT_MEDECINS = [
   { id:8,  nom:"Dr. Konaté",    prenom:"Ibrahima",  specialite:"Neurologie",                    email:"konate@cab.gn",    telephone:"+224 622 00 08 08", estChef:false, statut:"actif", creeLe:"2024-05-01" },
   { id:9,  nom:"Dr. Traoré",    prenom:"Aminata",   specialite:"ORL",                           email:"traore@cab.gn",    telephone:"+224 622 00 09 09", estChef:false, statut:"actif", creeLe:"2024-05-15" },
   { id:10, nom:"Dr. Baldé",     prenom:"Mamadou",   specialite:"Urologie",                      email:"balde@cab.gn",     telephone:"+224 622 00 10 10", estChef:false, statut:"actif", creeLe:"2024-06-01" },
-  { id:11, nom:"Dr. Condé",     prenom:"Mariama",   specialite:"Chirurgie",                     email:"conde@cab.gn",     telephone:"+224 622 00 11 11", estChef:false, statut:"actif", creeLe:"2024-06-15" },
-  { id:12, nom:"Dr. Sylla",     prenom:"Aboubacar", specialite:"Laboratoire",                   email:"sylla@cab.gn",     telephone:"+224 622 00 12 12", estChef:false, statut:"actif", creeLe:"2024-07-01" },
-  { id:13, nom:"Dr. Kourouma",  prenom:"Fanta",     specialite:"Pharmacie",                     email:"kourouma@cab.gn",  telephone:"+224 622 00 13 13", estChef:false, statut:"actif", creeLe:"2024-07-15" },
+  { id:11, nom:"Dr. Condé",     prenom:"Mariama",   specialite:"Chirurgie",             email:"conde@cab.gn",     telephone:"+224 622 00 11 11", estChef:false, statut:"actif", creeLe:"2024-06-15" },
+  { id:12, nom:"Dr. Sylla",     prenom:"Aboubacar", specialite:"Laboratoire",           email:"sylla@cab.gn",     telephone:"+224 622 00 12 12", estChef:false, statut:"actif", creeLe:"2024-07-01" },
+  { id:13, nom:"Dr. Kourouma",  prenom:"Fanta",     specialite:"Pharmacie",             email:"kourouma@cab.gn",  telephone:"+224 622 00 13 13", estChef:false, statut:"actif", creeLe:"2024-07-15" },
+  { id:14, nom:"Dr. Soumah",    prenom:"Ibrahima",  specialite:"Dermatologie",          email:"soumah@cab.gn",    telephone:"+224 622 00 14 14", estChef:false, statut:"actif", creeLe:"2025-01-10" },
+  { id:15, nom:"Dr. Cissé",     prenom:"Mariama",   specialite:"Oncologie",             email:"cisse@cab.gn",     telephone:"+224 622 00 15 15", estChef:false, statut:"actif", creeLe:"2025-02-01" },
+  { id:16, nom:"Dr. Bangoura",  prenom:"Sékou",     specialite:"Maladies infectieuses", email:"bangoura@cab.gn",  telephone:"+224 622 00 16 16", estChef:false, statut:"actif", creeLe:"2025-03-01" },
+  { id:17, nom:"Dr. Fofana",    prenom:"Aminata",   specialite:"Stomatologie",          email:"fofana@cab.gn",    telephone:"+224 622 00 17 17", estChef:false, statut:"actif", creeLe:"2025-04-01" },
 ]
 
 const INIT_COMPTES = [
@@ -226,7 +230,7 @@ function ModalCreerCompte({ onClose, onCreer }) {
 // ══════════════════════════════════════════════════════
 //  MODAL — CONSULTATION D'ACCUEIL (vrai flux médecin chef)
 //  Étape 1 : Plaintes & Symptômes
-//  Étape 2 : Diagnostic préliminaire
+//  Étape 2 : Diagnostic de présomption
 //  Étape 3 : Assigner au médecin de service
 //  Étape 4 : Fixer le prix (payé à la secrétaire)
 // ══════════════════════════════════════════════════════
@@ -299,10 +303,10 @@ function ModalConsultationChef({ patient, consultation, medecins, onClose, onVal
             </div>
           </div>
 
-          {/* ── ÉTAPE 2 : Diagnostic préliminaire ── */}
+          {/* ── ÉTAPE 2 : Diagnostic de présomption ── */}
           <div style={{ background:C.bg, borderRadius:14, padding:"16px 18px", border:"1px solid "+C.border }}>
             <p style={{ fontSize:11, fontWeight:700, color:C.textPri, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14 }}>
-              Étape 2 — Diagnostic préliminaire
+              Étape 2 — Diagnostic de présomption
             </p>
             <input value={diagnostic} onChange={e=>setDiagnostic(e.target.value)}
               placeholder="Ex : Suspicion HTA, Paludisme, Infection respiratoire aiguë..."
@@ -444,10 +448,10 @@ function ModalModifier({ consultation, patient, onClose, onModifier }) {
 // ══════════════════════════════════════════════════════
 //  PAGE ACCUEIL
 // ══════════════════════════════════════════════════════
-function PageAccueil({ consultations, patients, setPage }) {
+function PageAccueil({ consultations, patients, file, setPage }) {
   const { user } = useAuth()
   const consultAuj   = consultations.filter(c=>c.date===today())
-  const enAttente    = consultAuj.filter(c=>!c.signePar)
+  const enAttente    = (file || []).filter(f => f.statut !== "termine")
   const recettesAuj  = consultAuj.filter(c=>c.statut==="paye").reduce((s,c)=>s+c.montant,0)
   const recettesTot  = consultations.filter(c=>c.statut==="paye").reduce((s,c)=>s+c.montant,0)
   const recettesMois = consultations.filter(c=>{ const d=new Date(c.date),n=new Date(); return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()&&c.statut==="paye" }).reduce((s,c)=>s+c.montant,0)
@@ -471,7 +475,7 @@ function PageAccueil({ consultations, patients, setPage }) {
             <p style={{ fontSize:15, fontWeight:700, color:C.slate, marginBottom:2 }}>
               {enAttente.length} patient{enAttente.length>1?"s":""} en attente — consultation d'accueil requise
             </p>
-            <p style={{ fontSize:13, color:"#92400e" }}>Cliquez pour recueillir les plaintes, assigner un médecin et fixer le prix de consultation</p>
+            <p style={{ fontSize:13, color:"#92400e" }}>Cliquez pour voir les patients — seuls ceux ayant payé à la comptabilité peuvent être reçus</p>
           </div>
           <span style={{ color:C.slate, fontSize:22, fontWeight:700 }}>→</span>
         </div>
@@ -553,13 +557,14 @@ function PageAccueil({ consultations, patients, setPage }) {
 // ══════════════════════════════════════════════════════
 //  PAGE CONSULTATIONS
 // ══════════════════════════════════════════════════════
-function PageConsultations({ consultations, patients, medecins, onValider, onModifier }) {
+function PageConsultations({ consultations, patients, file, medecins, onValider, onModifier }) {
   const [mConsult, setMConsult] = useState(null)
   const [mModif,   setMModif]   = useState(null)
   const [filtreService, setFiltreService] = useState("tous")
   const [recherche,     setRecherche]     = useState("")
 
-  const fileAccueil   = consultations.filter(c=>c.date===today()&&!c.signePar)
+  // File d'attente = patients ajoutés par la secrétaire, pas encore consultés
+  const fileAccueil = (file || []).filter(f => f.statut !== "termine")
   const servicesDispo = [...new Set(consultations.map(c=>c.service))].filter(Boolean)
 
   const toutesFiltrees = [...consultations]
@@ -584,7 +589,7 @@ function PageConsultations({ consultations, patients, medecins, onValider, onMod
         consultation={mConsult}
         medecins={medecins}
         onClose={()=>setMConsult(null)}
-        onValider={data=>{ onValider(mConsult.id,data); setMConsult(null) }}
+        onValider={data=>{ onValider(mConsult.id, { ...data, patientId: mConsult.patientId }); setMConsult(null) }}
       />}
       {mModif&&<ModalModifier
         consultation={mModif}
@@ -601,7 +606,7 @@ function PageConsultations({ consultations, patients, medecins, onValider, onMod
             <div>
               <p style={{ fontSize:15, fontWeight:700, color:C.textPri }}>Patients en attente — Consultation d'accueil</p>
               <p style={{ fontSize:13, color:C.textSec }}>
-                {fileAccueil.length} patient{fileAccueil.length>1?"s":""} · Recueillez les plaintes, assignez un médecin et fixez le prix
+                {fileAccueil.length} patient{fileAccueil.length>1?"s":""} · Patients ayant payé la consultation à la comptabilité peuvent être reçus
               </p>
             </div>
           </div>
@@ -629,11 +634,15 @@ function PageConsultations({ consultations, patients, medecins, onValider, onMod
                     <p style={{ fontSize:16,fontWeight:800,color:C.green,fontVariantNumeric:"tabular-nums" }}>{c.arrivee}</p>
                   </div>
                 )}
-                <StatutBadge statut="en_attente"/>
-                <button onClick={()=>setMConsult(c)}
-                  style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 20px",background:C.green,color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",flexShrink:0 }}
-                  onMouseEnter={e=>e.currentTarget.style.background="#15803d"}
-                  onMouseLeave={e=>e.currentTarget.style.background=C.green}>
+                {c.paiementConsultation?.statut === "paye"
+                  ? <span style={{ fontSize:11,fontWeight:700,background:"#dcfce7",color:"#15803d",padding:"4px 10px",borderRadius:20,flexShrink:0 }}>Consultation payée</span>
+                  : <span style={{ fontSize:11,fontWeight:700,background:"#fee2e2",color:"#dc2626",padding:"4px 10px",borderRadius:20,flexShrink:0 }}>Paiement en attente</span>
+                }
+                <button
+                  onClick={()=>{ if(c.paiementConsultation?.statut !== "paye"){ alert("Ce patient n'a pas encore payé les frais de consultation. Veuillez l'orienter vers la comptabilité."); return } setMConsult(c) }}
+                  style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 20px",background:c.paiementConsultation?.statut==="paye"?C.green:"#9ca3af",color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:c.paiementConsultation?.statut==="paye"?"pointer":"not-allowed",fontFamily:"inherit",flexShrink:0 }}
+                  onMouseEnter={e=>{ if(c.paiementConsultation?.statut==="paye") e.currentTarget.style.background="#15803d" }}
+                  onMouseLeave={e=>{ if(c.paiementConsultation?.statut==="paye") e.currentTarget.style.background=C.green }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.4 19.79 19.79 0 0 1 1.61 4.84 2 2 0 0 1 3.59 2.66h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.43 17"/></svg>
                   Consulter
                 </button>
@@ -1209,7 +1218,7 @@ export default function DashboardMedecinChef() {
   const navigate   = useNavigate()
   const handleLogout = () => { logout(); navigate("/login") }
 
-  const { patients: sharedPatients, consultations: sharedConsultations, addConsultation, updateConsultation } = useSharedData()
+  const { patients: sharedPatients, consultations: sharedConsultations, addConsultation, updateConsultation, file, updateFileEntry, addNotif } = useSharedData()
 
   const [page,         setPage]         = useState("accueil")
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
@@ -1232,9 +1241,22 @@ export default function DashboardMedecinChef() {
     const ts=new Date().toLocaleString("fr-FR")
     const existing = consultations.find(c=>c.id===consultId)
     if (existing) {
-      updateConsultation(consultId, { ...data, statut:data.docteurId?"en_attente":"paye", signePar:user?.nom||"Dr. Doumbouya", signeLe:ts })
+      updateConsultation(consultId, { ...data, signePar:user?.nom||"Dr. Doumbouya", signeLe:ts })
     } else {
-      addConsultation({ id:consultId, ...data, statut:data.docteurId?"en_attente":"paye", signePar:user?.nom||"Dr. Doumbouya", signeLe:ts })
+      addConsultation({ id:consultId, ...data, signePar:user?.nom||"Dr. Doumbouya", signeLe:ts })
+    }
+    // Marquer le patient comme terminé dans la file d'attente
+    const entree = file.find(f => f.patientId === data.patientId)
+    if (entree) updateFileEntry(entree.id, { statut: "termine" })
+    // Notifier le médecin assigné
+    if (data.docteurId) {
+      const patient = sharedPatients.find(p => p.id === data.patientId)
+      addNotif({
+        docteurId: data.docteurId,
+        patientNom: patient?.nom || entree?.nom || "Patient",
+        motif: data.plaintes || entree?.motif || "Consultation",
+        service: data.service || "",
+      })
     }
   }
 
@@ -1267,7 +1289,9 @@ export default function DashboardMedecinChef() {
         <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:100 }} onClick={()=>setSidebarOpen(false)}>
           <div style={{ position:"absolute",left:0,top:0,bottom:0,width:260,background:C.white,boxShadow:"4px 0 20px rgba(0,0,0,0.1)",display:"flex",flexDirection:"column",overflow:"auto" }} onClick={e=>e.stopPropagation()}>
             <div style={{ padding:"22px 20px 18px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",gap:12,flexShrink:0 }}>
-              <img src={logo} alt="" style={{ width:40,height:40,borderRadius:8,objectFit:"cover" }}/>
+              <div style={{ width:44,height:44,borderRadius:10,background:"#fff",border:"1px solid "+C.border,padding:3,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:7,objectFit:"contain",display:"block" }}/>
+              </div>
               <div>
                 <p style={{ fontSize:14,fontWeight:800,color:C.textPri }}>Clinique ABC Marouane</p>
                 <p style={{ fontSize:12,color:C.textSec }}>Espace médecin chef</p>
@@ -1361,8 +1385,8 @@ export default function DashboardMedecinChef() {
 
       {/* CONTENU */}
       <main style={{ padding:"32px 24px" }}>
-        {page==="accueil"       && <PageAccueil       consultations={consultations} patients={patients} setPage={setPage} />}
-        {page==="consultations" && <PageConsultations consultations={consultations} patients={patients} medecins={medecins} onValider={handleValider} onModifier={handleModifier} />}
+        {page==="accueil"       && <PageAccueil       consultations={consultations} patients={patients} file={file} setPage={setPage} />}
+        {page==="consultations" && <PageConsultations consultations={consultations} patients={patients} file={file} medecins={medecins} onValider={handleValider} onModifier={handleModifier} />}
         {page==="comptes"       && <PageComptes       comptes={comptes} setComptes={setComptes} medecins={medecins} setMedecins={setMedecins} />}
         {page==="presence"      && <PagePresence      medecins={medecins} />}
         {page==="stats"         && <PageStats         consultations={consultations} patients={patients} />}

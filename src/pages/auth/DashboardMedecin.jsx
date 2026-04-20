@@ -41,27 +41,8 @@ const TYPE_CONSULT_LABEL = {
 
 const isGynecoObst = (sp) => /gynécologie|obstétrique/i.test(sp || "")
 
-// Patients assignés par le médecin chef — file d’accueil (plaintes, RDV, type de consultation)
-const PATIENTS_INIT = [
-  { id:1, pid:"CAB-A1B2C3", nom:"Bah Mariama",     dateNaissance:"1990-03-12", sexe:"F", telephone:"+224 622 11 22 33", adresse:"Ratoma",  motif:"Consultation générale", statut:"en_attente", arrivee:"08:15", docteurId:2, typeVisite:"spontane", motifRdv:"", plaintesChef:"Céphalées, courbatures", symptomesChef:"Fièvre à 38.2°C", antecedentsChef:"Néant", diagnosticPreliminaireChef:"Syndrome grippal ?", typeConsultation:"standard" },
-  { id:2, pid:"CAB-D4E5F6", nom:"Diallo Ibrahima", dateNaissance:"1972-07-04", sexe:"M", telephone:"+224 628 44 55 66", adresse:"Kaloum",  motif:"Suivi cardiologie",     statut:"en_attente", arrivee:"08:45", docteurId:2, typeVisite:"rendez_vous", motifRdv:"Contrôle tension et bilan post-hospitalisation (6 mois)", plaintesChef:"— (RDV programmé)", symptomesChef:"—", antecedentsChef:"HTA connue", diagnosticPreliminaireChef:"Suivi HTA / bilan", typeConsultation:"standard" },
-  { id:3, pid:"CAB-G7H8I9", nom:"Sow Fatoumata",   dateNaissance:"1996-11-20", sexe:"F", telephone:"+224 621 77 88 99", adresse:"Dixinn",  motif:"Douleur thoracique",    statut:"en_salle",   arrivee:"09:00", docteurId:2, typeVisite:"spontane", motifRdv:"", plaintesChef:"Douleur rétrosternale depuis 6h", symptomesChef:"Palpitations, sueurs", antecedentsChef:"Tabagisme", diagnosticPreliminaireChef:"Douleur thoracique à explorer", typeConsultation:"standard" },
-  { id:4, pid:"CAB-J1K2L3", nom:"Kouyaté Mamadou", dateNaissance:"1963-01-15", sexe:"M", telephone:"+224 624 33 44 55", adresse:"Matam",   motif:"Palpitations",          statut:"en_attente", arrivee:"09:30", docteurId:3, typeVisite:"spontane", motifRdv:"", plaintesChef:"", symptomesChef:"", antecedentsChef:"", diagnosticPreliminaireChef:"", typeConsultation:"standard" },
-  { id:5, pid:"CAB-M4N5O6", nom:"Baldé Aissatou",  dateNaissance:"2018-06-08", sexe:"F", telephone:"+224 625 66 77 88", adresse:"Matoto",  motif:"Fièvre persistante",    statut:"en_attente", arrivee:"10:00", docteurId:4, typeVisite:"spontane", motifRdv:"", plaintesChef:"", symptomesChef:"", antecedentsChef:"", diagnosticPreliminaireChef:"", typeConsultation:"standard" },
-  { id:6, pid:"CAB-P9Q0R1", nom:"Touré Aminata",   dateNaissance:"1994-08-22", sexe:"F", telephone:"+224 620 12 34 56", adresse:"Coyah",   motif:"CPN — suivi grossesse", statut:"en_attente", arrivee:"10:30", docteurId:5, typeVisite:"rendez_vous", motifRdv:"CPN 3e trimestre + bilan prénatal", plaintesChef:"Fatigue, œdèmes légers", symptomesChef:"TA 12/8, HU 32 cm", antecedentsChef:"G2P1", diagnosticPreliminaireChef:"Grossesse à terme proche", typeConsultation:"prenatal" },
-  { id:7, pid:"CAB-S2T3U4", nom:"Camara Oumou",     dateNaissance:"1991-01-10", sexe:"F", telephone:"+224 623 98 76 54", adresse:"Matam",   motif:"Travail obstétrical",   statut:"en_salle",   arrivee:"11:00", docteurId:5, typeVisite:"spontane", motifRdv:"", plaintesChef:"Contractions régulières", symptomesChef:"BPP 140, col 6 cm", antecedentsChef:"G3P2", diagnosticPreliminaireChef:"Travail évolutif", typeConsultation:"accouchement" },
-]
 
-const CONSULTATIONS_INIT = [
-  { id:10, patientId:1, date:"2025-11-10", motif:"Migraine, fatigue", service:"Médecine générale", docteurId:1, observations:"Repos", symptomes:"Céphalée", diagnostics:["Migraine"], pathologies:[], examens:[], traitements:["Antalgique"], commentaires:"Autre service", signe:true, signeLe:"10/11/2025 09:00", typeConsultation:"standard" },
-  { id:1, patientId:1, date:"2026-03-15", motif:"Fièvre persistante",  service:"Cardiologie", docteurId:2, observations:"TA 13/8, pouls 90", symptomes:"Fièvre, fatigue", diagnostics:["Infection virale"], pathologies:["Anémie"], examens:["NFS"], traitements:["Paracétamol 500mg"], commentaires:"Repos 3 jours", signe:true,  signeLe:"15/03/2026 10:30", typeConsultation:"standard" },
-  { id:2, patientId:2, date:"2026-03-28", motif:"Suivi cardiologie",   service:"Cardiologie", docteurId:2, observations:"Tension stable 12/8", symptomes:"Palpitations", diagnostics:["HTA stable"],         pathologies:["HTA"],    examens:["ECG"], traitements:["Amlodipine 5mg"],  commentaires:"Contrôle dans 1 mois", signe:true,  signeLe:"28/03/2026 11:00", typeConsultation:"standard" },
-  { id:3, patientId:3, date:today(),      motif:"Douleur thoracique",  service:"Cardiologie", docteurId:2, observations:"",                   symptomes:"",              diagnostics:[],                      pathologies:[],         examens:[],      traitements:[],                  commentaires:"",                     signe:false, signeLe:null, typeConsultation:"standard" },
-  { id:4, patientId:6, date:"2026-02-01", motif:"CPN 2e trimestre",    service:"Gynécologie", docteurId:5, observations:"Échographie normale", symptomes:"—", diagnostics:["Grossesse évolutive"], pathologies:[], examens:["Échographie"], traitements:["Acide folique"], commentaires:"", signe:true, signeLe:"01/02/2026 14:00", typeConsultation:"prenatal", donneesPrenatal:{ ddr:"2025-07-10", termeSA:"32 sa", gestiteParite:"G2P1", ta:"12/8", hu:"24", bcf:"140", presentation:"Céphalique", visiteCpn:"2", albumine:"négatif", sucre:"négatif", vat:"VAT2" } },
-]
 
-// Médecin connecté (simulé). Pour CPN / accouchement : { id:5, nom:"Dr. Keïta", specialite:"Gynécologie" }
-const MEDECIN_CONNECTE = { id:5, nom:"Dr. Keïta", specialite:"Gynécologie" }
 // ══════════════════════════════════════════════════════
 //  COULEURS
 // ══════════════════════════════════════════════════════
@@ -266,7 +247,7 @@ function ModalFichePatient({ patient, consultations, medecin, onClose, onConsult
               {patient.plaintesChef && <p style={{ fontSize:13, color:C.textPri, marginBottom:4 }}><strong>Plaintes :</strong> {patient.plaintesChef}</p>}
               {patient.symptomesChef && <p style={{ fontSize:13, color:C.textPri, marginBottom:4 }}><strong>Signes / symptômes :</strong> {patient.symptomesChef}</p>}
               {patient.antecedentsChef && <p style={{ fontSize:13, color:C.textPri, marginBottom:4 }}><strong>Antécédents :</strong> {patient.antecedentsChef}</p>}
-              {patient.diagnosticPreliminaireChef && <p style={{ fontSize:13, color:C.textPri }}><strong>Hypothèse préliminaire :</strong> {patient.diagnosticPreliminaireChef}</p>}
+              {patient.diagnosticPreliminaireChef && <p style={{ fontSize:13, color:C.textPri }}><strong>Diagnostic de présomption :</strong> {patient.diagnosticPreliminaireChef}</p>}
             </div>
           )}
 
@@ -336,22 +317,24 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
   const da = consultation?.donneesAccouchement || {}
 
   const [form, setForm] = useState({
-    motif:        consultation?.motif        || patient?.motif || "",
-    symptomes:    consultation?.symptomes    || "",
-    observations: consultation?.observations || "",
-    diagnostics:  (consultation?.diagnostics||[]).join(", "),
-    pathologies:  (consultation?.pathologies||[]).join(", "),
-    examens:      (consultation?.examens||[]).join(", "),
-    traitements:  (consultation?.traitements||[]).join(", "),
-    commentaires: consultation?.commentaires || "",
+    motif:                 consultation?.motif               || patient?.motif || "",
+    plaintes:              consultation?.plaintes            || consultation?.observations || "",
+    antecedents:           consultation?.antecedents         || "",
+    poids:                 consultation?.poids               || "",
+    diagPresomption:       consultation?.diagPresomption     || consultation?.symptomes || "",
+    diagDefinitif:         (consultation?.diagDefinitif      || consultation?.diagnostics || []).join(", "),
+    pathologies:           (consultation?.pathologies||[]).join(", "),
+    examens:               (consultation?.examens||[]).join(", "),
+    traitements:           (consultation?.traitements||[]).join(", "),
+    commentaires:          consultation?.commentaires || "",
   })
   const [prenatal, setPrenatal] = useState(() => mergePrenatalInit(dp))
   const [accouch, setAccouch] = useState(() => mergeAccouchInit(da))
-  const STAGIAIRE_VIDE = { nom:"", service:"", participation:0, connaissances:0, comportement:0, commentaire:"" }
-  const [stagiaires, setStagiaires] = useState(consultation?.stagiaires || [])
-  const addStagiaire = () => setStagiaires(p=>[...p, { ...STAGIAIRE_VIDE, id: Date.now() }])
-  const removeStagiaire = id => setStagiaires(p=>p.filter(s=>s.id!==id))
-  const updateStagiaire = (id, k, v) => setStagiaires(p=>p.map(s=>s.id===id?{...s,[k]:v}:s))
+  const ASSISTANT_VIDE = { nom:"", service:"", participation:0, connaissances:0, comportement:0, commentaire:"" }
+  const [assistants, setAssistants] = useState(consultation?.assistants || consultation?.stagiaires || [])
+  const addAssistant = () => setAssistants(p=>[...p, { ...ASSISTANT_VIDE, id: Date.now() }])
+  const removeAssistant = id => setAssistants(p=>p.filter(s=>s.id!==id))
+  const updateAssistant = (id, k, v) => setAssistants(p=>p.map(s=>s.id===id?{...s,[k]:v}:s))
   const [suggestions, setSuggestions] = useState([])
   const f = (k,v) => setForm(p=>({...p,[k]:v}))
   const fp = (k,v) => setPrenatal(p=>({...p,[k]:v}))
@@ -369,6 +352,8 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
     setSuggestions(Array.from(res))
   }
 
+  const age = calcAge(patient?.dateNaissance)
+
   if (!patient) return null
 
   const ajouterTag = (champ, val) => {
@@ -379,8 +364,8 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
   const parseList = str => str.split(",").map(x=>x.trim()).filter(Boolean)
 
   const valider = (signer) => {
-    if (!form.observations.trim()) { alert("Les observations cliniques sont obligatoires."); return }
-    if (signer && !form.diagnostics.trim()) { alert("Le diagnostic est obligatoire pour signer."); return }
+    if (!form.plaintes.trim()) { alert("Les plaintes du patient sont obligatoires."); return }
+    if (signer && !form.diagDefinitif.trim()) { alert("Le diagnostic définitif est obligatoire pour signer."); return }
     if (showPrenatal && !prenatal.ddr.trim() && !prenatal.termeSA.trim()) {
       alert("Pour une CPN, indiquez au minimum la DDR ou le terme (semaines d’aménorrhée)."); return
     }
@@ -388,16 +373,19 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
       alert("Pour le registre d’accouchement, la date de l’accouchement est obligatoire."); return
     }
     const data = {
-      motif:        form.motif,
-      symptomes:    form.symptomes,
-      observations: form.observations,
-      diagnostics:  parseList(form.diagnostics),
-      pathologies:  parseList(form.pathologies),
-      examens:      parseList(form.examens),
-      traitements:  parseList(form.traitements),
-      commentaires: form.commentaires,
+      motif:            form.motif,
+      plaintes:         form.plaintes,
+      antecedents:      form.antecedents,
+      poids:            form.poids,
+      diagPresomption:  form.diagPresomption,
+      diagDefinitif:    parseList(form.diagDefinitif),
+      diagnostics:      parseList(form.diagDefinitif),
+      pathologies:      parseList(form.pathologies),
+      examens:          parseList(form.examens),
+      traitements:      parseList(form.traitements),
+      commentaires:     form.commentaires,
       typeConsultation: mode,
-      stagiaires:   stagiaires.filter(s=>s.nom.trim()),
+      assistants:       assistants.filter(s=>s.nom.trim()),
       ...(showPrenatal && { donneesPrenatal: { ...prenatal, parite: prenatal.gestiteParite, terme: prenatal.termeSA } }),
       ...(showAcc && { donneesAccouchement: { ...accouch } }),
     }
@@ -446,7 +434,7 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
               {patient.plaintesChef && <p style={{ fontSize:13, marginBottom:4 }}><strong>Plaintes :</strong> {patient.plaintesChef}</p>}
               {patient.symptomesChef && <p style={{ fontSize:13, marginBottom:4 }}><strong>Symptômes :</strong> {patient.symptomesChef}</p>}
               {patient.antecedentsChef && <p style={{ fontSize:13, marginBottom:4 }}><strong>Antécédents :</strong> {patient.antecedentsChef}</p>}
-              {patient.diagnosticPreliminaireChef && <p style={{ fontSize:13 }}><strong>Hypothèse :</strong> {patient.diagnosticPreliminaireChef}</p>}
+              {patient.diagnosticPreliminaireChef && <p style={{ fontSize:13 }}><strong>Diag. présomption :</strong> {patient.diagnosticPreliminaireChef}</p>}
             </div>
           )}
 
@@ -667,26 +655,42 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
               onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
           </div>
 
-          {/* Observations */}
+          {/* Plaintes du patient */}
           <div>
-            <label style={labelSt}>Observations cliniques <span style={{ color:C.red }}>*</span></label>
-            <textarea value={form.observations} onChange={e=>f("observations",e.target.value)}
-              placeholder="TA, pouls, température, auscultation, examen physique…" rows={3} style={inputSt}
+            <label style={labelSt}>Plaintes du patient <span style={{ color:C.red }}>*</span></label>
+            <textarea value={form.plaintes} onChange={e=>f("plaintes",e.target.value)}
+              placeholder="Ce que le patient exprime : douleur, malaise, durée des symptômes…" rows={3} style={inputSt}
               onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
           </div>
 
-          {/* Symptômes + suggestions auto */}
+          {/* Antécédents + Poids */}
+          <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr", gap:14 }}>
+            <div>
+              <label style={labelSt}>Antécédents du patient</label>
+              <textarea value={form.antecedents} onChange={e=>f("antecedents",e.target.value)}
+                placeholder="Maladies chroniques, chirurgies, allergies, antécédents familiaux…" rows={2} style={inputSt}
+                onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
+            </div>
+            <div>
+              <label style={labelSt}>Poids (kg)</label>
+              <input type="number" value={form.poids} onChange={e=>f("poids",e.target.value)} placeholder="Ex : 68"
+                style={{ ...inputSt, resize:"none" }}
+                onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
+            </div>
+          </div>
+
+          {/* Diagnostic de présomption + suggestions auto */}
           <div>
-            <label style={labelSt}>Symptômes du patient</label>
-            <textarea value={form.symptomes} onChange={e=>{ f("symptomes",e.target.value); genSuggestions(e.target.value) }}
-              placeholder="Ex : fièvre, toux, douleur thoracique… (les suggestions apparaissent automatiquement)" rows={2} style={inputSt}
+            <label style={labelSt}>Diagnostic de présomption</label>
+            <textarea value={form.diagPresomption} onChange={e=>{ f("diagPresomption",e.target.value); genSuggestions(e.target.value) }}
+              placeholder="Diag. présomption diagnostique à ce stade de l'examen…" rows={2} style={inputSt}
               onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
             {suggestions.length > 0 && (
               <div style={{ marginTop:8, padding:"10px 14px", background:C.blueSoft, borderRadius:10, border:"1px solid "+C.blue+"33" }}>
-                <p style={{ fontSize:12, fontWeight:700, color:C.textPri, marginBottom:8 }}>Suggestions de diagnostic basées sur les symptômes :</p>
+                <p style={{ fontSize:12, fontWeight:700, color:C.textPri, marginBottom:8 }}>Suggestions basées sur le diagnostic de présomption :</p>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                   {suggestions.map(s=>(
-                    <button key={s} type="button" onClick={()=>ajouterTag("diagnostics",s)}
+                    <button key={s} type="button" onClick={()=>ajouterTag("diagDefinitif",s)}
                       style={{ padding:"3px 10px", background:C.white, color:C.blue, border:"1px solid "+C.blue+"44", borderRadius:20, fontSize:12, fontWeight:600, cursor:"pointer" }}>
                       + {s}
                     </button>
@@ -696,11 +700,11 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
             )}
           </div>
 
-          {/* Diagnostic & Pathologies */}
+          {/* Diagnostic définitif & Pathologies */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
             <div>
-              <label style={labelSt}>Diagnostic(s) <span style={{ color:C.red }}>*</span></label>
-              <input value={form.diagnostics} onChange={e=>f("diagnostics",e.target.value)} placeholder="Séparer par des virgules"
+              <label style={labelSt}>Diagnostic définitif <span style={{ color:C.red }}>*</span></label>
+              <input value={form.diagDefinitif} onChange={e=>f("diagDefinitif",e.target.value)} placeholder="Séparer par des virgules"
                 style={{ ...inputSt, resize:"none" }}
                 onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
             </div>
@@ -752,7 +756,7 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
               onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
           </div>
 
-          {/* ── Évaluation des Stagiaires ── */}
+          {/* ── Assistants présents ── */}
           <div style={{ border:"1px solid "+C.border, borderRadius:14, overflow:"hidden" }}>
             <div style={{ padding:"14px 18px", background:C.greenSoft, borderBottom:"1px solid "+C.border, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div style={{ display:"flex", alignItems:"center", gap:10 }}>
@@ -760,33 +764,33 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 </div>
                 <div>
-                  <p style={{ fontSize:14, fontWeight:700, color:C.textPri }}>Stagiaires présents</p>
-                  <p style={{ fontSize:11, color:C.textSec }}>{stagiaires.length === 0 ? "Aucun stagiaire · cliquez pour en ajouter" : `${stagiaires.length} stagiaire${stagiaires.length>1?"s":""} enregistré${stagiaires.length>1?"s":""}`}</p>
+                  <p style={{ fontSize:14, fontWeight:700, color:C.textPri }}>Assistants présents</p>
+                  <p style={{ fontSize:11, color:C.textSec }}>{assistants.length === 0 ? "Aucun assistant · cliquez pour en ajouter" : `${assistants.length} assistant${assistants.length>1?"s":""} enregistré${assistants.length>1?"s":""}`}</p>
                 </div>
               </div>
-              <button onClick={addStagiaire}
+              <button onClick={addAssistant}
                 style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", background:C.green, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Ajouter
               </button>
             </div>
 
-            {stagiaires.length > 0 && (
+            {assistants.length > 0 && (
               <div style={{ padding:"14px 18px", display:"flex", flexDirection:"column", gap:14 }}>
-                {stagiaires.map((st, idx) => (
+                {assistants.map((st, idx) => (
                   <div key={st.id} style={{ border:"1px solid "+C.border, borderRadius:10, overflow:"hidden" }}>
-                    {/* En-tête du stagiaire */}
+                    {/* En-tête de l'assistant */}
                     <div style={{ padding:"10px 14px", background:"#f9fafb", borderBottom:"1px solid "+C.border, display:"flex", alignItems:"center", gap:10 }}>
                       <div style={{ width:28, height:28, borderRadius:"50%", background:C.green+"22", display:"flex", alignItems:"center", justifyContent:"center", color:C.green, fontSize:12, fontWeight:800, flexShrink:0 }}>{idx+1}</div>
-                      <input value={st.nom} onChange={e=>updateStagiaire(st.id,"nom",e.target.value)}
-                        placeholder="Nom du stagiaire"
+                      <input value={st.nom} onChange={e=>updateAssistant(st.id,"nom",e.target.value)}
+                        placeholder="Nom de l'assistant"
                         style={{ ...inputSt, flex:1, marginBottom:0, padding:"6px 10px" }}
                         onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
-                      <input value={st.service} onChange={e=>updateStagiaire(st.id,"service",e.target.value)}
+                      <input value={st.service} onChange={e=>updateAssistant(st.id,"service",e.target.value)}
                         placeholder="Service / Spécialité"
                         style={{ ...inputSt, flex:1, marginBottom:0, padding:"6px 10px" }}
                         onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
-                      <button onClick={()=>removeStagiaire(st.id)}
+                      <button onClick={()=>removeAssistant(st.id)}
                         style={{ width:28, height:28, borderRadius:6, border:"1px solid "+C.red+"44", background:C.redSoft, color:C.red, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                       </button>
@@ -806,7 +810,7 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
                           </div>
                           <div style={{ display:"flex", gap:4, flexShrink:0 }}>
                             {[1,2,3,4,5].map(n=>(
-                              <button key={n} type="button" onClick={()=>updateStagiaire(st.id, key, n)}
+                              <button key={n} type="button" onClick={()=>updateAssistant(st.id, key, n)}
                                 style={{ width:28, height:28, borderRadius:6, border:"none", cursor:"pointer", fontSize:16, lineHeight:1,
                                   background: n<=st[key] ? C.green : "#e5e7eb",
                                   color: n<=st[key] ? "#fff" : "#9ca3af",
@@ -822,8 +826,8 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
                       {/* Commentaire */}
                       <div style={{ marginTop:8 }}>
                         <label style={{ ...labelSt, marginBottom:4 }}>Commentaire libre <span style={{ fontWeight:400, color:C.textMuted }}>(facultatif)</span></label>
-                        <textarea value={st.commentaire} onChange={e=>updateStagiaire(st.id,"commentaire",e.target.value)}
-                          placeholder="Observations particulières sur ce stagiaire…" rows={2}
+                        <textarea value={st.commentaire} onChange={e=>updateAssistant(st.id,"commentaire",e.target.value)}
+                          placeholder="Observations particulières sur cet assistant…" rows={2}
                           style={{ ...inputSt, resize:"vertical" }}
                           onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
                       </div>
@@ -860,13 +864,17 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
             <Btn onClick={()=>{
               const date = new Date().toLocaleDateString("fr-FR")
               const traitement = form.traitements||"—"
-              const diagnostic = form.diagnostics||"—"
+              const diagnostic = form.diagDefinitif || form.diagPresomption || "—"
+              const poidsStr = form.poids ? `${form.poids} kg` : "Non renseigné"
               const w = window.open("","_blank","width=700,height=900")
               w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ordonnance</title><style>
                 body{font-family:'Segoe UI',sans-serif;margin:0;padding:32px;color:#000}
-                .header{text-align:center;border-bottom:2px solid #2d7a3f;padding-bottom:16px;margin-bottom:24px}
-                .title{font-size:22px;font-weight:800;color:#2d7a3f;margin:0}
+                .header{text-align:center;border-bottom:2px solid #16a34a;padding-bottom:16px;margin-bottom:24px}
+                .title{font-size:22px;font-weight:800;color:#16a34a;margin:0}
                 .sub{font-size:13px;color:#444;margin:4px 0}
+                .patient-info{display:flex;gap:16px;margin-bottom:18px;background:#f5faf5;border-radius:8px;padding:12px 16px;border:1px solid #dde8dd}
+                .pi-item{flex:1}.pi-label{font-size:10px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.05em;margin-bottom:2px}
+                .pi-value{font-size:14px;font-weight:600;color:#111}
                 .section{margin-bottom:18px}
                 .label{font-size:11px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.05em;margin-bottom:4px}
                 .value{font-size:14px;padding:8px 12px;background:#f5faf5;border-radius:6px;border:1px solid #dde8dd}
@@ -876,15 +884,19 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
               </style></head><body>
               <div class="header">
                 <div class="title">Clinique Médicale ABC Marouane</div>
-                <div class="sub">Conakry, République de Guinée · +224 624 00 00 00</div>
+                <div class="sub">Tannerie, Kaloum · Conakry, République de Guinée · +224 624 00 00 00</div>
                 <div class="sub" style="font-size:16px;font-weight:700;margin-top:8px">ORDONNANCE MÉDICALE</div>
               </div>
-              <div class="section"><div class="label">Date</div><div class="value">${date}</div></div>
-              <div class="section"><div class="label">Patient</div><div class="value">${patient?.nom||"—"} · ${patient?.sexe==="F"?"Mme":"M."}</div></div>
+              <div class="patient-info">
+                <div class="pi-item"><div class="pi-label">Nom & Prénom</div><div class="pi-value">${patient?.nom||"—"} (${patient?.sexe==="F"?"Mme":"M."})</div></div>
+                <div class="pi-item"><div class="pi-label">Âge</div><div class="pi-value">${age} ans</div></div>
+                <div class="pi-item"><div class="pi-label">Poids</div><div class="pi-value">${poidsStr}</div></div>
+                <div class="pi-item"><div class="pi-label">Date</div><div class="pi-value">${date}</div></div>
+              </div>
               <div class="section"><div class="label">Médecin prescripteur</div><div class="value">${medecin?.nom||"—"} — ${medecin?.specialite||"—"}</div></div>
-              <div class="section"><div class="label">Diagnostic</div><div class="value">${diagnostic}</div></div>
+              <div class="section"><div class="label">Diagnostic définitif</div><div class="value">${diagnostic}</div></div>
               <div class="section"><div class="label">Prescriptions</div><div class="value" style="white-space:pre-wrap">${traitement.split(",").map((t,i)=>`${i+1}. ${t.trim()}`).join("\n")}</div></div>
-              ${form.commentaires?`<div class="section"><div class="label">Commentaires</div><div class="value">${form.commentaires}</div></div>`:""}
+              ${form.commentaires?`<div class="section"><div class="label">Commentaires / Suivi</div><div class="value">${form.commentaires}</div></div>`:""}
               <div class="footer">
                 <div>Valable 3 mois à compter du ${date}</div>
                 <div class="sign-box">Signature &amp; Cachet du médecin</div>
@@ -919,13 +931,16 @@ export default function DashboardMedecin() {
   const navigate   = useNavigate()
   const handleLogout = () => { logout(); navigate("/login") }
 
-  const { patients: sharedPatients, consultations: sharedConsultations, updateConsultation, addConsultation, file, updateFileEntry } = useSharedData()
+  const { patients: sharedPatients, consultations: sharedConsultations, updateConsultation, addConsultation, file, updateFileEntry, notifs, marquerNotifLue, marquerToutesLues } = useSharedData()
 
   const medecin = { id: user?.id || 2, nom: user?.nom || "Dr. Keïta", specialite: user?.specialite || "Médecine générale" }
 
+  const mesNotifs     = notifs.filter(n => n.docteurId === medecin.id).sort((a,b) => b.id - a.id)
+  const notifsNonLues = mesNotifs.filter(n => !n.lu).length
+  const [showNotifs, setShowNotifs] = useState(false)
+
   const [onglet, setOnglet]               = useState("accueil")
   const [sidebarOpen, setSidebarOpen]     = useState(false)
-  const patients      = sharedPatients.length > 0 ? sharedPatients : PATIENTS_INIT
   const consultations = sharedConsultations
   const [heure, setHeure]                 = useState("")
   const [dateStr, setDateStr]             = useState("")
@@ -942,15 +957,21 @@ export default function DashboardMedecin() {
     tick(); const t=setInterval(tick,1000); return()=>clearInterval(t)
   },[])
 
-  // Filtrer par médecin connecté
-  const mesPatients     = patients.filter(p=>p.docteurId===medecin.id)
+  // Patients du jour : viennent de la file d'attente partagée (assignés par la secrétaire/chef)
+  const mesPatients = file
+    .filter(f => f.docteurId === medecin.id && f.statut !== "termine")
+    .map(f => {
+      const pat = sharedPatients.find(sp => sp.id === f.patientId) || {}
+      return { ...pat, ...f, id: f.patientId, fileId: f.id }
+    })
+
   const mesConsultations= consultations.filter(c=>c.docteurId===medecin.id)
   const enAttente       = mesPatients.filter(p=>p.statut==="en_attente").length
   const nonSignees      = mesConsultations.filter(c=>!c.signe).length
 
   const patientsFiltres = mesPatients.filter(p=>{
     const q=recherche.toLowerCase()
-    return !q||p.nom.toLowerCase().includes(q)||p.pid.toLowerCase().includes(q)||p.motif.toLowerCase().includes(q)
+    return !q||p.nom.toLowerCase().includes(q)||(p.pid||"").toLowerCase().includes(q)||p.motif.toLowerCase().includes(q)
       ||(p.motifRdv||"").toLowerCase().includes(q)||(TYPE_CONSULT_LABEL[p.typeConsultation]?.label||"").toLowerCase().includes(q)
   })
 
@@ -1024,7 +1045,9 @@ export default function DashboardMedecin() {
 
             {/* Logo */}
             <div style={{ padding:"22px 20px 18px", borderBottom:"1px solid "+C.border, display:"flex", alignItems:"center", gap:12 }}>
-              <img src={logo} alt="" style={{height:44, borderRadius:8, objectFit:"cover", border:"1px solid "+C.border }} />
+              <div style={{ width:44,height:44,borderRadius:10,background:"#fff",border:"1px solid "+C.border,padding:3,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:7,objectFit:"contain",display:"block" }}/>
+              </div>
               <div>
                 <p style={{ fontSize:14, fontWeight:800, color:C.textPri, lineHeight:1.2 }}>Clinique Marouane</p>
                 <p style={{ fontSize:12, color:C.textSec }}>Espace médecin</p>
@@ -1082,13 +1105,54 @@ export default function DashboardMedecin() {
           <p style={{ fontSize:12, color:C.textMuted, textTransform:"capitalize" }}>{dateStr}</p>
         </div>
 
-        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           {/* Alerte non signées */}
           {nonSignees>0 && (
             <button onClick={()=>setOnglet("consultations")} style={{ background:C.redSoft, border:"1px solid "+C.red+"44", borderRadius:10, padding:"7px 14px", fontSize:12, fontWeight:700, color:C.red, cursor:"pointer", fontFamily:"inherit" }}>
               {nonSignees} à signer
             </button>
           )}
+
+          {/* 🔔 Notifications */}
+          <div style={{ position:"relative" }}>
+            <button onClick={()=>{ setShowNotifs(v=>!v); if(!showNotifs) marquerToutesLues(medecin.id) }}
+              style={{ width:40,height:40,borderRadius:10,border:"1px solid "+C.border,background:notifsNonLues>0?C.amberSoft:C.white,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",position:"relative" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={notifsNonLues>0?C.amber:C.textSec} strokeWidth="2" strokeLinecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              {notifsNonLues>0 && <span style={{ position:"absolute",top:-4,right:-4,width:18,height:18,borderRadius:"50%",background:C.red,color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center" }}>{notifsNonLues}</span>}
+            </button>
+            {showNotifs && (
+              <div style={{ position:"absolute",right:0,top:48,width:320,background:C.white,borderRadius:14,boxShadow:"0 8px 32px rgba(0,0,0,0.15)",border:"1px solid "+C.border,zIndex:200,overflow:"hidden" }}
+                onClick={e=>e.stopPropagation()}>
+                <div style={{ padding:"14px 16px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                  <p style={{ fontSize:14,fontWeight:700,color:C.textPri }}>Notifications</p>
+                  <button onClick={()=>setShowNotifs(false)} style={{ background:"none",border:"none",cursor:"pointer",color:C.textMuted,fontSize:18,lineHeight:1 }}>×</button>
+                </div>
+                <div style={{ maxHeight:340,overflowY:"auto" }}>
+                  {mesNotifs.length===0
+                    ? <p style={{ padding:"28px 16px",textAlign:"center",color:C.textMuted,fontSize:13 }}>Aucune notification</p>
+                    : mesNotifs.map(n=>(
+                      <div key={n.id} onClick={()=>marquerNotifLue(n.id)}
+                        style={{ padding:"12px 16px",borderBottom:"1px solid "+C.border,background:n.lu?"transparent":C.greenSoft,cursor:"pointer",display:"flex",gap:12,alignItems:"flex-start" }}>
+                        <div style={{ width:36,height:36,borderRadius:"50%",background:n.lu?C.slateSoft:C.green,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={n.lu?"#6b7280":"#fff"} strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <p style={{ fontSize:13,fontWeight:n.lu?500:700,color:C.textPri,marginBottom:2 }}>
+                            Nouveau patient assigné
+                          </p>
+                          <p style={{ fontSize:12,color:C.textSec,marginBottom:2 }}>{n.patientNom}</p>
+                          <p style={{ fontSize:11,color:C.textMuted }}>{n.motif}</p>
+                          <p style={{ fontSize:10,color:C.textMuted,marginTop:4 }}>{n.date} à {n.heure}</p>
+                        </div>
+                        {!n.lu && <div style={{ width:8,height:8,borderRadius:"50%",background:C.green,flexShrink:0,marginTop:4 }}/>}
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Horloge */}
           <div style={{ background:C.blueSoft, border:"1px solid "+C.blue+"33", borderRadius:10, padding:"8px 16px", fontSize:14, fontWeight:700, color:C.blue, fontVariantNumeric:"tabular-nums", minWidth:112, textAlign:"center" }}>{heure}</div>
           {/* Profil */}

@@ -53,11 +53,14 @@ const RDV_INIT = [
   { id:3, patientId:5, patient:"Baldé Aissatou",  date:"2026-04-07", heure:"08:30", service:"Ophtalmologie",docteur:"Dr. Bah",       motif:"Contrôle vue",          rappelEnvoye:false },
 ]
 
-// File d'attente du jour (envoyés au médecin chef)
-const FILE_INIT = [
-  { id:1, patientId:2, pid:genId(2), nom:"Diallo Ibrahima", arrivee:"08:45", typeVisite:"consultation", statut:"en_attente", montantTotal:50000, paiement:null },
-  { id:2, patientId:4, pid:genId(4), nom:"Kouyaté Mamadou", arrivee:"09:30", typeVisite:"rendez_vous",  statut:"en_attente", montantTotal:75000, paiement:null },
-]
+function tarifParAge(dateNaissance) {
+  if (!dateNaissance) return 50000
+  const age = Math.floor((Date.now() - new Date(dateNaissance)) / (365.25*24*3600*1000))
+  if (age < 5) return 30000
+  if (age < 15) return 35000
+  if (age <= 60) return 50000
+  return 40000
+}
 
 // ══════════════════════════════════════════════════════
 //  COULEURS
@@ -138,10 +141,17 @@ function Btn({ children, onClick, variant="primary", small=false, disabled=false
 //  MODAL — ENREGISTRER NOUVEAU PATIENT (formulaire image)
 // ══════════════════════════════════════════════════════
 function ModalNouveauPatient({ onClose, onEnregistrer }) {
-  const INIT={ nom:"",prenom:"",age:"",dateNaissance:"",sexe:"F",telephone:"",profession:"",quartier:"",secteur:"",responsable:"",telResponsable:"",typeVisite:"consultation" }
+  const INIT={ nom:"",prenom:"",age:"",dateNaissance:"",sexe:"F",telephone:"",profession:"",quartier:"",secteur:"",responsable:"",telResponsable:"",montantConsultation:"" }
   const [form, setForm]=useState(INIT)
   const setF=(k,v)=>setForm(p=>({...p,[k]:v}))
-  const ok=form.nom&&form.prenom
+  const ok=form.nom&&form.prenom&&form.montantConsultation
+
+  // Calcul tarif automatique selon date de naissance
+  const tarifAuto = tarifParAge(form.dateNaissance)
+  // Mise à jour auto du montant quand la date change
+  const handleDateNaissance = (val) => {
+    setForm(p=>({ ...p, dateNaissance:val, montantConsultation:tarifParAge(val).toString() }))
+  }
 
   const iSt={ width:"100%",padding:"13px 16px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
   const foc=e=>{e.target.style.borderColor=C.blue;e.target.style.boxShadow="0 0 0 3px "+C.blueSoft}
@@ -156,7 +166,7 @@ function ModalNouveauPatient({ onClose, onEnregistrer }) {
         <div style={{ padding:"24px 32px 20px",display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
           <div>
             <p style={{ fontSize:20,fontWeight:800,color:C.textPri,marginBottom:4 }}>Registre d'Accueil — Enregistrer un patient</p>
-            <p style={{ fontSize:13,color:C.textMuted }}>Remplir la fiche complète. Le médecin chef assignera le médecin après.</p>
+            <p style={{ fontSize:13,color:C.textMuted }}>Remplir la fiche et indiquer le montant de consultation. Le patient ira ensuite à la comptabilité pour payer.</p>
           </div>
           <button onClick={onClose}
             style={{ display:"flex",alignItems:"center",gap:6,padding:"8px 16px",border:"1px solid "+C.border,borderRadius:10,background:C.white,color:C.textSec,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}
@@ -190,7 +200,7 @@ function ModalNouveauPatient({ onClose, onEnregistrer }) {
               </div>
               <div>
                 <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Date de naissance</label>
-                <input type="date" value={form.dateNaissance} onChange={e=>setF("dateNaissance",e.target.value)} style={iSt} onFocus={foc} onBlur={blr}/>
+                <input type="date" value={form.dateNaissance} onChange={e=>handleDateNaissance(e.target.value)} style={iSt} onFocus={foc} onBlur={blr}/>
               </div>
               <div>
                 <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Sexe</label>
@@ -229,28 +239,45 @@ function ModalNouveauPatient({ onClose, onEnregistrer }) {
             </div>
           </div>
 
-          {/* TYPE DE VISITE */}
+          {/* FRAIS DE CONSULTATION */}
           <div>
-            <p style={{ fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>Type de visite</p>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
-              {[
-                { val:"consultation",label:"Consultation",   desc:"Visite sans rendez-vous",      icon:"C" },
-                { val:"rendez_vous", label:"Rendez-vous",    desc:"RDV programmé à l'avance",     icon:"rdv" },
-              ].map(opt=>(
-                <div key={opt.val} onClick={()=>setF("typeVisite",opt.val)}
-                  style={{ padding:"14px 18px",borderRadius:14,border:"2px solid "+(form.typeVisite===opt.val?C.blue:C.border),background:form.typeVisite===opt.val?C.blueSoft:C.white,cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",gap:12 }}>
-                  <span style={{ fontSize:22 }}>{opt.icon}</span>
-                  <div style={{ flex:1 }}>
-                    <p style={{ fontSize:14,fontWeight:700,color:form.typeVisite===opt.val?C.blue:C.textPri,marginBottom:2 }}>{opt.label}</p>
-                    <p style={{ fontSize:12,color:C.textMuted }}>{opt.desc}</p>
+            <p style={{ fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>Frais de consultation <span style={{ color:C.red }}>*</span></p>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,alignItems:"start" }}>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>
+                  Montant à payer (GNF) <span style={{ color:C.red }}>*</span>
+                </label>
+                <input type="number" value={form.montantConsultation}
+                  onChange={e=>setF("montantConsultation",e.target.value)}
+                  placeholder="Ex : 50000"
+                  style={iSt} onFocus={foc} onBlur={blr}/>
+                <p style={{ fontSize:12,color:C.textMuted,marginTop:6 }}>
+                  Saisir le montant annoncé au patient
+                </p>
+              </div>
+              <div style={{ background:C.greenSoft,borderRadius:14,padding:"16px 18px",border:"1px solid "+C.green+"44" }}>
+                <p style={{ fontSize:11,fontWeight:700,color:C.green,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10 }}>Tarif selon l'âge</p>
+                {[
+                  { label:"Nourrisson (< 5 ans)",  montant:30000 },
+                  { label:"Enfant (5 – 14 ans)",   montant:35000 },
+                  { label:"Adulte (15 – 60 ans)",  montant:50000 },
+                  { label:"Senior (> 60 ans)",     montant:40000 },
+                ].map(t=>(
+                  <div key={t.label} onClick={()=>setF("montantConsultation",t.montant.toString())}
+                    style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 8px",borderRadius:8,cursor:"pointer",
+                      background:form.montantConsultation===t.montant.toString()?"#bbf7d0":"transparent",
+                      border:form.montantConsultation===t.montant.toString()?"1px solid "+C.green:"1px solid transparent" }}>
+                    <span style={{ fontSize:12,color:C.textSec }}>{t.label}</span>
+                    <span style={{ fontSize:13,fontWeight:700,color:C.green }}>{t.montant.toLocaleString("fr-FR")} GNF</span>
                   </div>
-                  {form.typeVisite===opt.val&&(
-                    <div style={{ width:20,height:20,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
+                {form.dateNaissance&&(
+                  <div style={{ marginTop:10,padding:"8px 10px",background:"#fff",borderRadius:10,border:"1px solid "+C.green+"44" }}>
+                    <p style={{ fontSize:12,color:C.textSec }}>Tarif calculé auto :</p>
+                    <p style={{ fontSize:15,fontWeight:800,color:C.green }}>{tarifAuto.toLocaleString("fr-FR")} GNF</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -259,7 +286,7 @@ function ModalNouveauPatient({ onClose, onEnregistrer }) {
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
             <Btn onClick={()=>{ if(ok) onEnregistrer(form) }} disabled={!ok}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-              Enregistrer et envoyer au médecin chef
+              Enregistrer — {form.montantConsultation ? parseInt(form.montantConsultation).toLocaleString("fr-FR")+" GNF à payer" : "Saisir le montant"}
             </Btn>
           </div>
         </div>
@@ -272,52 +299,135 @@ function ModalNouveauPatient({ onClose, onEnregistrer }) {
 //  MODAL — RECHERCHER DOSSIER EXISTANT
 // ══════════════════════════════════════════════════════
 function ModalRechercheDossier({ patients, onClose, onSignaler }) {
-  const [q, setQ]=useState("")
+  const [q,           setQ]           = useState("")
+  const [selPatient,  setSelPatient]  = useState(null)   // patient sélectionné pour confirmer
+  const [montant,     setMontant]     = useState("")
+
   const resultats = q.length>=2 ? patients.filter(p=>
     p.pid.toLowerCase().includes(q.toLowerCase())||
     p.nom.toLowerCase().includes(q.toLowerCase())||
     (p.telephone||"").includes(q)
   ) : []
 
+  const iSt={ width:"100%",padding:"12px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
+
+  const tarifAuto = tarifParAge(selPatient?.dateNaissance)
+
+  const handleSelectionner = (p) => {
+    setSelPatient(p)
+    setMontant(tarifParAge(p.dateNaissance).toString())
+  }
+
+  const handleConfirmer = () => {
+    if (!montant) { alert("Veuillez saisir le montant de consultation."); return }
+    onSignaler(selPatient, parseInt(montant))
+    onClose()
+  }
+
   return (
     <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
       onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:560,boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
+      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:580,boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
         <div style={{ padding:"22px 28px 18px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
           <div>
-            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>Rechercher un dossier patient</p>
-            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>Par N° dossier, nom ou téléphone</p>
+            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>
+              {selPatient ? "Confirmer le signalement" : "Rechercher un dossier patient"}
+            </p>
+            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>
+              {selPatient ? selPatient.nom+" · "+selPatient.pid : "Par N° dossier, nom ou téléphone"}
+            </p>
           </div>
           <button onClick={onClose} style={{ background:C.slateSoft,border:"none",borderRadius:8,color:C.textSec,cursor:"pointer",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>×</button>
         </div>
+
         <div style={{ padding:"20px 28px 24px" }}>
-          <div style={{ position:"relative",marginBottom:16 }}>
-            <svg style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Ex : CAB-A1B2C3 ou Bah Mariama..."
-              style={{ width:"100%",padding:"12px 14px 12px 40px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.bg,color:C.textPri,outline:"none",fontFamily:"inherit" }}
-              onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.background=C.white }}
-              onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.background=C.bg }}/>
-          </div>
-          {q.length<2 && <p style={{ fontSize:13,color:C.textMuted,textAlign:"center",padding:"20px 0" }}>Tapez au moins 2 caractères pour rechercher</p>}
-          {q.length>=2 && resultats.length===0 && (
-            <div style={{ padding:"24px",textAlign:"center",background:C.bg,borderRadius:12,border:"1px solid "+C.border }}>
-              <p style={{ fontSize:14,color:C.textMuted,marginBottom:8 }}>Aucun dossier trouvé pour « {q} »</p>
-              <p style={{ fontSize:13,color:C.textSec }}>Ce patient n'est pas encore enregistré.</p>
+
+          {/* ── Étape 1 : recherche ── */}
+          {!selPatient && (<>
+            <div style={{ position:"relative",marginBottom:16 }}>
+              <svg style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Ex : CAB-A1B2C3 ou Bah Mariama..."
+                style={{ ...iSt,paddingLeft:40,background:C.bg }}
+                onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.background=C.white }}
+                onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.background=C.bg }}/>
             </div>
-          )}
-          {resultats.map(p=>(
-            <div key={p.id} style={{ padding:"14px 16px",borderRadius:12,border:"1px solid "+C.border,marginBottom:10,display:"flex",alignItems:"center",gap:12,background:C.bg }}>
-              <Avatar name={p.nom} size={40}/>
-              <div style={{ flex:1 }}>
-                <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>{p.nom}</p>
-                <p style={{ fontSize:12,color:C.textSec }}>{p.pid} · {p.age} · {p.telephone}</p>
-                <p style={{ fontSize:12,color:C.textMuted }}>{p.quartier}{p.secteur?", "+p.secteur:""}</p>
+            {q.length<2 && <p style={{ fontSize:13,color:C.textMuted,textAlign:"center",padding:"20px 0" }}>Tapez au moins 2 caractères pour rechercher</p>}
+            {q.length>=2 && resultats.length===0 && (
+              <div style={{ padding:"24px",textAlign:"center",background:C.bg,borderRadius:12,border:"1px solid "+C.border }}>
+                <p style={{ fontSize:14,color:C.textMuted,marginBottom:8 }}>Aucun dossier trouvé pour « {q} »</p>
+                <p style={{ fontSize:13,color:C.textSec }}>Ce patient n'est pas encore enregistré.</p>
               </div>
-              <Btn onClick={()=>{ onSignaler(p); onClose() }} small variant="success">
-                Signaler au médecin chef →
+            )}
+            {resultats.map(p=>(
+              <div key={p.id} style={{ padding:"14px 16px",borderRadius:12,border:"1px solid "+C.border,marginBottom:10,display:"flex",alignItems:"center",gap:12,background:C.bg }}>
+                <Avatar name={p.nom} size={40}/>
+                <div style={{ flex:1 }}>
+                  <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>{p.nom}</p>
+                  <p style={{ fontSize:12,color:C.textSec }}>{p.pid} · {p.age} · {p.telephone}</p>
+                  <p style={{ fontSize:12,color:C.textMuted }}>{p.quartier}{p.secteur?", "+p.secteur:""}</p>
+                </div>
+                <Btn onClick={()=>handleSelectionner(p)} small variant="success">
+                  Sélectionner →
+                </Btn>
+              </div>
+            ))}
+          </>)}
+
+          {/* ── Étape 2 : saisie du montant ── */}
+          {selPatient && (<>
+            {/* Récapitulatif patient */}
+            <div style={{ display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:C.greenSoft,borderRadius:14,border:"1px solid "+C.green+"44",marginBottom:20 }}>
+              <Avatar name={selPatient.nom} size={42} bg={C.green}/>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:14,fontWeight:700,color:C.textPri }}>{selPatient.nom}</p>
+                <p style={{ fontSize:12,color:C.textSec }}>{selPatient.pid} · {selPatient.age} · {selPatient.telephone}</p>
+              </div>
+            </div>
+
+            {/* Saisie montant */}
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:8 }}>
+                Montant de consultation à payer (GNF) <span style={{ color:C.red }}>*</span>
+              </label>
+              <input type="number" value={montant} onChange={e=>setMontant(e.target.value)}
+                placeholder="Ex : 50000" style={iSt}
+                onFocus={e=>e.target.style.borderColor=C.blue}
+                onBlur={e=>e.target.style.borderColor=C.border}/>
+            </div>
+
+            {/* Grille tarifaire cliquable */}
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20 }}>
+              {[
+                { label:"Nourrisson",  sub:"< 5 ans",    montant:30000 },
+                { label:"Enfant",      sub:"5 – 14 ans", montant:35000 },
+                { label:"Adulte",      sub:"15 – 60 ans",montant:50000 },
+                { label:"Senior",      sub:"> 60 ans",   montant:40000 },
+              ].map(t=>(
+                <div key={t.label} onClick={()=>setMontant(t.montant.toString())}
+                  style={{ padding:"10px 8px",borderRadius:10,border:"2px solid "+(montant===t.montant.toString()?C.green:C.border),
+                    background:montant===t.montant.toString()?C.greenSoft:C.white,cursor:"pointer",textAlign:"center" }}>
+                  <p style={{ fontSize:12,fontWeight:700,color:montant===t.montant.toString()?C.green:C.textPri }}>{t.label}</p>
+                  <p style={{ fontSize:10,color:C.textMuted,marginBottom:4 }}>{t.sub}</p>
+                  <p style={{ fontSize:13,fontWeight:800,color:montant===t.montant.toString()?C.green:C.textSec }}>{t.montant.toLocaleString("fr-FR")} GNF</p>
+                </div>
+              ))}
+            </div>
+
+            {selPatient.dateNaissance && (
+              <div style={{ padding:"10px 14px",background:C.blueSoft,borderRadius:10,border:"1px solid "+C.blue+"33",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <span style={{ fontSize:13,color:C.textSec }}>Tarif calculé automatiquement selon l'âge</span>
+                <span style={{ fontSize:14,fontWeight:800,color:C.blue }}>{tarifAuto.toLocaleString("fr-FR")} GNF</span>
+              </div>
+            )}
+
+            <div style={{ display:"flex",gap:10 }}>
+              <Btn onClick={()=>setSelPatient(null)} variant="secondary">← Retour</Btn>
+              <Btn onClick={handleConfirmer} disabled={!montant} style={{ flex:1 }}>
+                Signaler au médecin chef — {montant ? parseInt(montant).toLocaleString("fr-FR")+" GNF" : ""}
               </Btn>
             </div>
-          ))}
+          </>)}
+
         </div>
       </div>
     </div>
@@ -381,159 +491,6 @@ function ModalCreerRdv({ patients, docteurs, onClose, onCreate }) {
             <Btn onClick={onClose} variant="secondary">Annuler</Btn>
             <Btn onClick={()=>{ if(ok) onCreate(form) }} disabled={!ok}>
                Créer le rendez-vous
-            </Btn>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ══════════════════════════════════════════════════════
-//  MODAL — PAIEMENT
-// ══════════════════════════════════════════════════════
-function ModalPaiement({ patient, montantDu, paiementExistant, onClose, onValider }) {
-  const [methode,   setMethode]   = useState(paiementExistant?.methode || "cash")
-  const [statut,    setStatut]    = useState(paiementExistant?.statut || "paye")   // paye | partiel | impaye
-  const [montant,   setMontant]   = useState(paiementExistant?.montant?.toString() || (montantDu||""))
-  const [delai,     setDelai]     = useState(paiementExistant?.delai || "")
-  const [note,      setNote]      = useState(paiementExistant?.note || "")
-
-  if (!patient) return null
-
-  const montantPaye = parseInt(montant||0)
-  const resteAPayer = montantDu ? montantDu - montantPaye : 0
-
-  const iSt={ width:"100%",padding:"11px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:10,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
-
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
-      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:560,maxHeight:"90vh",overflow:"auto",boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
-        <div style={{ padding:"22px 28px 18px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          <div>
-            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>Gestion du paiement</p>
-            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>{patient.nom}</p>
-          </div>
-          <button onClick={onClose} style={{ background:C.slateSoft,border:"none",borderRadius:8,color:C.textSec,cursor:"pointer",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>×</button>
-        </div>
-        <div style={{ padding:"24px 28px",display:"flex",flexDirection:"column",gap:16 }}>
-
-          {/* Résumé des montants */}
-          <div style={{ background:C.bg,borderRadius:14,padding:"16px 18px",border:"1px solid "+C.border }}>
-            <p style={{ fontSize:11,fontWeight:700,color:C.textPri,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12 }}>Récapitulatif du paiement</p>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12 }}>
-              {/* Total à payer */}
-              <div style={{ background:C.white,borderRadius:10,padding:"12px",border:"1px solid "+C.border }}>
-                <p style={{ fontSize:11,color:C.textMuted,marginBottom:4 }}>Total à payer</p>
-                <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>
-                  {montantDu ? montantDu.toLocaleString("fr-FR") : "—"} <span style={{ fontSize:11,fontWeight:500 }}>GNF</span>
-                </p>
-              </div>
-              {/* Déjà payé */}
-              <div style={{ background:C.white,borderRadius:10,padding:"12px",border:"1px solid "+(statut!=="impaye"?C.green:C.border) }}>
-                <p style={{ fontSize:11,color:C.textMuted,marginBottom:4 }}>Déjà payé</p>
-                <p style={{ fontSize:18,fontWeight:800,color:statut!=="impaye"?C.green:C.textMuted }}>
-                  {statut!=="impaye" ? montantPaye.toLocaleString("fr-FR") : "0"} <span style={{ fontSize:11,fontWeight:500 }}>GNF</span>
-                </p>
-              </div>
-              {/* Reste à payer */}
-              <div style={{ background:C.white,borderRadius:10,padding:"12px",border:"1px solid "+(resteAPayer>0?C.slate:C.border) }}>
-                <p style={{ fontSize:11,color:C.textMuted,marginBottom:4 }}>Reste à payer</p>
-                <p style={{ fontSize:18,fontWeight:800,color:resteAPayer>0?C.slate:C.green }}>
-                  {resteAPayer.toLocaleString("fr-FR")} <span style={{ fontSize:11,fontWeight:500 }}>GNF</span>
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Statut paiement */}
-          <div>
-            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:10 }}>Statut du paiement</label>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10 }}>
-              {[
-                { val:"paye",    label:"Tout payé",        icon:"", color:C.green,  bg:C.greenSoft  },
-                { val:"partiel", label:"Paiement partiel", icon:"", color:C.slate,  bg:C.slateSoft  },
-                { val:"impaye",  label:"Rien payé",        icon:"", color:C.red,    bg:C.redSoft    },
-              ].map(opt=>(
-                <div key={opt.val} onClick={()=>setStatut(opt.val)}
-                  style={{ padding:"12px 10px",borderRadius:12,border:"2px solid "+(statut===opt.val?opt.color:C.border),background:statut===opt.val?opt.bg:C.white,cursor:"pointer",textAlign:"center",transition:"all .15s" }}>
-                  <p style={{ fontSize:18,marginBottom:4 }}>{opt.icon}</p>
-                  <p style={{ fontSize:12,fontWeight:700,color:statut===opt.val?opt.color:C.textSec }}>{opt.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Méthode de paiement */}
-          {statut!=="impaye" && (
-            <div>
-              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:10 }}>Méthode de paiement</label>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
-                {[
-                  { val:"cash",         label:"Cash (espèces)", icon:"" },
-                  { val:"orange_money", label:"Orange Money",   icon:"" },
-                ].map(opt=>(
-                  <div key={opt.val} onClick={()=>setMethode(opt.val)}
-                    style={{ padding:"12px 16px",borderRadius:12,border:"2px solid "+(methode===opt.val?C.blue:C.border),background:methode===opt.val?C.blueSoft:C.white,cursor:"pointer",display:"flex",alignItems:"center",gap:10,transition:"all .15s" }}>
-                    <span style={{ fontSize:20 }}>{opt.icon}</span>
-                    <p style={{ fontSize:13,fontWeight:700,color:methode===opt.val?C.blue:C.textPri }}>{opt.label}</p>
-                    {methode===opt.val&&<div style={{ marginLeft:"auto",width:18,height:18,borderRadius:"50%",background:C.blue,display:"flex",alignItems:"center",justifyContent:"center" }}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Montant payé */}
-          {statut!=="impaye" && (
-            <div>
-              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>
-                {statut==="partiel"?"Montant versé (GNF)":"Montant encaissé (GNF)"}
-              </label>
-              <input type="number" value={montant} onChange={e=>setMontant(e.target.value)}
-                placeholder={"Ex : "+(montantDu||50000)} style={iSt}
-                onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border}/>
-              {statut==="partiel"&&montantDu&&montant&&(
-                <p style={{ fontSize:12,color:C.slate,marginTop:6,fontWeight:600 }}>
-                  Reste à payer : {resteAPayer.toLocaleString("fr-FR")} GNF
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Délai de paiement (si partiel ou impayé) */}
-          {(statut==="partiel"||statut==="impaye") && (
-            <div>
-              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>
-                Date limite de règlement <span style={{ color:C.red }}>*</span>
-              </label>
-              <input type="date" value={delai} onChange={e=>setDelai(e.target.value)} style={iSt}
-                min={today()}
-                onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border}/>
-              <p style={{ fontSize:12,color:C.textMuted,marginTop:4 }}>Le solde doit être réglé avant cette date pour poursuivre les soins.</p>
-            </div>
-          )}
-
-          {/* Note */}
-          <div>
-            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Note (optionnelle)</label>
-            <input value={note} onChange={e=>setNote(e.target.value)} placeholder="Ex : Paiement en attente de virement..." style={iSt}
-              onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border}/>
-          </div>
-
-          {/* Avertissement impayé */}
-          {statut==="impaye" && (
-            <div style={{ background:C.redSoft,border:"1px solid "+C.red+"33",borderRadius:10,padding:"12px 16px" }}>
-              <p style={{ fontSize:13,color:C.red,fontWeight:600 }}>Le patient doit régler avant la date limite pour que la consultation puisse commencer.</p>
-            </div>
-          )}
-
-          <div style={{ display:"flex",justifyContent:"flex-end",gap:10,paddingTop:8,borderTop:"1px solid "+C.border }}>
-            <Btn onClick={onClose} variant="secondary">Annuler</Btn>
-            <Btn onClick={()=>{ if(statut==="impaye"&&!delai){ alert("Veuillez fixer une date limite."); return }; onValider({ statut,methode,montant:montantPaye,delai,note }); onClose() }}
-              variant={statut==="total"?"success":"primary"}>
-              Valider le paiement
             </Btn>
           </div>
         </div>
@@ -742,6 +699,9 @@ export default function DashboardSecretaire() {
 
   const { patients, addPatient, file, addToFile, updateFileEntry, rdv: rdvs, addRdv, updateRdv } = useSharedData()
 
+  // Patients actifs (en attente / en salle / en consultation) — exclut les consultés
+  const fileActif = file.filter(f => f.statut !== "termine")
+
   const [onglet,       setOnglet]       = useState("accueil")
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
   const [heure,        setHeure]        = useState("")
@@ -750,7 +710,6 @@ export default function DashboardSecretaire() {
   const [showRecherche,setShowRecherche]= useState(false)
   const [showRdv,      setShowRdv]      = useState(false)
   
-  const [paiementData, setPaiementData] = useState(null) // { patient, montantDu }
   const [notifications,setNotifications]= useState([
     { id:1, type:"rdv",  message:"RDV de Sow Fatoumata demain à 09h00 — Gynécologie", lu:false, date:today() },
     { id:2, type:"rdv",  message:"Rappel : Baldé Aissatou a un RDV le 07/04 à 08h30", lu:false, date:today() },
@@ -798,16 +757,16 @@ export default function DashboardSecretaire() {
       profession:form.profession, responsable:form.responsable,
     }
     addPatient(nouveau)
-    addToFile({ patientId:nouveau.id, pid:nouveau.pid, nom:nouveau.nom, arrivee:nowTime(), typeVisite:form.typeVisite, statut:"en_attente", montantTotal:0, paiement:null })
+    addToFile({ patientId:nouveau.id, pid:nouveau.pid, nom:nouveau.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantConsultation:parseInt(form.montantConsultation)||tarifParAge(form.dateNaissance), paiementConsultation:null })
     setShowNouveau(false)
     alert(""+fullNom+" enregistré et ajouté à la file du médecin chef.")
   }
 
-  const handleSignaler = (patient) => {
-    const deja = file.find(f=>f.patientId===patient.id)
+  const handleSignaler = (patient, montant) => {
+    const deja = file.find(f=>f.patientId===patient.id && f.statut !== "termine")
     if (deja) { alert(patient.nom+" est déjà dans la file d'attente."); return }
-    addToFile({ patientId:patient.id, pid:patient.pid, nom:patient.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantTotal:0, paiement:null })
-    alert(""+patient.nom+" signalé au médecin chef.")
+    addToFile({ patientId:patient.id, pid:patient.pid, nom:patient.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantConsultation:montant||tarifParAge(patient.dateNaissance), paiementConsultation:null })
+    alert(""+patient.nom+" signalé au médecin chef. Montant : "+(montant||tarifParAge(patient.dateNaissance)).toLocaleString("fr-FR")+" GNF à payer à la comptabilité.")
   }
 
   const handleCreerRdv = (form) => {
@@ -819,12 +778,6 @@ export default function DashboardSecretaire() {
     alert("Rendez-vous créé. Un rappel sera envoyé au patient.")
   }
 
-  const handlePaiement = (data) => {
-    const { patientId } = paiementData
-    const entry = file.find(f=>f.patientId===patientId)
-    if (entry) updateFileEntry(entry.id, { paiement:data })
-    setPaiementData(null)
-  }
 
   const envoyerRappel = (rdvId) => {
     updateRdv(rdvId, { rappelEnvoye:true })
@@ -975,7 +928,6 @@ export default function DashboardSecretaire() {
     { id:"file",     label:"File d'attente",    icon:"file",     desc:"Patients du jour"       },
     { id:"patients", label:"Tous les patients", icon:"liste",    desc:"Registre complet"       },
     { id:"rdv",      label:"Rendez-vous",       icon:"rdv",      desc:"Planning"               },
-    { id:"compta",   label:"Comptabilité",      icon:"compta",   desc:"Paiements"              },
     { id:"presence", label:"Présence Médecins", icon:"presence", desc:"Pointage Arrivée/Départ"},
   ]
 
@@ -986,7 +938,6 @@ export default function DashboardSecretaire() {
       {showNouveau   && <ModalNouveauPatient patients={patients} onClose={()=>setShowNouveau(false)} onEnregistrer={handleEnregistrer}/>}
       {showRecherche && <ModalRechercheDossier patients={patients} onClose={()=>setShowRecherche(false)} onSignaler={handleSignaler}/>}
       {showRdv       && <ModalCreerRdv patients={patients} docteurs={DOCTEURS} onClose={()=>setShowRdv(false)} onCreate={handleCreerRdv}/>}
-      {paiementData  && <ModalPaiement patient={paiementData.patient} montantDu={paiementData.montantTotal} paiementExistant={paiementData.paiement} onClose={()=>setPaiementData(null)} onValider={handlePaiement}/>}
       {permissionModal && <ModalPermission medecin={permissionModal.medecin} onClose={()=>setPermissionModal(null)} onValider={validerPermission}/>}
       {onglet === "historique" && <ModalHistorique medecins={medecins} historique={historique} onClose={()=>setOnglet("presence")}/>}
 
@@ -995,7 +946,9 @@ export default function DashboardSecretaire() {
         <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:100 }} onClick={()=>setSidebarOpen(false)}>
           <div style={{ position:"absolute",left:0,top:0,bottom:0,width:265,background:C.white,boxShadow:"4px 0 24px rgba(0,0,0,0.12)",display:"flex",flexDirection:"column" }} onClick={e=>e.stopPropagation()}>
             <div style={{ padding:"22px 20px 18px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",gap:12 }}>
-              <img src={logo} alt="" style={{ height:42,borderRadius:8,objectFit:"cover",border:"1px solid "+C.border }}/>
+              <div style={{ width:44,height:44,borderRadius:10,background:"#fff",border:"1px solid "+C.border,padding:3,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:7,objectFit:"contain",display:"block" }}/>
+              </div>
               <div>
                 <p style={{ fontSize:14,fontWeight:800,color:C.textPri }}>Clinique ABC Marouane</p>
                 <p style={{ fontSize:12,color:C.textSec }}>Espace secrétaire</p>
@@ -1093,10 +1046,9 @@ export default function DashboardSecretaire() {
             {/* KPIs */}
             <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16 }}>
               {[
-                { val:file.length, label:"File d'attente", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, bg:C.blueSoft, fg:C.blue },
-                { val:file.filter(f=>f.typeVisite==="rendez_vous").length, label:"Rendez-vous du jour", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, bg:C.purpleSoft, fg:C.purple },
+                { val:fileActif.length, label:"En attente", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, bg:C.blueSoft, fg:C.blue },
+                { val:fileActif.filter(f=>f.typeVisite==="rendez_vous").length, label:"Rendez-vous du jour", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, bg:C.purpleSoft, fg:C.purple },
                 { val:rdvs.filter(r=>r.date===today()).length, label:"RDV aujourd'hui", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, bg:C.slateSoft, fg:C.slate },
-                { val:file.filter(f=>f.paiement?.statut==="impaye").length, label:"Impayés", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>, bg:C.redSoft, fg:C.red },
               ].map(({val,label,svg,bg,fg})=>(
                 <Card key={label} style={{ padding:"20px" }}>
                   <div style={{ width:42,height:42,borderRadius:10,background:bg,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:12,color:fg }}>{svg}</div>
@@ -1126,11 +1078,11 @@ export default function DashboardSecretaire() {
 
             {/* File du jour */}
             <Card>
-              <CardHeader title={"File d'attente — "+file.length+" patient"+(file.length>1?"s":"")} action={<button onClick={()=>setOnglet("file")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir →</button>}/>
-              {file.length===0
+              <CardHeader title={"File d'attente — "+fileActif.length+" patient"+(fileActif.length>1?"s":"")} action={<button onClick={()=>setOnglet("file")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir →</button>}/>
+              {fileActif.length===0
                 ? <p style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun patient en attente</p>
-                : file.slice(0,4).map((f,i)=>(
-                  <div key={f.id} style={{ padding:"13px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:i<Math.min(file.length,4)-1?"1px solid "+C.border:"none" }}>
+                : fileActif.slice(0,4).map((f,i)=>(
+                  <div key={f.id} style={{ padding:"13px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:i<Math.min(fileActif.length,4)-1?"1px solid "+C.border:"none" }}>
                     <Avatar name={f.nom} size={36}/>
                     <div style={{ flex:1 }}>
                       <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{f.nom}</p>
@@ -1177,16 +1129,16 @@ export default function DashboardSecretaire() {
             <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
               <div>
                 <p style={{ fontSize:22,fontWeight:800,color:C.textPri,marginBottom:4 }}>File d'attente</p>
-                <p style={{ fontSize:14,color:C.textSec }}>{file.length} patient{file.length>1?"s":""} en attente du médecin chef</p>
+                <p style={{ fontSize:14,color:C.textSec }}>{fileActif.length} patient{fileActif.length>1?"s":""} en attente · {file.filter(f=>f.statut==="termine").length} consulté{file.filter(f=>f.statut==="termine").length>1?"s":""} aujourd'hui</p>
               </div>
               <div style={{ display:"flex",gap:10 }}>
                 <Btn onClick={()=>setShowNouveau(true)} small>Nouveau patient</Btn>
                 <Btn onClick={()=>setShowRecherche(true)} small variant="secondary">Dossier existant</Btn>
               </div>
             </div>
-            {file.length===0
+            {fileActif.length===0
               ? <Card style={{ padding:40,textAlign:"center" }}><p style={{ color:C.textMuted }}>Aucun patient en attente</p></Card>
-              : file.map((f,)=>(
+              : fileActif.map((f,)=>(
                 <Card key={f.id} style={{ padding:"18px 20px" }}>
                   <div style={{ display:"flex",alignItems:"center",gap:14 }}>
                     <Avatar name={f.nom} size={46}/>
@@ -1205,26 +1157,12 @@ export default function DashboardSecretaire() {
                       <p style={{ fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Arrivée</p>
                       <p style={{ fontSize:16,fontWeight:800,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</p>
                     </div>
-                    {/* Statut paiement */}
-                    {f.paiement
-                      ? <Badge statut={f.paiement.statut}/>
-                      : <span style={{ fontSize:12,color:C.textMuted,fontStyle:"italic" }}>Paiement non fait</span>
+                    {/* Statut paiement consultation */}
+                    {f.paiementConsultation?.statut === "paye"
+                      ? <span style={{ fontSize:12,fontWeight:700,background:"#dcfce7",color:"#15803d",padding:"4px 10px",borderRadius:20 }}>Consultation payée</span>
+                      : <span style={{ fontSize:12,fontWeight:600,background:"#fee2e2",color:"#dc2626",padding:"4px 10px",borderRadius:20 }}>En attente paiement</span>
                     }
-                    {/* Bouton paiement */}
-                    <Btn onClick={()=>{ const p=patients.find(pt=>pt.id===f.patientId); setPaiementData({ patient:p||{nom:f.nom,id:f.patientId}, montantTotal:f.montantTotal||0, paiement:f.paiement, patientId:f.patientId }) }} small variant={f.paiement?"secondary":"success"}>
-                      {f.paiement?"Modifier paiement":"Encaisser"}
-                    </Btn>
                   </div>
-                  {/* Délai si impayé/partiel */}
-                  {f.paiement&&(f.paiement.statut==="impaye"||f.paiement.statut==="partiel")&&f.paiement.delai&&(
-                    <div style={{ marginTop:12,padding:"10px 14px",background:C.slateSoft,borderRadius:10,border:"1px solid "+C.slate+"33",display:"flex",alignItems:"center",gap:8 }}>
-                      <span>⏰</span>
-                      <p style={{ fontSize:13,color:C.slate,fontWeight:600 }}>
-                        {f.paiement.statut==="partiel"?"Paiement partiel":"Impayé"} · Date limite : {fmt(f.paiement.delai)}
-                        {f.paiement.statut==="partiel"&&f.paiement.montant?" · Versé : "+f.paiement.montant.toLocaleString("fr-FR")+" GNF":""}
-                      </p>
-                    </div>
-                  )}
                 </Card>
               ))
             }
@@ -1372,93 +1310,6 @@ export default function DashboardSecretaire() {
           </div>
         )}
 
-        {/* ══ COMPTABILITÉ ══ */}
-        {onglet==="compta"&&(
-          <div>
-            <div style={{ marginBottom:20 }}>
-              <p style={{ fontSize:22,fontWeight:800,color:C.textPri,marginBottom:4 }}>Comptabilité — Paiements</p>
-              <p style={{ fontSize:14,color:C.textSec }}>Suivi des paiements de la journée</p>
-            </div>
-            {/* Résumé */}
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:20 }}>
-              {[
-                { label:"Total payés",    val:file.filter(f=>f.paiement?.statut==="total").length,   bg:C.greenSoft,  fg:C.green  },
-                { label:"Paiements partiels",val:file.filter(f=>f.paiement?.statut==="partiel").length,bg:C.slateSoft,fg:C.slate },
-                { label:"Impayés",        val:file.filter(f=>f.paiement?.statut==="impaye").length,  bg:C.redSoft,    fg:C.red    },
-                { label:"Non enregistrés",val:file.filter(f=>!f.paiement).length,                    bg:C.slateSoft,  fg:C.slate  },
-              ].map(({label,val})=>(
-                <Card key={label} style={{ padding:"18px" }}>
-                  <p style={{ fontSize:26,fontWeight:800,color:C.textPri,marginBottom:4 }}>{val}</p>
-                  <p style={{ fontSize:12,color:C.textMuted }}>{label}</p>
-                </Card>
-              ))}
-            </div>
-            <Card>
-              <CardHeader title="Détail des paiements — Aujourd'hui"/>
-              {file.length===0
-                ? <p style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun patient aujourd'hui</p>
-                : (
-                <table style={{ width:"100%",borderCollapse:"collapse" }}>
-                  <thead>
-                    <tr style={{ background:C.slateSoft }}>
-                      {["Patient","Arrivée","Type","Statut paiement","Méthode","Montant","Délai","Action"].map(h=>(
-                        <th key={h} style={{ padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.textSec,letterSpacing:"0.06em",textTransform:"uppercase" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {file.map((f,i,arr)=>{
-                      const p=patients.find(pt=>pt.id===f.patientId)
-                      return (
-                        <tr key={f.id} style={{ borderBottom:i<arr.length-1?"1px solid "+C.border:"none" }}
-                          onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
-                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                          <td style={{ padding:"12px 14px" }}>
-                            <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                              <Avatar name={f.nom} size={28}/>
-                              <div>
-                                <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{f.nom}</p>
-                                <p style={{ fontSize:11,color:C.textMuted }}>{f.pid}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ padding:"12px 14px",fontSize:13,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</td>
-                          <td style={{ padding:"12px 14px" }}>
-                            {f.typeVisite==="rendez_vous"
-                              ? <span style={{ fontSize:11,fontWeight:700,background:C.purpleSoft,color:C.purple,padding:"2px 8px",borderRadius:10 }}>RDV</span>
-                              : <span style={{ fontSize:11,fontWeight:700,background:C.greenSoft,color:C.green,padding:"2px 8px",borderRadius:10 }}>Consult.</span>
-                            }
-                          </td>
-                          <td style={{ padding:"12px 14px" }}>
-                            {f.paiement ? <Badge statut={f.paiement.statut}/> : <span style={{ fontSize:12,color:C.textMuted }}>—</span>}
-                          </td>
-                          <td style={{ padding:"12px 14px",fontSize:12,color:C.textSec }}>
-                            {f.paiement?.methode==="orange_money"?"Orange Money":f.paiement?.methode==="cash"?"Cash":"—"}
-                          </td>
-                          <td style={{ padding:"12px 14px",fontSize:13,fontWeight:700,color:f.paiement?.montant?C.green:C.textMuted }}>
-                            {f.paiement?.montant?f.paiement.montant.toLocaleString("fr-FR")+" GNF":"—"}
-                          </td>
-                          <td style={{ padding:"12px 14px",fontSize:12,color:f.paiement?.delai?C.slate:C.textMuted }}>
-                            {f.paiement?.delai?fmt(f.paiement.delai):"—"}
-                          </td>
-                          <td style={{ padding:"12px 14px" }}>
-                            <button onClick={()=>setPaiementData({ patient:p||{nom:f.nom,id:f.patientId}, montantTotal:f.montantTotal||0, paiement:f.paiement, patientId:f.patientId })}
-                              style={{ padding:"6px 12px",background:C.blueSoft,border:"1px solid "+C.blue+"33",borderRadius:8,color:C.blue,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}
-                              onMouseEnter={e=>{ e.currentTarget.style.background=C.blue; e.currentTarget.style.color="#fff" }}
-                              onMouseLeave={e=>{ e.currentTarget.style.background=C.blueSoft; e.currentTarget.style.color=C.blue }}>
-                              {f.paiement?"Modifier":"Enregistrer"}
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-                )
-              }
-            </Card>
-          </div>
-        )}
 
         {/* ══ PRÉSENCE MÉDECINS ══ */}
         {onglet==="presence"&&(

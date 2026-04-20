@@ -757,7 +757,9 @@ export default function DashboardLaboratoire() {
           <div style={{ position:"absolute", left:0, top:0, bottom:0, width:265, background:C.white, boxShadow:"4px 0 24px rgba(0,0,0,0.12)", display:"flex", flexDirection:"column", overflow:"auto" }}
             onClick={e=>e.stopPropagation()}>
             <div style={{ padding:"22px 20px 18px", borderBottom:"1px solid "+C.border, display:"flex", alignItems:"center", gap:12 }}>
-              <img src={logo} alt="" style={{ height:42, borderRadius:8, objectFit:"cover", border:"1px solid "+C.border }}/>
+              <div style={{ width:44,height:44,borderRadius:10,background:"#fff",border:"1px solid "+C.border,padding:3,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:7,objectFit:"contain",display:"block" }}/>
+              </div>
               <div>
                 <p style={{ fontSize:14, fontWeight:800, color:C.textPri }}>Clinique ABC Marouane</p>
                 <p style={{ fontSize:12, color:C.textSec }}>Laboratoire d'Analyses</p>
