@@ -50,11 +50,11 @@ const INIT_COMPTES = [
 ]
 
 const INIT_PATIENTS = [
-  { id:1, pid:"CAB-A1B2C3", nom:"Bah Mariama",     age:"34 ans",    dateNaissance:"1990-03-12", sexe:"F", telephone:"+224 622 11 22 33", quartier:"Ratoma",   secteur:"Lansanayah" },
-  { id:2, pid:"CAB-D4E5F6", nom:"Diallo Ibrahima", age:"52 ans",    dateNaissance:"1972-07-04", sexe:"M", telephone:"+224 628 44 55 66", quartier:"Kaloum",   secteur:"Boulbinet"  },
-  { id:3, pid:"CAB-G7H8I9", nom:"Sow Fatoumata",   age:"1an 3mois", dateNaissance:"2022-11-20", sexe:"F", telephone:"+224 621 77 88 99", quartier:"Dixinn",   secteur:"Yimbayah"   },
-  { id:4, pid:"CAB-J1K2L3", nom:"Kouyaté Mamadou", age:"61 ans",    dateNaissance:"1963-01-15", sexe:"M", telephone:"+224 624 33 44 55", quartier:"Matam",    secteur:"Tannerie"   },
-  { id:5, pid:"CAB-M4N5O6", nom:"Baldé Aissatou",  age:"19 ans",    dateNaissance:"2005-06-08", sexe:"F", telephone:"+224 625 66 77 88", quartier:"Matoto",   secteur:"Gbessia"    },
+  { id:1, pid:"ABC-A1B2C3", nom:"Bah Mariama",     age:"34 ans",    dateNaissance:"1990-03-12", sexe:"F", telephone:"+224 622 11 22 33", quartier:"Ratoma",   secteur:"Lansanayah" },
+  { id:2, pid:"ABC-D4E5F6", nom:"Diallo Ibrahima", age:"52 ans",    dateNaissance:"1972-07-04", sexe:"M", telephone:"+224 628 44 55 66", quartier:"Kaloum",   secteur:"Boulbinet"  },
+  { id:3, pid:"ABC-G7H8I9", nom:"Sow Fatoumata",   age:"1an 3mois", dateNaissance:"2022-11-20", sexe:"F", telephone:"+224 621 77 88 99", quartier:"Dixinn",   secteur:"Yimbayah"   },
+  { id:4, pid:"ABC-J1K2L3", nom:"Kouyaté Mamadou", age:"61 ans",    dateNaissance:"1963-01-15", sexe:"M", telephone:"+224 624 33 44 55", quartier:"Matam",    secteur:"Tannerie"   },
+  { id:5, pid:"ABC-M4N5O6", nom:"Baldé Aissatou",  age:"19 ans",    dateNaissance:"2005-06-08", sexe:"F", telephone:"+224 625 66 77 88", quartier:"Matoto",   secteur:"Gbessia"    },
 ]
 
 const INIT_CONSULTATIONS = [
@@ -240,12 +240,12 @@ function ModalConsultationChef({ patient, consultation, medecins, onClose, onVal
   const [symptomes,    setSymptomes]    = useState(consultation?.symptomes||"")
   const [observations, setObservations] = useState(consultation?.observations||"")
   const [diagnostic,   setDiagnostic]   = useState(consultation?.diagnostic||"")
-  const [prix,         setPrix]         = useState(consultation?.montant||"")
+  const [traitement,   setTraitement]   = useState(consultation?.traitement||"")
   const [docteurId,    setDocteurId]    = useState(consultation?.docteurId||"")
 
   if (!patient) return null
   const medecinChoisi = medecins.find(d=>d.id===parseInt(docteurId))
-  const ok = plaintes && prix
+  const ok = !!plaintes
 
   const iSt = { width:"100%", padding:"11px 14px", fontSize:14, border:"1.5px solid "+C.border, borderRadius:10, background:C.white, color:C.textPri, outline:"none", fontFamily:"inherit" }
   const foc  = e => { e.target.style.borderColor=C.blue; e.target.style.boxShadow="0 0 0 3px "+C.blueSoft }
@@ -337,33 +337,34 @@ function ModalConsultationChef({ patient, consultation, medecins, onClose, onVal
             }
           </div>
 
-          {/* ── ÉTAPE 4 : Prix ── */}
-          <div style={{ background:C.bg, borderRadius:14, padding:"16px 18px", border:"1px solid "+C.border }}>
-            <p style={{ fontSize:11, fontWeight:700, color:C.textPri, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14 }}>
-              Étape 4 — Prix de la consultation (GNF) <span style={{ color:C.red }}>*</span>
-            </p>
-            <input type="number" value={prix} onChange={e=>setPrix(e.target.value)}
-              placeholder="Ex : 50000"
-              style={{ ...iSt, fontSize:18, fontWeight:700, color:C.green, marginBottom:10 }} onFocus={foc} onBlur={blr}/>
-            {/* Boutons prix rapides */}
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-              {[25000,50000,75000,100000,150000,200000].map(p=>(
-                <button key={p} type="button" onClick={()=>setPrix(p)}
-                  style={{ padding:"7px 14px", background:prix==p?C.green:C.white, color:prix==p?"#fff":C.textSec, border:"1.5px solid "+(prix==p?C.green:C.border), borderRadius:10, fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
-                  {(p/1000).toFixed(0)}K
-                </button>
-              ))}
+          {/* ── ÉTAPE 3b : Traitement (si chef garde le patient) ── */}
+          {!medecinChoisi && (
+            <div style={{ background:C.bg, borderRadius:14, padding:"16px 18px", border:"1.5px solid "+C.green+"44" }}>
+              <p style={{ fontSize:11, fontWeight:700, color:C.green, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:14 }}>
+                Traitement &amp; Ordonnance — Consultation complète
+              </p>
+              <div>
+                <label style={{ display:"block", fontSize:13, fontWeight:600, color:C.textPri, marginBottom:6 }}>
+                  Traitement prescrit / Ordonnance
+                </label>
+                <textarea value={traitement} onChange={e=>setTraitement(e.target.value)} rows={3}
+                  placeholder="Ex : Amoxicilline 500mg 3×/j pendant 7j, Paracétamol 1g si fièvre, Repos 48h…"
+                  style={{ ...iSt, resize:"none" }} onFocus={foc} onBlur={blr}/>
+                <p style={{ fontSize:11, color:C.textMuted, marginTop:5 }}>
+                  Le tarif sera calculé automatiquement selon l'âge du patient (nourrisson / enfant / adulte / senior).
+                </p>
+              </div>
             </div>
-            <p style={{ fontSize:11, color:C.textMuted, marginTop:8 }}>
-              Fixé uniquement par le médecin chef. Le paiement se fait à la secrétaire avant la consultation.
-            </p>
-          </div>
+          )}
 
           {/* Info orientation */}
           <div style={{ background:C.slateSoft, border:"1px solid "+C.slate+"33", borderRadius:10, padding:"12px 16px", display:"flex", gap:8 }}>
             <span style={{ fontSize:16, flexShrink:0 }}>ℹ️</span>
             <p style={{ fontSize:13, color:C.slate, lineHeight:1.5 }}>
-              Après validation, le patient sera dirigé vers <strong>{medecinChoisi ? medecinChoisi.nom+" ("+medecinChoisi.specialite+")" : "Médecin de garde (Médecine générale)"}</strong>. Le prix sera communiqué à la secrétaire pour encaissement.
+              {medecinChoisi
+                ? <>Après validation, le patient sera dirigé vers <strong>{medecinChoisi.nom} ({medecinChoisi.specialite})</strong>. Le tarif est calculé automatiquement selon l'âge du patient.</>
+                : <>Le médecin chef assure lui-même la consultation. Le tarif sera calculé automatiquement selon l'âge du patient et communiqué à la comptabilité.</>
+              }
             </p>
           </div>
 
@@ -374,13 +375,13 @@ function ModalConsultationChef({ patient, consultation, medecins, onClose, onVal
               Annuler
             </button>
             <button onClick={()=>{
-                if(!ok){ alert("Les plaintes et le prix sont obligatoires."); return }
-                onValider({ plaintes, symptomes, observations, diagnostic, montant:parseInt(prix)||0, docteurId:docteurId?parseInt(docteurId):null })
+                if(!ok){ alert("Les plaintes sont obligatoires."); return }
+                onValider({ plaintes, symptomes, observations, diagnostic, traitement, docteurId:docteurId?parseInt(docteurId):null })
               }}
               disabled={!ok}
               style={{ padding:"10px 24px", border:"none", borderRadius:10, background:ok?C.green:"#94a3b8", color:"#fff", fontSize:13, fontWeight:700, cursor:ok?"pointer":"not-allowed", fontFamily:"inherit", display:"flex", alignItems:"center", gap:8 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-              Valider &amp; Assigner
+              Valider &amp; {medecinChoisi ? "Assigner" : "Consulter"}
             </button>
           </div>
         </div>
@@ -606,7 +607,7 @@ function PageConsultations({ consultations, patients, file, medecins, onValider,
             <div>
               <p style={{ fontSize:15, fontWeight:700, color:C.textPri }}>Patients en attente — Consultation d'accueil</p>
               <p style={{ fontSize:13, color:C.textSec }}>
-                {fileAccueil.length} patient{fileAccueil.length>1?"s":""} · Patients ayant payé la consultation à la comptabilité peuvent être reçus
+                {fileAccueil.length} patient{fileAccueil.length>1?"s":""} · Consultation payée ou rendez-vous requis pour accéder au médecin
               </p>
             </div>
           </div>
@@ -634,15 +635,17 @@ function PageConsultations({ consultations, patients, file, medecins, onValider,
                     <p style={{ fontSize:16,fontWeight:800,color:C.green,fontVariantNumeric:"tabular-nums" }}>{c.arrivee}</p>
                   </div>
                 )}
-                {c.paiementConsultation?.statut === "paye"
-                  ? <span style={{ fontSize:11,fontWeight:700,background:"#dcfce7",color:"#15803d",padding:"4px 10px",borderRadius:20,flexShrink:0 }}>Consultation payée</span>
-                  : <span style={{ fontSize:11,fontWeight:700,background:"#fee2e2",color:"#dc2626",padding:"4px 10px",borderRadius:20,flexShrink:0 }}>Paiement en attente</span>
+                {c.typeVisite === "rendez_vous"
+                  ? <span style={{ fontSize:11,fontWeight:700,background:"#e0f2fe",color:"#0369a1",padding:"4px 10px",borderRadius:20,flexShrink:0 }}>Rendez-vous (gratuit)</span>
+                  : c.paiementConsultation?.statut === "paye"
+                    ? <span style={{ fontSize:11,fontWeight:700,background:"#dcfce7",color:"#15803d",padding:"4px 10px",borderRadius:20,flexShrink:0 }}>Consultation payée</span>
+                    : <span style={{ fontSize:11,fontWeight:700,background:"#fee2e2",color:"#dc2626",padding:"4px 10px",borderRadius:20,flexShrink:0 }}>Paiement en attente</span>
                 }
                 <button
-                  onClick={()=>{ if(c.paiementConsultation?.statut !== "paye"){ alert("Ce patient n'a pas encore payé les frais de consultation. Veuillez l'orienter vers la comptabilité."); return } setMConsult(c) }}
-                  style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 20px",background:c.paiementConsultation?.statut==="paye"?C.green:"#9ca3af",color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:c.paiementConsultation?.statut==="paye"?"pointer":"not-allowed",fontFamily:"inherit",flexShrink:0 }}
-                  onMouseEnter={e=>{ if(c.paiementConsultation?.statut==="paye") e.currentTarget.style.background="#15803d" }}
-                  onMouseLeave={e=>{ if(c.paiementConsultation?.statut==="paye") e.currentTarget.style.background=C.green }}>
+                  onClick={()=>{ const ok=c.typeVisite==="rendez_vous"||c.paiementConsultation?.statut==="paye"; if(!ok){ alert("Ce patient n'a pas encore payé les frais de consultation. Veuillez l'orienter vers la comptabilité."); return } setMConsult(c) }}
+                  style={{ display:"flex",alignItems:"center",gap:8,padding:"10px 20px",background:(c.typeVisite==="rendez_vous"||c.paiementConsultation?.statut==="paye")?C.green:"#9ca3af",color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:700,cursor:(c.typeVisite==="rendez_vous"||c.paiementConsultation?.statut==="paye")?"pointer":"not-allowed",fontFamily:"inherit",flexShrink:0 }}
+                  onMouseEnter={e=>{ if(c.typeVisite==="rendez_vous"||c.paiementConsultation?.statut==="paye") e.currentTarget.style.background="#15803d" }}
+                  onMouseLeave={e=>{ if(c.typeVisite==="rendez_vous"||c.paiementConsultation?.statut==="paye") e.currentTarget.style.background=C.green }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.4 19.79 19.79 0 0 1 1.61 4.84 2 2 0 0 1 3.59 2.66h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.43 17"/></svg>
                   Consulter
                 </button>
@@ -1331,6 +1334,19 @@ export default function DashboardMedecinChef() {
           <div style={{ width:20,height:2,background:C.textPri,borderRadius:2 }}/>
           <div style={{ width:20,height:2,background:C.textPri,borderRadius:2 }}/>
         </button>
+
+        {/* Logo clinique */}
+        <div style={{ display:"flex",alignItems:"center",gap:10,marginLeft:12,paddingRight:20,borderRight:"1px solid "+C.border,flexShrink:0 }}>
+          <div style={{ width:38,height:38,borderRadius:9,background:"#fff",border:"1px solid "+C.border,padding:3,display:"flex",alignItems:"center",justifyContent:"center" }}>
+            <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:6,objectFit:"contain",display:"block" }}/>
+          </div>
+          <div>
+            <p style={{ fontSize:13,fontWeight:800,color:C.textPri,lineHeight:1.2 }}>Clinique Marouane</p>
+            <p style={{ fontSize:11,color:C.textMuted }}>Médecin chef</p>
+          </div>
+        </div>
+        <div style={{ flex:1 }}/>
+
         <div style={{ display:"flex",alignItems:"center",gap:14 }}>
           {enAttente>0&&(
             <button onClick={()=>setPage("consultations")}

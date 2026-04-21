@@ -15,11 +15,11 @@ const getAge = d => d ? Math.floor((Date.now() - new Date(d)) / (365.25 * 864000
 //  DONNÉES
 // ══════════════════════════════════════════════════════
 const PATIENTS_DB = [
-  { id: 1, pid: "CAB-A1B2C3", nom: "Bah Mariama",     dateNaissance: "1990-03-12", sexe: "F", telephone: "+224 622 11 22 33" },
-  { id: 2, pid: "CAB-D4E5F6", nom: "Diallo Ibrahima", dateNaissance: "1972-07-04", sexe: "M", telephone: "+224 628 44 55 66" },
-  { id: 3, pid: "CAB-G7H8I9", nom: "Sow Fatoumata",   dateNaissance: "1996-11-20", sexe: "F", telephone: "+224 621 77 88 99" },
-  { id: 4, pid: "CAB-J1K2L3", nom: "Kouyaté Mamadou", dateNaissance: "1963-01-15", sexe: "M", telephone: "+224 624 33 44 55" },
-  { id: 5, pid: "CAB-M4N5O6", nom: "Baldé Aissatou",  dateNaissance: "2018-06-08", sexe: "F", telephone: "+224 625 66 77 88" },
+  { id: 1, pid: "ABC-A1B2C3", nom: "Bah Mariama",     dateNaissance: "1990-03-12", sexe: "F", telephone: "+224 622 11 22 33" },
+  { id: 2, pid: "ABC-D4E5F6", nom: "Diallo Ibrahima", dateNaissance: "1972-07-04", sexe: "M", telephone: "+224 628 44 55 66" },
+  { id: 3, pid: "ABC-G7H8I9", nom: "Sow Fatoumata",   dateNaissance: "1996-11-20", sexe: "F", telephone: "+224 621 77 88 99" },
+  { id: 4, pid: "ABC-J1K2L3", nom: "Kouyaté Mamadou", dateNaissance: "1963-01-15", sexe: "M", telephone: "+224 624 33 44 55" },
+  { id: 5, pid: "ABC-M4N5O6", nom: "Baldé Aissatou",  dateNaissance: "2018-06-08", sexe: "F", telephone: "+224 625 66 77 88" },
 ]
 
 const TYPES_EXAMENS = [
@@ -798,7 +798,19 @@ export default function DashboardLaboratoire() {
           <div style={{ width:20, height:2, background:C.textPri, borderRadius:2 }}/>
           <div style={{ width:20, height:2, background:C.textPri, borderRadius:2 }}/>
         </button>
-        <div style={{ flex:1, marginLeft:20 }}>
+
+        {/* Logo clinique */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginLeft:12, paddingRight:20, borderRight:"1px solid "+C.border, flexShrink:0 }}>
+          <div style={{ width:38,height:38,borderRadius:9,background:"#fff",border:"1px solid "+C.border,padding:3,display:"flex",alignItems:"center",justifyContent:"center" }}>
+            <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:6,objectFit:"contain",display:"block" }}/>
+          </div>
+          <div>
+            <p style={{ fontSize:13,fontWeight:800,color:C.textPri,lineHeight:1.2 }}>Clinique Marouane</p>
+            <p style={{ fontSize:11,color:C.textMuted }}>Laboratoire</p>
+          </div>
+        </div>
+
+        <div style={{ flex:1, marginLeft:16 }}>
           <p style={{ fontSize:15, fontWeight:700, color:C.textPri, lineHeight:1.2 }}>Laboratoire d'Analyses Médicales</p>
           <p style={{ fontSize:12, color:C.textMuted, textTransform:"capitalize" }}>{dateStr}</p>
         </div>

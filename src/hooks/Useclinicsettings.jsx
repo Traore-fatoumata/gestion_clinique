@@ -42,13 +42,18 @@ export const DEFAULT_SETTINGS = {
   tarifLaboratoire:      30000,
   tarifUrgence:          100000,
   tarifHospitalisation:  200000,
+  // Tarifs consultation par tranche d'âge
+  tarifNourrisson:       30000,   // < 5 ans
+  tarifEnfant:           35000,   // 5–14 ans
+  tarifAdulte:           50000,   // 15–60 ans
+  tarifSenior:           40000,   // > 60 ans
   tvaActif:              false,
   tvaTaux:               18,
   remiseMaxPct:          20,   // remise max autorisée sans validation chef
 
   // ── 4. DOSSIER PATIENT ────────────────────────────────────────
   ageMajoriteAns:        18,
-  prefixeDossier:        'CAB',
+  prefixeDossier:        'ABC',
   conservationDossierAns: 10,
   alerteDoublonActif:    true,
   champsObligatoires:    ['nom', 'prenom', 'sexe', 'telephone'],

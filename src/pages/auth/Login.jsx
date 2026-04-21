@@ -74,33 +74,31 @@ export default function Login() {
           <circle cx="50"  cy="700" r="180" fill="#fff"/>
         </svg>
 
-        {/* logo + nom */}
-        <div style={{ position:"relative", zIndex:2 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-            <div style={{ width:64, height:64, borderRadius:12, background:"#ffffff", padding:5, boxShadow:"0 4px 20px rgba(0,0,0,0.3)", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <img src={logo} alt="Logo" style={{ width:"100%", height:"100%", borderRadius:8, objectFit:"contain", display:"block" }}/>
-            </div>
-            <div>
-              <p style={{ color:"#ffffff", fontSize:"16px", fontWeight:800, lineHeight:1.3 }}>Clinique Médicale ABC Marouane</p>
-              <p style={{ color:"rgba(255,255,255,0.7)", fontSize:"12px", marginTop:3 }}>Tannerie, Kaloum · Conakry, Guinée</p>
-            </div>
+        {/* contenu centré : logo + nom + slogan */}
+        <div style={{ position:"relative", zIndex:2, flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28 }}>
+
+          {/* logo en grand */}
+          <div style={{ width:200, height:200, borderRadius:24, background:"#ffffff", padding:10, boxShadow:"0 8px 40px rgba(0,0,0,0.35)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <img src={logo} alt="Logo Clinique" style={{ width:"100%", height:"100%", borderRadius:16, objectFit:"contain", display:"block" }}/>
+          </div>
+
+          {/* nom + adresse */}
+          <div style={{ textAlign:"center" }}>
+            <p style={{ color:"#ffffff", fontSize:"20px", fontWeight:800, lineHeight:1.3, marginBottom:6 }}>Clinique Médicale ABC Marouane</p>
+            <p style={{ color:"rgba(255,255,255,0.65)", fontSize:"13px" }}>Tannerie, Kaloum · Conakry, Guinée</p>
+          </div>
+
+          {/* séparateur + slogan */}
+          <div style={{ textAlign:"center" }}>
+            <div style={{ width:40, height:3, background:"#FCD116", borderRadius:2, margin:"0 auto 18px" }}/>
+            <p style={{ color:"rgba(255,255,255,0.6)", fontSize:"13px", lineHeight:1.8, maxWidth:280 }}>
+              Plateforme de gestion médicale réservée au personnel de la clinique.
+            </p>
           </div>
         </div>
 
-        {/* message central */}
-        <div style={{ position:"relative", zIndex:2 }}>
-          <div style={{ width:40, height:3, background:"#FCD116", borderRadius:2, marginBottom:28 }}/>
-          <h2 style={{ color:"#ffffff", fontSize:"30px", fontWeight:800, lineHeight:1.3, marginBottom:16, maxWidth:320 }}>
-            Des soins de qualité,<br/>
-            <span style={{ color:"rgba(255,255,255,0.6)", fontWeight:400, fontStyle:"italic", fontSize:"24px" }}>une gestion simplifiée.</span>
-          </h2>
-          <p style={{ color:"rgba(255,255,255,0.6)", fontSize:"13px", lineHeight:1.8, maxWidth:300 }}>
-            Plateforme de gestion médicale réservée au personnel de la clinique.
-          </p>
-        </div>
-
         {/* pied */}
-        <div style={{ position:"relative", zIndex:2 }}>
+        <div style={{ position:"relative", zIndex:2, textAlign:"center" }}>
           <p style={{ color:"rgba(255,255,255,0.4)", fontSize:"11px" }}>© 2026 Clinique Médicale ABC Marouane</p>
         </div>
       </div>

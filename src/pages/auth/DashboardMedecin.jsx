@@ -31,7 +31,91 @@ const PATHOLOGIES_COMMUNES = [
   "Dépression", "Anxiété", "Arthrose", "Allergie", "Dermatite",
 ]
 
-const EXAMENS_RAPIDES = ["ECG", "NFS", "Glycémie", "Radiographie", "Échographie", "Bilan rénal", "Bilan hépatique"]
+const EXAMENS_PAR_CATEGORIE = {
+  "Laboratoire": [
+    { nom:"NFS (numération formule sanguine)", prix:25000 },
+    { nom:"Glycémie à jeun", prix:15000 },
+    { nom:"Bilan rénal (créatinine, urée)", prix:30000 },
+    { nom:"Bilan hépatique (ASAT, ALAT, GGT)", prix:35000 },
+    { nom:"Groupe sanguin / Rhésus", prix:10000 },
+    { nom:"HIV (sérologie)", prix:20000 },
+    { nom:"TPHA / VDRL (syphilis)", prix:20000 },
+    { nom:"Goutte épaisse / TDR paludisme", prix:15000 },
+    { nom:"ECBU (examen cytobactériologique)", prix:25000 },
+    { nom:"Coproculture", prix:20000 },
+    { nom:"CRP (protéine C-réactive)", prix:20000 },
+    { nom:"VS (vitesse de sédimentation)", prix:10000 },
+    { nom:"Hémoculture", prix:30000 },
+    { nom:"Test de grossesse (β-hCG)", prix:15000 },
+    { nom:"Uricémie (acide urique)", prix:15000 },
+    { nom:"Lipidogramme (cholestérol total, HDL, LDL, TG)", prix:35000 },
+    { nom:"PSA (prostate)", prix:30000 },
+    { nom:"CA-125 (marqueur ovarien)", prix:40000 },
+    { nom:"ACE (marqueur colorectal)", prix:35000 },
+  ],
+  "Imagerie": [
+    { nom:"Radiographie pulmonaire", prix:40000 },
+    { nom:"Radiographie abdominale (ASP)", prix:35000 },
+    { nom:"Échographie abdominale", prix:60000 },
+    { nom:"Échographie pelvienne", prix:60000 },
+    { nom:"Échographie obstétricale", prix:70000 },
+    { nom:"Échographie cardiaque (écho cœur)", prix:80000 },
+    { nom:"Scanner (TDM) cérébral", prix:150000 },
+    { nom:"Scanner thoracique", prix:150000 },
+    { nom:"Scanner abdominal", prix:150000 },
+    { nom:"IRM cérébrale", prix:250000 },
+    { nom:"IRM lombaire / colonne", prix:250000 },
+  ],
+  "Cardiologie": [
+    { nom:"ECG (électrocardiogramme)", prix:20000 },
+    { nom:"Holter ECG 24h", prix:80000 },
+    { nom:"Échocardiographie doppler", prix:100000 },
+    { nom:"Épreuve d'effort", prix:70000 },
+  ],
+  "Neurologie": [
+    { nom:"EEG (électroencéphalogramme)", prix:60000 },
+    { nom:"Ponction lombaire", prix:50000 },
+    { nom:"EMG (électromyogramme)", prix:80000 },
+  ],
+  "Gynécologie / Obstétrique": [
+    { nom:"Frottis cervico-vaginal (FCV)", prix:30000 },
+    { nom:"Colposcopie", prix:60000 },
+    { nom:"HSG (hystérosalpingographie)", prix:80000 },
+    { nom:"Biopsie endomètre", prix:50000 },
+  ],
+  "ORL": [
+    { nom:"Audiogramme", prix:40000 },
+    { nom:"Tympanogramme", prix:25000 },
+    { nom:"Nasofibroscopie", prix:50000 },
+  ],
+  "Ophtalmologie": [
+    { nom:"Fond d'œil", prix:30000 },
+    { nom:"Champ visuel", prix:40000 },
+    { nom:"Mesure pression oculaire (tonomètrie)", prix:20000 },
+    { nom:"OCT rétine", prix:80000 },
+  ],
+  "Dermatologie": [
+    { nom:"Biopsie cutanée", prix:50000 },
+    { nom:"Examen mycologique (champignons)", prix:25000 },
+    { nom:"Dermoscopie", prix:30000 },
+  ],
+  "Stomatologie / Dentaire": [
+    { nom:"Panoramique dentaire", prix:50000 },
+    { nom:"Radiographie dentaire rétro-alvéolaire", prix:20000 },
+  ],
+  "Oncologie": [
+    { nom:"Biopsie tissulaire (anapath)", prix:80000 },
+    { nom:"Marqueurs tumoraux panel", prix:70000 },
+    { nom:"PET-scan (TEP)", prix:500000 },
+  ],
+  "Maladies infectieuses": [
+    { nom:"Sérologie Hépatite B (AgHBs, Anti-HBs)", prix:25000 },
+    { nom:"Sérologie Hépatite C", prix:25000 },
+    { nom:"PCR COVID-19", prix:80000 },
+    { nom:"Antibiogramme", prix:30000 },
+    { nom:"Frottis sanguin (parasitologie)", prix:15000 },
+  ],
+}
 
 const TYPE_CONSULT_LABEL = {
   standard:     { label:"Consultation standard",        short:"Standard" },
@@ -324,12 +408,30 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
     diagPresomption:       consultation?.diagPresomption     || consultation?.symptomes || "",
     diagDefinitif:         (consultation?.diagDefinitif      || consultation?.diagnostics || []).join(", "),
     pathologies:           (consultation?.pathologies||[]).join(", "),
-    examens:               (consultation?.examens||[]).join(", "),
     traitements:           (consultation?.traitements||[]).join(", "),
     commentaires:          consultation?.commentaires || "",
   })
   const [prenatal, setPrenatal] = useState(() => mergePrenatalInit(dp))
   const [accouch, setAccouch] = useState(() => mergeAccouchInit(da))
+  const [examensCommandes, setExamensCommandes] = useState(consultation?.examensCommandes || [])
+  const [showAddExamen, setShowAddExamen] = useState(false)
+  const [exCat, setExCat] = useState(Object.keys(EXAMENS_PAR_CATEGORIE)[0])
+  const [exCustomNom, setExCustomNom] = useState("")
+  const [exCustomPrix, setExCustomPrix] = useState("")
+  const fraisExamens = examensCommandes.reduce((s,e)=>s+(parseInt(e.prix)||0),0)
+
+  const ajouterExamen = (ex) => {
+    if (examensCommandes.find(e=>e.nom===ex.nom)) return
+    setExamensCommandes(p=>[...p, { id:Date.now(), nom:ex.nom, prix:ex.prix, categorie:exCat }])
+  }
+  const ajouterCustom = () => {
+    if (!exCustomNom.trim()) return
+    setExamensCommandes(p=>[...p, { id:Date.now(), nom:exCustomNom.trim(), prix:parseInt(exCustomPrix)||0, categorie:"Autre" }])
+    setExCustomNom(""); setExCustomPrix("")
+  }
+  const supprimerExamen = (id) => setExamensCommandes(p=>p.filter(e=>e.id!==id))
+  const updateExamenPrix = (id, val) => setExamensCommandes(p=>p.map(e=>e.id===id?{...e,prix:parseInt(val)||0}:e))
+
   const ASSISTANT_VIDE = { nom:"", service:"", participation:0, connaissances:0, comportement:0, commentaire:"" }
   const [assistants, setAssistants] = useState(consultation?.assistants || consultation?.stagiaires || [])
   const addAssistant = () => setAssistants(p=>[...p, { ...ASSISTANT_VIDE, id: Date.now() }])
@@ -381,7 +483,9 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
       diagDefinitif:    parseList(form.diagDefinitif),
       diagnostics:      parseList(form.diagDefinitif),
       pathologies:      parseList(form.pathologies),
-      examens:          parseList(form.examens),
+      examensCommandes,
+      examens:          examensCommandes.map(e=>e.nom),
+      fraisExamens,
       traitements:      parseList(form.traitements),
       commentaires:     form.commentaires,
       typeConsultation: mode,
@@ -724,28 +828,101 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
             </div>
           </div>
 
-          {/* Examens & Traitements */}
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
-            <div>
-              <label style={labelSt}>Examens demandés</label>
-              <input value={form.examens} onChange={e=>f("examens",e.target.value)} placeholder="Ex : ECG, NFS, Radiographie…"
-                style={{ ...inputSt, resize:"none" }}
-                onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
-              <div style={{ marginTop:6, display:"flex", flexWrap:"wrap", gap:4 }}>
-                {EXAMENS_RAPIDES.map(ex=>(
-                  <button key={ex} type="button" onClick={()=>ajouterTag("examens",ex)}
-                    style={{ padding:"2px 8px", background:C.slateSoft, color:C.textSec, border:"1px solid "+C.border, borderRadius:12, fontSize:11, cursor:"pointer", fontWeight:500 }}>
-                    + {ex}
-                  </button>
-                ))}
+          {/* Examens demandés — structurés avec prix */}
+          <div style={{ border:"1px solid "+C.border, borderRadius:14, overflow:"hidden" }}>
+            <div style={{ padding:"14px 18px", background:C.blueSoft, borderBottom:"1px solid "+C.border, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ width:32, height:32, borderRadius:8, background:C.blue, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><polyline points="9 12 11 14 15 10"/></svg>
+                </div>
+                <div>
+                  <p style={{ fontSize:14, fontWeight:700, color:C.textPri }}>Examens demandés</p>
+                  <p style={{ fontSize:11, color:C.textSec }}>
+                    {examensCommandes.length === 0 ? "Aucun examen — cliquez pour en prescrire" : `${examensCommandes.length} examen${examensCommandes.length>1?"s":""} · Frais : ${fraisExamens.toLocaleString("fr-FR")} GNF`}
+                  </p>
+                </div>
               </div>
+              <button type="button" onClick={()=>setShowAddExamen(v=>!v)}
+                style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", background:C.blue, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                {showAddExamen ? "Fermer" : "Ajouter"}
+              </button>
             </div>
-            <div>
-              <label style={labelSt}>Traitements prescrits</label>
-              <input value={form.traitements} onChange={e=>f("traitements",e.target.value)} placeholder="Ex : Paracétamol 500mg 3x/j…"
-                style={{ ...inputSt, resize:"none" }}
-                onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
-            </div>
+
+            {/* Panneau d'ajout */}
+            {showAddExamen && (
+              <div style={{ padding:"14px 18px", background:"#f9fafb", borderBottom:"1px solid "+C.border }}>
+                <div style={{ display:"flex", gap:10, marginBottom:12, flexWrap:"wrap" }}>
+                  <select value={exCat} onChange={e=>setExCat(e.target.value)}
+                    style={{ ...inputSt, flex:"1 1 180px", padding:"8px 12px", fontSize:12 }}>
+                    {Object.keys(EXAMENS_PAR_CATEGORIE).map(cat=>(
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:14 }}>
+                  {EXAMENS_PAR_CATEGORIE[exCat]?.map(ex=>{
+                    const deja = examensCommandes.find(e=>e.nom===ex.nom)
+                    return (
+                      <button key={ex.nom} type="button" onClick={()=>ajouterExamen(ex)} disabled={!!deja}
+                        style={{ padding:"4px 10px", background:deja?C.greenSoft:C.white, color:deja?C.green:C.textPri, border:"1px solid "+(deja?C.green:C.border), borderRadius:20, fontSize:11, fontWeight:600, cursor:deja?"default":"pointer", opacity:deja?.7:1 }}>
+                        {deja?"✓ ":""}{ex.nom} — {ex.prix.toLocaleString("fr-FR")} GNF
+                      </button>
+                    )
+                  })}
+                </div>
+                <div style={{ borderTop:"1px dashed "+C.border, paddingTop:12 }}>
+                  <p style={{ fontSize:11, fontWeight:700, color:C.textSec, marginBottom:8 }}>Examen personnalisé</p>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <input value={exCustomNom} onChange={e=>setExCustomNom(e.target.value)} placeholder="Nom de l'examen"
+                      style={{ ...inputSt, flex:2, padding:"8px 12px", fontSize:12 }}
+                      onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
+                    <input value={exCustomPrix} onChange={e=>setExCustomPrix(e.target.value)} placeholder="Prix (GNF)" type="number" min="0"
+                      style={{ ...inputSt, flex:1, padding:"8px 12px", fontSize:12 }}
+                      onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
+                    <button type="button" onClick={ajouterCustom}
+                      style={{ padding:"8px 14px", background:C.blue, color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" }}>
+                      + Ajouter
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Liste des examens commandés */}
+            {examensCommandes.length > 0 && (
+              <div style={{ padding:"14px 18px", display:"flex", flexDirection:"column", gap:8 }}>
+                {examensCommandes.map(ex=>(
+                  <div key={ex.id} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 12px", background:C.white, border:"1px solid "+C.border, borderRadius:10 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <p style={{ fontSize:13, fontWeight:600, color:C.textPri, marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{ex.nom}</p>
+                      <span style={{ fontSize:10, fontWeight:700, background:C.blueSoft, color:C.blue, padding:"1px 7px", borderRadius:10 }}>{ex.categorie}</span>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                      <input value={ex.prix} onChange={e=>updateExamenPrix(ex.id,e.target.value)} type="number" min="0"
+                        style={{ width:110, padding:"5px 8px", fontSize:12, border:"1px solid "+C.border, borderRadius:8, textAlign:"right", fontFamily:"inherit" }}
+                        onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
+                      <span style={{ fontSize:11, color:C.textMuted, minWidth:30 }}>GNF</span>
+                      <button type="button" onClick={()=>supprimerExamen(ex.id)}
+                        style={{ width:28, height:28, borderRadius:6, border:"1px solid "+C.red+"44", background:C.redSoft, color:C.red, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display:"flex", justifyContent:"flex-end", padding:"8px 4px 0", borderTop:"1px solid "+C.border, marginTop:4 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:C.blue }}>Total frais examens : {fraisExamens.toLocaleString("fr-FR")} GNF</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Traitements */}
+          <div>
+            <label style={labelSt}>Traitements prescrits</label>
+            <input value={form.traitements} onChange={e=>f("traitements",e.target.value)} placeholder="Ex : Paracétamol 500mg 3x/j…"
+              style={{ ...inputSt, resize:"none" }}
+              onFocus={e=>e.target.style.borderColor=C.blue} onBlur={e=>e.target.style.borderColor=C.border} />
           </div>
 
           {/* Commentaires */}
@@ -868,35 +1045,55 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
               const poidsStr = form.poids ? `${form.poids} kg` : "Non renseigné"
               const w = window.open("","_blank","width=700,height=900")
               w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ordonnance</title><style>
-                body{font-family:'Segoe UI',sans-serif;margin:0;padding:32px;color:#000}
-                .header{text-align:center;border-bottom:2px solid #16a34a;padding-bottom:16px;margin-bottom:24px}
-                .title{font-size:22px;font-weight:800;color:#16a34a;margin:0}
-                .sub{font-size:13px;color:#444;margin:4px 0}
-                .patient-info{display:flex;gap:16px;margin-bottom:18px;background:#f5faf5;border-radius:8px;padding:12px 16px;border:1px solid #dde8dd}
-                .pi-item{flex:1}.pi-label{font-size:10px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.05em;margin-bottom:2px}
-                .pi-value{font-size:14px;font-weight:600;color:#111}
-                .section{margin-bottom:18px}
-                .label{font-size:11px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.05em;margin-bottom:4px}
-                .value{font-size:14px;padding:8px 12px;background:#f5faf5;border-radius:6px;border:1px solid #dde8dd}
-                .footer{margin-top:40px;display:flex;justify-content:space-between;font-size:12px;color:#666}
-                .sign-box{text-align:center;border-top:1px solid #000;padding-top:8px;width:200px;font-size:12px}
-                @media print{body{padding:20px}}
+                *{box-sizing:border-box}
+                body{font-family:'Segoe UI',sans-serif;margin:0;padding:36px 40px;color:#000;font-size:13px}
+                .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #16a34a;padding-bottom:14px;margin-bottom:20px}
+                .hclinic{flex:1}
+                .title{font-size:20px;font-weight:800;color:#16a34a;margin:0 0 3px}
+                .sub{font-size:11px;color:#555;margin:2px 0}
+                .hdate{text-align:right;font-size:12px;color:#333}
+                .hdate strong{font-size:14px;display:block;margin-bottom:2px}
+                .ord-title{font-size:17px;font-weight:800;text-align:center;letter-spacing:.04em;margin:0 0 18px;text-transform:uppercase;color:#111}
+                .patient-box{border:1.5px solid #16a34a33;border-radius:8px;overflow:hidden;margin-bottom:20px}
+                .patient-box-header{background:#f0faf4;padding:6px 14px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#16a34a;border-bottom:1px solid #16a34a22}
+                .patient-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0}
+                .pi-item{padding:10px 14px;border-right:1px solid #e5e7eb}
+                .pi-item:last-child{border-right:none}
+                .pi-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:3px}
+                .pi-value{font-size:14px;font-weight:700;color:#111}
+                .section{margin-bottom:16px}
+                .sec-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#555;margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid #e5e7eb}
+                .sec-value{font-size:13px;padding:9px 12px;background:#fafafa;border-radius:6px;border:1px solid #e5e7eb;line-height:1.6}
+                .rx{font-size:28px;font-weight:900;color:#16a34a;margin:0 0 6px;line-height:1}
+                .footer{margin-top:40px;display:flex;justify-content:space-between;align-items:flex-end;font-size:11px;color:#888;border-top:1px solid #e5e7eb;padding-top:14px}
+                .sign-box{text-align:center;border-top:1.5px solid #111;padding-top:6px;width:200px;font-size:11px;color:#333}
+                @media print{body{padding:20px 24px}}
               </style></head><body>
               <div class="header">
-                <div class="title">Clinique Médicale ABC Marouane</div>
-                <div class="sub">Tannerie, Kaloum · Conakry, République de Guinée · +224 624 00 00 00</div>
-                <div class="sub" style="font-size:16px;font-weight:700;margin-top:8px">ORDONNANCE MÉDICALE</div>
+                <div class="hclinic">
+                  <div class="title">Clinique Médicale ABC Marouane</div>
+                  <div class="sub">Tannerie, Kaloum · Conakry, République de Guinée</div>
+                  <div class="sub">Tél : +224 624 00 00 00</div>
+                  <div class="sub">Service : ${medecin?.specialite||"—"}</div>
+                </div>
+                <div class="hdate">
+                  <strong>Date</strong>
+                  ${date}
+                </div>
               </div>
-              <div class="patient-info">
-                <div class="pi-item"><div class="pi-label">Nom & Prénom</div><div class="pi-value">${patient?.nom||"—"} (${patient?.sexe==="F"?"Mme":"M."})</div></div>
-                <div class="pi-item"><div class="pi-label">Âge</div><div class="pi-value">${age} ans</div></div>
-                <div class="pi-item"><div class="pi-label">Poids</div><div class="pi-value">${poidsStr}</div></div>
-                <div class="pi-item"><div class="pi-label">Date</div><div class="pi-value">${date}</div></div>
+              <div class="ord-title">Ordonnance Médicale</div>
+              <div class="patient-box">
+                <div class="patient-box-header">Informations du patient</div>
+                <div class="patient-grid">
+                  <div class="pi-item"><div class="pi-label">Nom &amp; Prénom</div><div class="pi-value">${patient?.sexe==="F"?"Mme":"M."} ${patient?.nom||"—"}</div></div>
+                  <div class="pi-item"><div class="pi-label">Âge</div><div class="pi-value">${age} ans</div></div>
+                  <div class="pi-item"><div class="pi-label">Poids</div><div class="pi-value">${poidsStr}</div></div>
+                </div>
               </div>
-              <div class="section"><div class="label">Médecin prescripteur</div><div class="value">${medecin?.nom||"—"} — ${medecin?.specialite||"—"}</div></div>
-              <div class="section"><div class="label">Diagnostic définitif</div><div class="value">${diagnostic}</div></div>
-              <div class="section"><div class="label">Prescriptions</div><div class="value" style="white-space:pre-wrap">${traitement.split(",").map((t,i)=>`${i+1}. ${t.trim()}`).join("\n")}</div></div>
-              ${form.commentaires?`<div class="section"><div class="label">Commentaires / Suivi</div><div class="value">${form.commentaires}</div></div>`:""}
+              <div class="rx">℞</div>
+              <div class="section"><div class="sec-label">Diagnostic</div><div class="sec-value">${diagnostic}</div></div>
+              <div class="section"><div class="sec-label">Prescriptions</div><div class="sec-value">${traitement.split(",").map((t,i)=>`<div style="margin-bottom:6px"><strong>${i+1}.</strong> ${t.trim()}</div>`).join("")}</div></div>
+              ${form.commentaires?`<div class="section"><div class="sec-label">Commentaires / Suivi</div><div class="sec-value">${form.commentaires}</div></div>`:""}
               <div class="footer">
                 <div>Valable 3 mois à compter du ${date}</div>
                 <div class="sign-box">Signature &amp; Cachet du médecin</div>
@@ -924,6 +1121,64 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
 }
 
 // ══════════════════════════════════════════════════════
+//  MODAL — CRÉER UN RDV (par le médecin)
+// ══════════════════════════════════════════════════════
+function ModalCreerRdvMedecin({ patients, medecin, onClose, onCreate }) {
+  const [form, setForm] = useState({ patientId:"", date:"", heure:"", motif:"" })
+  const setF = (k,v) => setForm(p=>({...p,[k]:v}))
+  const ok = form.patientId && form.date && form.heure
+  const iSt = { width:"100%", padding:"11px 14px", fontSize:14, border:"1.5px solid "+C.border, borderRadius:10, background:C.white, color:C.textPri, outline:"none", fontFamily:"inherit" }
+
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
+      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
+      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:500,boxShadow:"0 25px 60px rgba(0,0,0,0.2)",overflow:"hidden" }}>
+        <div style={{ padding:"20px 24px",background:"linear-gradient(135deg,#3b1fa4,#6d28d9)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+          <div>
+            <p style={{ fontSize:16,fontWeight:800,color:"#fff" }}>Nouveau rendez-vous</p>
+            <p style={{ fontSize:12,color:"rgba(255,255,255,0.7)",marginTop:2 }}>{medecin.nom} · {medecin.specialite}</p>
+          </div>
+          <button onClick={onClose} style={{ background:"rgba(255,255,255,0.2)",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",color:"#fff",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center" }}>×</button>
+        </div>
+        <div style={{ padding:"22px 24px",display:"flex",flexDirection:"column",gap:14 }}>
+          <div>
+            <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6 }}>Patient <span style={{ color:C.red }}>*</span></label>
+            <select value={form.patientId} onChange={e=>setF("patientId",e.target.value)} style={{ ...iSt,cursor:"pointer" }}>
+              <option value="">— Choisir un patient —</option>
+              {patients.map(p=><option key={p.id} value={p.id}>{p.nom} · {p.pid}</option>)}
+            </select>
+          </div>
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
+            <div>
+              <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6 }}>Date <span style={{ color:C.red }}>*</span></label>
+              <input type="date" value={form.date} onChange={e=>setF("date",e.target.value)} style={iSt}/>
+            </div>
+            <div>
+              <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6 }}>Heure <span style={{ color:C.red }}>*</span></label>
+              <input type="time" value={form.heure} onChange={e=>setF("heure",e.target.value)} style={iSt}/>
+            </div>
+          </div>
+          <div>
+            <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textSec,marginBottom:6 }}>Motif du rendez-vous</label>
+            <input value={form.motif} onChange={e=>setF("motif",e.target.value)} placeholder="Ex : Suivi tension, CPN 3e trimestre…" style={iSt}/>
+          </div>
+          <div style={{ background:C.purpleSoft,border:"1px solid "+C.purple+"33",borderRadius:10,padding:"11px 14px",fontSize:12,color:C.purple,fontWeight:600 }}>
+            La secrétaire verra ce rendez-vous et pourra envoyer un rappel au patient.
+          </div>
+          <div style={{ display:"flex",gap:10,paddingTop:4 }}>
+            <Btn onClick={onClose} variant="secondary">Annuler</Btn>
+            <Btn onClick={()=>{ if(ok) onCreate(form) }} disabled={!ok} full>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Créer le rendez-vous
+            </Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════
 //  COMPOSANT PRINCIPAL — DASHBOARD MÉDECIN
 // ══════════════════════════════════════════════════════
 export default function DashboardMedecin() {
@@ -931,7 +1186,7 @@ export default function DashboardMedecin() {
   const navigate   = useNavigate()
   const handleLogout = () => { logout(); navigate("/login") }
 
-  const { patients: sharedPatients, consultations: sharedConsultations, updateConsultation, addConsultation, file, updateFileEntry, notifs, marquerNotifLue, marquerToutesLues } = useSharedData()
+  const { patients: sharedPatients, consultations: sharedConsultations, updateConsultation, addConsultation, file, updateFileEntry, rdv, addRdv, removeRdv, notifs, marquerNotifLue, marquerToutesLues } = useSharedData()
 
   const medecin = { id: user?.id || 2, nom: user?.nom || "Dr. Keïta", specialite: user?.specialite || "Médecine générale" }
 
@@ -941,6 +1196,7 @@ export default function DashboardMedecin() {
 
   const [onglet, setOnglet]               = useState("accueil")
   const [sidebarOpen, setSidebarOpen]     = useState(false)
+  const [showCreerRdv, setShowCreerRdv]   = useState(false)
   const consultations = sharedConsultations
   const [heure, setHeure]                 = useState("")
   const [dateStr, setDateStr]             = useState("")
@@ -958,6 +1214,8 @@ export default function DashboardMedecin() {
   },[])
 
   // Patients du jour : viennent de la file d'attente partagée (assignés par la secrétaire/chef)
+  const mesRdv = rdv.filter(r => r.docteurId === medecin.id).sort((a,b) => a.date.localeCompare(b.date))
+
   const mesPatients = file
     .filter(f => f.docteurId === medecin.id && f.statut !== "termine")
     .map(f => {
@@ -988,6 +1246,10 @@ export default function DashboardMedecin() {
     } else {
       addConsultation({ patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:false, signeLe:null, ...data })
     }
+    const fileEntry = file.find(f=>f.patientId===patientId && f.statut !== "termine")
+    if (fileEntry && (data.fraisExamens || 0) > 0) {
+      updateFileEntry(fileEntry.id, { fraisExamens: data.fraisExamens, examensCommandes: data.examensCommandes })
+    }
     setMConsult(null)
     alert("Consultation sauvegardée.")
   }
@@ -1002,15 +1264,30 @@ export default function DashboardMedecin() {
       addConsultation({ patientId, date:today(), service:medecin.specialite, docteurId:medecin.id, signe:true, signeLe:ts, ...data })
     }
     const fileEntry = file.find(f=>f.patientId===patientId)
-    if (fileEntry) updateFileEntry(fileEntry.id, { statut:"termine" })
+    if (fileEntry) {
+      updateFileEntry(fileEntry.id, {
+        statut: "termine",
+        ...(((data.fraisExamens || 0) > 0) && { fraisExamens: data.fraisExamens, examensCommandes: data.examensCommandes }),
+      })
+    }
     setMConsult(null)
-    alert("Consultation signée et validée.")
+    const msg = (data.fraisExamens||0) > 0
+      ? `Consultation signée. Frais d'examens : ${data.fraisExamens.toLocaleString("fr-FR")} GNF → orienter le patient vers la comptabilité.`
+      : "Consultation signée et validée."
+    alert(msg)
+  }
+
+  const handleCreerRdv = (form) => {
+    const p = sharedPatients.find(pt => pt.id === parseInt(form.patientId))
+    addRdv({ ...form, patientId: parseInt(form.patientId), patient: p?.nom || "—", docteurId: medecin.id, docteur: medecin.nom, service: medecin.specialite, rappelEnvoye: false })
+    setShowCreerRdv(false)
   }
 
   const NAV = [
-    { id:"accueil",       label:"Accueil",         icon:"home", desc:"Vue d'ensemble",      badge:0          },
-    { id:"patients",      label:"Mes patients",     icon:"users", desc:"Liste du jour",       badge:enAttente  },
-    { id:"consultations", label:"Mes consultations",icon:"doc", desc:"Historique & signature", badge:nonSignees },
+    { id:"accueil",       label:"Accueil",         icon:"home", desc:"Vue d'ensemble",         badge:0            },
+    { id:"patients",      label:"Mes patients",     icon:"users", desc:"Liste du jour",          badge:enAttente    },
+    { id:"consultations", label:"Mes consultations",icon:"doc", desc:"Historique & signature",   badge:nonSignees   },
+    { id:"rdv",           label:"Mes rendez-vous",  icon:"cal",  desc:"Agenda & planification",  badge:mesRdv.filter(r=>r.date===today()).length },
   ]
 
   return (
@@ -1024,6 +1301,14 @@ export default function DashboardMedecin() {
           medecin={medecin}
           onClose={()=>setMFiche(null)}
           onConsulter={p=>{ ouvrirConsultation(p) }}
+        />
+      )}
+      {showCreerRdv && (
+        <ModalCreerRdvMedecin
+          patients={sharedPatients}
+          medecin={medecin}
+          onClose={()=>setShowCreerRdv(false)}
+          onCreate={handleCreerRdv}
         />
       )}
       {mConsult && (
@@ -1095,12 +1380,24 @@ export default function DashboardMedecin() {
           <div style={{ width:20, height:2, background:C.textPri, borderRadius:2 }} />
         </button>
 
+        {/* Logo clinique */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginLeft:12, paddingRight:20, borderRight:"1px solid "+C.border, flexShrink:0 }}>
+          <div style={{ width:38,height:38,borderRadius:9,background:"#fff",border:"1px solid "+C.border,padding:3,display:"flex",alignItems:"center",justifyContent:"center" }}>
+            <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:6,objectFit:"contain",display:"block" }}/>
+          </div>
+          <div>
+            <p style={{ fontSize:13,fontWeight:800,color:C.textPri,lineHeight:1.2 }}>Clinique Marouane</p>
+            <p style={{ fontSize:11,color:C.textMuted }}>Espace médecin</p>
+          </div>
+        </div>
+
         {/* Titre */}
-        <div style={{ flex:1, marginLeft:20 }}>
+        <div style={{ flex:1, marginLeft:16 }}>
           <p style={{ fontSize:15, fontWeight:700, color:C.textPri, lineHeight:1.2 }}>
             {onglet==="accueil"       && "Accueil"}
             {onglet==="patients"      && "Mes patients du jour"}
             {onglet==="consultations" && "Mes consultations"}
+            {onglet==="rdv"           && "Mes rendez-vous"}
           </p>
           <p style={{ fontSize:12, color:C.textMuted, textTransform:"capitalize" }}>{dateStr}</p>
         </div>
@@ -1138,7 +1435,7 @@ export default function DashboardMedecin() {
                         </div>
                         <div style={{ flex:1 }}>
                           <p style={{ fontSize:13,fontWeight:n.lu?500:700,color:C.textPri,marginBottom:2 }}>
-                            Nouveau patient assigné
+                            {n.titre || "Nouveau patient assigné"}
                           </p>
                           <p style={{ fontSize:12,color:C.textSec,marginBottom:2 }}>{n.patientNom}</p>
                           <p style={{ fontSize:11,color:C.textMuted }}>{n.motif}</p>
@@ -1317,6 +1614,93 @@ export default function DashboardMedecin() {
           </Card>
         )}
 
+        {/* ══ MES RENDEZ-VOUS ══ */}
+        {onglet==="rdv" && (
+          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+            {/* KPIs */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
+              {[
+                { val:mesRdv.length,                            label:"Total RDV",         bg:C.purpleSoft, fg:C.purple },
+                { val:mesRdv.filter(r=>r.date===today()).length, label:"Aujourd'hui",       bg:C.blueSoft,   fg:C.blue   },
+                { val:mesRdv.filter(r=>r.date>today()).length,   label:"À venir",           bg:C.greenSoft,  fg:C.green  },
+              ].map(({val,label,bg,fg})=>(
+                <Card key={label} style={{ padding:"20px" }}>
+                  <p style={{ fontSize:30, fontWeight:800, color:fg, lineHeight:1 }}>{val}</p>
+                  <p style={{ fontSize:12, color:C.textMuted, marginTop:6 }}>{label}</p>
+                </Card>
+              ))}
+            </div>
+
+            {/* Table */}
+            <Card>
+              <CardHeader
+                title={"Mes rendez-vous — "+mesRdv.length}
+                sub={medecin.specialite+" · Créez et gérez vos propres RDV"}
+                action={
+                  <Btn onClick={()=>setShowCreerRdv(true)} small>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    Nouveau RDV
+                  </Btn>
+                }
+              />
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead>
+                  <tr style={{ background:C.slateSoft }}>
+                    {["Patient","Date","Heure","Motif","Statut","Action"].map(h=>(
+                      <th key={h} style={{ padding:"10px 16px", textAlign:"left", fontSize:11, fontWeight:700, color:C.textSec, textTransform:"uppercase", letterSpacing:"0.05em" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {mesRdv.length===0 ? (
+                    <tr><td colSpan={6} style={{ padding:40, textAlign:"center", color:C.textMuted }}>
+                      Aucun rendez-vous planifié — créez votre premier RDV
+                    </td></tr>
+                  ) : mesRdv.map((r,i,arr)=>{
+                    const isPast = r.date < today()
+                    const isToday = r.date === today()
+                    return (
+                      <tr key={r.id} style={{ borderBottom:i<arr.length-1?"1px solid "+C.border:"none" }}
+                        onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <td style={{ padding:"12px 16px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <Avatar name={r.patient} size={30} bg={C.purple} />
+                            <p style={{ fontSize:13, fontWeight:600, color:C.textPri }}>{r.patient}</p>
+                          </div>
+                        </td>
+                        <td style={{ padding:"12px 16px", fontSize:13, fontWeight:isToday?700:400, color:isToday?C.green:isPast?C.textMuted:C.textSec }}>
+                          {new Date(r.date).toLocaleDateString("fr-FR")}
+                          {isToday && <span style={{ marginLeft:6, fontSize:10, fontWeight:700, background:C.greenSoft, color:C.green, padding:"2px 7px", borderRadius:10 }}>Aujourd'hui</span>}
+                        </td>
+                        <td style={{ padding:"12px 16px", fontSize:13, fontWeight:700, color:C.textPri, fontVariantNumeric:"tabular-nums" }}>{r.heure}</td>
+                        <td style={{ padding:"12px 16px", fontSize:12, color:C.textSec }}>{r.motif||"—"}</td>
+                        <td style={{ padding:"12px 16px" }}>
+                          {isPast
+                            ? <span style={{ fontSize:11, fontWeight:700, background:C.slateSoft, color:C.textMuted, padding:"3px 10px", borderRadius:20 }}>Passé</span>
+                            : isToday
+                              ? <span style={{ fontSize:11, fontWeight:700, background:C.greenSoft, color:C.green, padding:"3px 10px", borderRadius:20, display:"inline-flex", alignItems:"center", gap:4 }}>
+                                  <span style={{ width:5, height:5, borderRadius:"50%", background:C.green, animation:"blink 2s ease-in-out infinite" }}/>
+                                  Aujourd'hui
+                                </span>
+                              : <span style={{ fontSize:11, fontWeight:700, background:C.purpleSoft, color:C.purple, padding:"3px 10px", borderRadius:20 }}>Planifié</span>
+                          }
+                        </td>
+                        <td style={{ padding:"12px 16px" }}>
+                          <button onClick={()=>removeRdv(r.id)}
+                            style={{ padding:"5px 10px", border:"1px solid #fca5a5", borderRadius:8, background:"#fff5f5", color:"#cc2222", fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+                            Annuler
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+        )}
+
         {/* ══ MES CONSULTATIONS ══ */}
         {onglet==="consultations" && (
           <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
@@ -1342,7 +1726,7 @@ export default function DashboardMedecin() {
                   {mesConsultations.length===0
                     ? <tr><td colSpan={8} style={{ padding:40, textAlign:"center", color:C.textMuted }}>Aucune consultation enregistrée</td></tr>
                     : [...mesConsultations].sort((a,b)=>b.date.localeCompare(a.date)).map((c,i,arr)=>{
-                        const p = patients.find(pt=>pt.id===c.patientId)
+                        const p = sharedPatients.find(pt=>pt.id===c.patientId)
                         if (!p) return null
                         return (
                           <tr key={c.id} style={{ borderBottom:i<arr.length-1?"1px solid "+C.border:"none", background:!c.signe?"#fff8f8":"transparent", transition:"background .15s" }}

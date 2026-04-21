@@ -10,19 +10,13 @@ import { useSharedData } from "../../hooks/useSharedData.jsx"
 // ══════════════════════════════════════════════════════
 function genId(seed) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789"
-  let result = "CAB-", n = seed * 48271 + 1000003
+  let result = "ABC-", n = seed * 48271 + 1000003
   for (let i = 0; i < 6; i++) { n = (n*1664525+1013904223)&0x7fffffff; result+=chars[n%chars.length] }
   return result
 }
 const today   = () => new Date().toISOString().slice(0,10)
 const nowTime = () => new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})
 const fmt     = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—"
-
-const SERVICES = [
-  "Accueil","Ophtalmologie","ORL","Laboratoire","Pharmacie","Pédiatrie",
-  "Médecine générale","Traumatologie","Gynécologie","Cardiologie",
-  "Neurologie","Urologie","Chirurgie","Diabétologie / Endocrinologie",
-]
 
 // ══════════════════════════════════════════════════════
 //  DONNÉES MOCK
@@ -47,19 +41,14 @@ const DOCTEURS = [
   { id:9, nom:"Dr. Traoré",    specialite:"ORL",                         statut:"present" },
 ]
 
-const RDV_INIT = [
-  { id:1, patientId:3, patient:"Sow Fatoumata",   date:"2026-04-05", heure:"09:00", service:"Gynécologie",  docteur:"Dr. Keïta",     motif:"CPN - 7ème mois",      rappelEnvoye:false },
-  { id:2, patientId:1, patient:"Bah Mariama",     date:"2026-04-05", heure:"10:00", service:"Cardiologie",  docteur:"Dr. Camara",    motif:"Suivi tension",         rappelEnvoye:true  },
-  { id:3, patientId:5, patient:"Baldé Aissatou",  date:"2026-04-07", heure:"08:30", service:"Ophtalmologie",docteur:"Dr. Bah",       motif:"Contrôle vue",          rappelEnvoye:false },
-]
 
-function tarifParAge(dateNaissance) {
-  if (!dateNaissance) return 50000
+function tarifParAge(dateNaissance, s={}) {
+  if (!dateNaissance) return s.tarifAdulte || 50000
   const age = Math.floor((Date.now() - new Date(dateNaissance)) / (365.25*24*3600*1000))
-  if (age < 5) return 30000
-  if (age < 15) return 35000
-  if (age <= 60) return 50000
-  return 40000
+  if (age < 5)   return s.tarifNourrisson || 30000
+  if (age < 15)  return s.tarifEnfant     || 35000
+  if (age <= 60) return s.tarifAdulte     || 50000
+  return s.tarifSenior || 40000
 }
 
 // ══════════════════════════════════════════════════════
@@ -141,16 +130,17 @@ function Btn({ children, onClick, variant="primary", small=false, disabled=false
 //  MODAL — ENREGISTRER NOUVEAU PATIENT (formulaire image)
 // ══════════════════════════════════════════════════════
 function ModalNouveauPatient({ onClose, onEnregistrer }) {
+  const { settings } = useClinicSettings()
   const INIT={ nom:"",prenom:"",age:"",dateNaissance:"",sexe:"F",telephone:"",profession:"",quartier:"",secteur:"",responsable:"",telResponsable:"",montantConsultation:"" }
   const [form, setForm]=useState(INIT)
   const setF=(k,v)=>setForm(p=>({...p,[k]:v}))
   const ok=form.nom&&form.prenom&&form.montantConsultation
 
   // Calcul tarif automatique selon date de naissance
-  const tarifAuto = tarifParAge(form.dateNaissance)
+  const tarifAuto = tarifParAge(form.dateNaissance, settings)
   // Mise à jour auto du montant quand la date change
   const handleDateNaissance = (val) => {
-    setForm(p=>({ ...p, dateNaissance:val, montantConsultation:tarifParAge(val).toString() }))
+    setForm(p=>({ ...p, dateNaissance:val, montantConsultation:tarifParAge(val, settings).toString() }))
   }
 
   const iSt={ width:"100%",padding:"13px 16px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
@@ -299,6 +289,7 @@ function ModalNouveauPatient({ onClose, onEnregistrer }) {
 //  MODAL — RECHERCHER DOSSIER EXISTANT
 // ══════════════════════════════════════════════════════
 function ModalRechercheDossier({ patients, onClose, onSignaler }) {
+  const { settings } = useClinicSettings()
   const [q,           setQ]           = useState("")
   const [selPatient,  setSelPatient]  = useState(null)   // patient sélectionné pour confirmer
   const [montant,     setMontant]     = useState("")
@@ -311,11 +302,11 @@ function ModalRechercheDossier({ patients, onClose, onSignaler }) {
 
   const iSt={ width:"100%",padding:"12px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
 
-  const tarifAuto = tarifParAge(selPatient?.dateNaissance)
+  const tarifAuto = tarifParAge(selPatient?.dateNaissance, settings)
 
   const handleSelectionner = (p) => {
     setSelPatient(p)
-    setMontant(tarifParAge(p.dateNaissance).toString())
+    setMontant(tarifParAge(p.dateNaissance, settings).toString())
   }
 
   const handleConfirmer = () => {
@@ -346,7 +337,7 @@ function ModalRechercheDossier({ patients, onClose, onSignaler }) {
           {!selPatient && (<>
             <div style={{ position:"relative",marginBottom:16 }}>
               <svg style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Ex : CAB-A1B2C3 ou Bah Mariama..."
+              <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Ex : ABC-A1B2C3 ou Bah Mariama..."
                 style={{ ...iSt,paddingLeft:40,background:C.bg }}
                 onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.background=C.white }}
                 onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.background=C.bg }}/>
@@ -434,70 +425,6 @@ function ModalRechercheDossier({ patients, onClose, onSignaler }) {
   )
 }
 
-// ══════════════════════════════════════════════════════
-//  MODAL — CRÉER UN RENDEZ-VOUS
-// ══════════════════════════════════════════════════════
-function ModalCreerRdv({ patients, docteurs, onClose, onCreate }) {
-  const [form,setForm]=useState({ patientId:"",docteur:"",service:SERVICES[6],date:"",heure:"",motif:"" })
-  const setF=(k,v)=>setForm(p=>({...p,[k]:v}))
-  const ok=form.patientId&&form.date&&form.heure
-
-  const iSt={ width:"100%",padding:"11px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:10,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
-
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
-      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:540,maxHeight:"90vh",overflow:"auto",boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
-        <div style={{ padding:"22px 28px 18px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          <div>
-            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>Créer un rendez-vous</p>
-            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>Le patient recevra un rappel automatique</p>
-          </div>
-          <button onClick={onClose} style={{ background:C.slateSoft,border:"none",borderRadius:8,color:C.textSec,cursor:"pointer",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>×</button>
-        </div>
-        <div style={{ padding:"24px 28px",display:"flex",flexDirection:"column",gap:14 }}>
-          <div>
-            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Patient <span style={{ color:C.red }}>*</span></label>
-            <select value={form.patientId} onChange={e=>setF("patientId",e.target.value)} style={{ ...iSt,cursor:"pointer" }}>
-              <option value="">— Choisir un patient —</option>
-              {patients.map(p=><option key={p.id} value={p.id}>{p.nom} · {p.pid}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Médecin / Service <span style={{ color:C.red }}>*</span></label>
-            <select value={form.docteur} onChange={e=>setF("docteur",e.target.value)} style={{ ...iSt,cursor:"pointer" }}>
-              <option value="">— Choisir un médecin —</option>
-              {docteurs.filter(d=>d.statut==="present").map(d=><option key={d.id} value={d.nom}>{d.nom} — {d.specialite}</option>)}
-            </select>
-          </div>
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
-            <div>
-              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Date <span style={{ color:C.red }}>*</span></label>
-              <input type="date" value={form.date} onChange={e=>setF("date",e.target.value)} style={iSt}/>
-            </div>
-            <div>
-              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Heure <span style={{ color:C.red }}>*</span></label>
-              <input type="time" value={form.heure} onChange={e=>setF("heure",e.target.value)} style={iSt}/>
-            </div>
-          </div>
-          <div>
-            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Motif du rendez-vous</label>
-            <input value={form.motif} onChange={e=>setF("motif",e.target.value)} placeholder="Ex : CPN suivi, Contrôle tension..." style={iSt}/>
-          </div>
-          <div style={{ background:C.blueSoft,border:"1px solid "+C.blue+"33",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10 }}>
-            <p style={{ fontSize:13,color:C.textPri }}>Un rappel SMS sera envoyé automatiquement au patient la veille du rendez-vous.</p>
-          </div>
-          <div style={{ display:"flex",justifyContent:"flex-end",gap:10,paddingTop:8,borderTop:"1px solid "+C.border }}>
-            <Btn onClick={onClose} variant="secondary">Annuler</Btn>
-            <Btn onClick={()=>{ if(ok) onCreate(form) }} disabled={!ok}>
-               Créer le rendez-vous
-            </Btn>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ══════════════════════════════════════════════════════
 //  MODAL — PERMISSION / ABSENCE
@@ -697,7 +624,7 @@ export default function DashboardSecretaire() {
   const navigate   = useNavigate()
   const handleLogout = () => { logout(); navigate("/login") }
 
-  const { patients, addPatient, file, addToFile, updateFileEntry, rdv: rdvs, addRdv, updateRdv } = useSharedData()
+  const { patients, addPatient, file, addToFile, rdv: rdvs, updateRdv, addNotif } = useSharedData()
 
   // Patients actifs (en attente / en salle / en consultation) — exclut les consultés
   const fileActif = file.filter(f => f.statut !== "termine")
@@ -708,8 +635,6 @@ export default function DashboardSecretaire() {
   const [dateStr,      setDateStr]      = useState("")
   const [showNouveau,  setShowNouveau]  = useState(false)
   const [showRecherche,setShowRecherche]= useState(false)
-  const [showRdv,      setShowRdv]      = useState(false)
-  
   const [notifications,setNotifications]= useState([
     { id:1, type:"rdv",  message:"RDV de Sow Fatoumata demain à 09h00 — Gynécologie", lu:false, date:today() },
     { id:2, type:"rdv",  message:"Rappel : Baldé Aissatou a un RDV le 07/04 à 08h30", lu:false, date:today() },
@@ -717,7 +642,7 @@ export default function DashboardSecretaire() {
   const [showNotifs, setShowNotifs]=useState(false)
   const [recherchePatients, setRecherchePatients]=useState("")
   const [permissionModal, setPermissionModal] = useState(null) // { medecin, type: null }
-  useClinicSettings()
+  const { settings } = useClinicSettings()
 
   const patientsFiltres = patients.filter(p=>{
     const q=recherchePatients.toLowerCase().trim()
@@ -757,7 +682,7 @@ export default function DashboardSecretaire() {
       profession:form.profession, responsable:form.responsable,
     }
     addPatient(nouveau)
-    addToFile({ patientId:nouveau.id, pid:nouveau.pid, nom:nouveau.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantConsultation:parseInt(form.montantConsultation)||tarifParAge(form.dateNaissance), paiementConsultation:null })
+    addToFile({ patientId:nouveau.id, pid:nouveau.pid, nom:nouveau.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantConsultation:parseInt(form.montantConsultation)||tarifParAge(form.dateNaissance, settings), paiementConsultation:null })
     setShowNouveau(false)
     alert(""+fullNom+" enregistré et ajouté à la file du médecin chef.")
   }
@@ -765,23 +690,17 @@ export default function DashboardSecretaire() {
   const handleSignaler = (patient, montant) => {
     const deja = file.find(f=>f.patientId===patient.id && f.statut !== "termine")
     if (deja) { alert(patient.nom+" est déjà dans la file d'attente."); return }
-    addToFile({ patientId:patient.id, pid:patient.pid, nom:patient.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantConsultation:montant||tarifParAge(patient.dateNaissance), paiementConsultation:null })
-    alert(""+patient.nom+" signalé au médecin chef. Montant : "+(montant||tarifParAge(patient.dateNaissance)).toLocaleString("fr-FR")+" GNF à payer à la comptabilité.")
+    addToFile({ patientId:patient.id, pid:patient.pid, nom:patient.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantConsultation:montant||tarifParAge(patient.dateNaissance, settings), paiementConsultation:null })
+    alert(""+patient.nom+" signalé au médecin chef. Montant : "+(montant||tarifParAge(patient.dateNaissance, settings)).toLocaleString("fr-FR")+" GNF à payer à la comptabilité.")
   }
-
-  const handleCreerRdv = (form) => {
-    const p=patients.find(pt=>pt.id===parseInt(form.patientId))
-    const nouveauRdv={ patientId:parseInt(form.patientId), patient:p?.nom||"—", date:form.date, heure:form.heure, service:form.service, docteur:form.docteur, motif:form.motif, rappelEnvoye:false }
-    addRdv(nouveauRdv)
-    setNotifications(prev=>[{ id:prev.length+1, type:"rdv", message:"RDV créé : "+p?.nom+" le "+fmt(form.date)+" à "+form.heure+" — "+form.docteur, lu:false, date:today() },...prev])
-    setShowRdv(false)
-    alert("Rendez-vous créé. Un rappel sera envoyé au patient.")
-  }
-
 
   const envoyerRappel = (rdvId) => {
-    updateRdv(rdvId, { rappelEnvoye:true })
-    alert("Rappel envoyé au patient.")
+    const r = rdvs.find(x => x.id === rdvId)
+    updateRdv(rdvId, { rappelEnvoye: true })
+    if (r?.docteurId) {
+      addNotif({ docteurId: r.docteurId, titre: "Rappel de rendez-vous", patientNom: r.patient, motif: "RDV le "+fmt(r.date)+" à "+r.heure+(r.motif?" — "+r.motif:"") })
+    }
+    setNotifications(prev=>[{ id:Date.now(), type:"rdv", message:"Rappel signalé à "+r?.docteur+" pour "+r?.patient, lu:false, date:today() },...prev])
   }
 
   // ══════════════════════════════════════════════════════
@@ -937,7 +856,6 @@ export default function DashboardSecretaire() {
       {/* MODALS */}
       {showNouveau   && <ModalNouveauPatient patients={patients} onClose={()=>setShowNouveau(false)} onEnregistrer={handleEnregistrer}/>}
       {showRecherche && <ModalRechercheDossier patients={patients} onClose={()=>setShowRecherche(false)} onSignaler={handleSignaler}/>}
-      {showRdv       && <ModalCreerRdv patients={patients} docteurs={DOCTEURS} onClose={()=>setShowRdv(false)} onCreate={handleCreerRdv}/>}
       {permissionModal && <ModalPermission medecin={permissionModal.medecin} onClose={()=>setPermissionModal(null)} onValider={validerPermission}/>}
       {onglet === "historique" && <ModalHistorique medecins={medecins} historique={historique} onClose={()=>setOnglet("presence")}/>}
 
@@ -988,7 +906,19 @@ export default function DashboardSecretaire() {
         <button onClick={()=>setSidebarOpen(true)} style={{ width:40,height:40,borderRadius:8,border:"1px solid "+C.border,background:C.white,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:5 }}>
           <div style={{ width:20,height:2,background:C.textPri,borderRadius:2 }}/><div style={{ width:20,height:2,background:C.textPri,borderRadius:2 }}/><div style={{ width:20,height:2,background:C.textPri,borderRadius:2 }}/>
         </button>
-        <div style={{ flex:1,marginLeft:20 }}>
+
+        {/* Logo clinique */}
+        <div style={{ display:"flex",alignItems:"center",gap:10,marginLeft:12,paddingRight:20,borderRight:"1px solid "+C.border,flexShrink:0 }}>
+          <div style={{ width:38,height:38,borderRadius:9,background:"#fff",border:"1px solid "+C.border,padding:3,display:"flex",alignItems:"center",justifyContent:"center" }}>
+            <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:6,objectFit:"contain",display:"block" }}/>
+          </div>
+          <div>
+            <p style={{ fontSize:13,fontWeight:800,color:C.textPri,lineHeight:1.2 }}>Clinique Marouane</p>
+            <p style={{ fontSize:11,color:C.textMuted }}>Secrétariat</p>
+          </div>
+        </div>
+
+        <div style={{ flex:1,marginLeft:16 }}>
           <p style={{ fontSize:15,fontWeight:700,color:C.textPri,lineHeight:1.2 }}>Clinique ABC Marouane — Accueil</p>
           <p style={{ fontSize:12,color:C.textMuted,textTransform:"capitalize" }}>{dateStr}</p>
         </div>
@@ -1044,7 +974,7 @@ export default function DashboardSecretaire() {
         {onglet==="accueil"&&(
           <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
             {/* KPIs */}
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16 }}>
               {[
                 { val:fileActif.length, label:"En attente", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, bg:C.blueSoft, fg:C.blue },
                 { val:fileActif.filter(f=>f.typeVisite==="rendez_vous").length, label:"Rendez-vous du jour", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, bg:C.purpleSoft, fg:C.purple },
@@ -1059,11 +989,10 @@ export default function DashboardSecretaire() {
             </div>
 
             {/* Actions rapides */}
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14 }}>
               {[
                 { label:"Nouveau patient",    desc:"Enregistrer un nouveau patient", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>, action:()=>setShowNouveau(true), color:C.blue },
                 { label:"Rechercher dossier", desc:"Patient déjà enregistré",        svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>, action:()=>setShowRecherche(true), color:C.green },
-                { label:"Créer un RDV",       desc:"Programmer un rendez-vous",      svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, action:()=>setShowRdv(true), color:C.purple },
               ].map(({label,desc,svg,action,color})=>(
                 <Card key={label} style={{ padding:"20px",cursor:"pointer",transition:"all .15s",border:"1.5px solid "+C.border }}
                   onClick={action}
@@ -1261,25 +1190,28 @@ export default function DashboardSecretaire() {
         {/* ══ RENDEZ-VOUS ══ */}
         {onglet==="rdv"&&(
           <div>
-            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20 }}>
-              <div>
-                <p style={{ fontSize:22,fontWeight:800,color:C.textPri,marginBottom:4 }}>Rendez-vous</p>
-                <p style={{ fontSize:14,color:C.textSec }}>{rdvs.length} rendez-vous programmés</p>
-              </div>
-              <Btn onClick={()=>setShowRdv(true)} small>Nouveau RDV</Btn>
+            <div style={{ marginBottom:20 }}>
+              <p style={{ fontSize:22,fontWeight:800,color:C.textPri,marginBottom:4 }}>Rendez-vous</p>
+              <p style={{ fontSize:14,color:C.textSec }}>{rdvs.length} rendez-vous — créés par les médecins · Gérez les rappels ci-dessous</p>
             </div>
             <Card>
-              <CardHeader title="Tous les rendez-vous"/>
+              <CardHeader title="Tous les rendez-vous" action={
+                <span style={{ fontSize:12,color:C.textMuted,background:C.slateSoft,padding:"4px 12px",borderRadius:20 }}>
+                  Lecture seule — les médecins créent leurs RDV
+                </span>
+              }/>
               <table style={{ width:"100%",borderCollapse:"collapse" }}>
                 <thead>
                   <tr style={{ background:C.slateSoft }}>
-                    {["Patient","Date","Heure","Médecin / Service","Motif","Rappel"].map(h=>(
+                    {["Patient","Date","Heure","Médecin / Service","Motif","Rappel patient","Signaler médecin"].map(h=>(
                       <th key={h} style={{ padding:"11px 16px",textAlign:"left",fontSize:11,fontWeight:700,color:C.textSec,letterSpacing:"0.06em",textTransform:"uppercase" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {rdvs.sort((a,b)=>a.date.localeCompare(b.date)).map((r,i,arr)=>(
+                  {rdvs.length===0
+                    ? <tr><td colSpan={7} style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun rendez-vous — les médecins n'en ont pas encore créé</td></tr>
+                    : rdvs.sort((a,b)=>a.date.localeCompare(b.date)).map((r,i,arr)=>(
                     <tr key={r.id} style={{ borderBottom:i<arr.length-1?"1px solid "+C.border:"none",transition:"background .15s" }}
                       onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
                       onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -1289,7 +1221,10 @@ export default function DashboardSecretaire() {
                           <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{r.patient}</p>
                         </div>
                       </td>
-                      <td style={{ padding:"13px 16px",fontSize:13,color:r.date===today()?C.green:C.textSec,fontWeight:r.date===today()?700:400 }}>{fmt(r.date)}</td>
+                      <td style={{ padding:"13px 16px",fontSize:13,color:r.date===today()?C.green:C.textSec,fontWeight:r.date===today()?700:400 }}>
+                        {fmt(r.date)}
+                        {r.date===today()&&<span style={{ marginLeft:5,fontSize:10,fontWeight:700,background:C.greenSoft,color:C.green,padding:"2px 7px",borderRadius:10 }}>Auj.</span>}
+                      </td>
                       <td style={{ padding:"13px 16px",fontSize:13,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{r.heure}</td>
                       <td style={{ padding:"13px 16px" }}>
                         <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{r.docteur}</p>
@@ -1297,9 +1232,21 @@ export default function DashboardSecretaire() {
                       </td>
                       <td style={{ padding:"13px 16px",fontSize:12,color:C.textSec }}>{r.motif||"—"}</td>
                       <td style={{ padding:"13px 16px" }}>
-                        {!r.rappelEnvoye
-                          ? <button onClick={()=>envoyerRappel(r.id)} style={{ padding:"5px 12px",background:C.slateSoft,color:C.slate,border:"1px solid "+C.slate+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>Envoyer rappel</button>
-                          : <span style={{ fontSize:12,fontWeight:600,color:C.green }}>Rappel envoyé</span>
+                        {r.rappelEnvoye
+                          ? <span style={{ fontSize:12,fontWeight:600,color:C.green }}>Rappel envoyé</span>
+                          : <button onClick={()=>envoyerRappel(r.id)}
+                              style={{ padding:"5px 12px",background:C.slateSoft,color:C.slate,border:"1px solid "+C.slate+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
+                              Rappeler patient
+                            </button>
+                        }
+                      </td>
+                      <td style={{ padding:"13px 16px" }}>
+                        {r.rappelEnvoye
+                          ? <span style={{ fontSize:12,color:C.green,fontWeight:600 }}>Signalé ✓</span>
+                          : <button onClick={()=>envoyerRappel(r.id)}
+                              style={{ padding:"5px 12px",background:C.amberSoft,color:C.amber,border:"1px solid "+C.amber+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
+                              Signaler au Dr.
+                            </button>
                         }
                       </td>
                     </tr>

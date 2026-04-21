@@ -222,12 +222,12 @@ function TabEtablissement({ s, u }) {
             </SelectInput>
           </Field>
           <Field label="Préfixe numéro de dossier">
-            <TextInput value={s.prefixeDossier} onChange={e=>u('prefixeDossier',e.target.value)} placeholder="CAB" mono/>
+            <TextInput value={s.prefixeDossier} onChange={e=>u('prefixeDossier',e.target.value)} placeholder="ABC" mono/>
           </Field>
         </div>
         <div style={{ marginTop:10 }}>
           <InfoBox color={T.green} bg={T.greenSoft} border={T.green} icon="ℹ️">
-            Le numéro de dossier sera généré automatiquement sous la forme <strong>{s.prefixeDossier||'CAB'}-XXXXXX</strong> à chaque enregistrement patient.
+            Le numéro de dossier sera généré automatiquement sous la forme <strong>{s.prefixeDossier||'ABC'}-XXXXXX</strong> à chaque enregistrement patient.
           </InfoBox>
         </div>
       </section>
@@ -385,10 +385,56 @@ function TabTarification({ s, u }) {
       {/* Grille tarifaire */}
       <section>
         <SectionTitle icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>} title="Grille tarifaire de base"
-          desc={`Tarifs appliqués par défaut en ${devise}. Le médecin chef peut les ajuster par dossier.`}/>
+          desc={`Tarifs standards appliqués par défaut en ${devise}.`}/>
 
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
           {tarifs.map(({ key, icon, label, desc }) => {
+            const base = s[key] || 0
+            const ttc  = Math.round(base * tva)
+            return (
+              <div key={key} style={{ display:'grid', gridTemplateColumns:'1fr 180px 120px',
+                gap:12, alignItems:'center', padding:'14px 16px',
+                background:T.white, borderRadius:12, border:`1px solid ${T.border}` }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ fontSize:20, flexShrink:0 }}>{icon}</span>
+                  <div>
+                    <p style={{ fontSize:13, fontWeight:600, color:T.txt }}>{label}</p>
+                    <p style={{ fontSize:11, color:T.txtMuted }}>{desc}</p>
+                  </div>
+                </div>
+                <div style={{ position:'relative' }}>
+                  <input type="number" value={base}
+                    onChange={e=>u(key, parseInt(e.target.value)||0)}
+                    style={{ width:'100%', padding:'9px 52px 9px 11px', fontSize:14, fontWeight:700,
+                      border:`1.5px solid ${T.border}`, borderRadius:8,
+                      background:T.bgDeep, color:T.txt, outline:'none', fontFamily:'inherit' }}
+                    onFocus={e=>{ e.target.style.borderColor=T.green; e.target.style.background=T.white }}
+                    onBlur={e=>{  e.target.style.borderColor=T.border; e.target.style.background=T.bgDeep }}
+                  />
+                  <span style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+                    fontSize:10, fontWeight:700, color:T.txtMuted }}>{devise}</span>
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  <p style={{ fontSize:11, color:T.txtMuted, marginBottom:2 }}>TTC</p>
+                  <p style={{ fontSize:14, fontWeight:800, color:T.green }}>{fmt(ttc)} {devise}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Tarifs par âge */}
+      <section>
+        <SectionTitle icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>} title="Tarifs consultation par tranche d'âge"
+          desc={`Appliqués automatiquement lors des consultations en médecine générale. Modifiables ici par l'administration.`}/>
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {[
+            { key:'tarifNourrisson', icon:'👶', label:'Nourrisson', desc:'Moins de 5 ans' },
+            { key:'tarifEnfant',     icon:'🧒', label:'Enfant',     desc:'De 5 à 14 ans' },
+            { key:'tarifAdulte',     icon:'🧑', label:'Adulte',     desc:'De 15 à 60 ans' },
+            { key:'tarifSenior',     icon:'👴', label:'Senior',     desc:'Plus de 60 ans' },
+          ].map(({ key, icon, label, desc }) => {
             const base = s[key] || 0
             const ttc  = Math.round(base * tva)
             return (

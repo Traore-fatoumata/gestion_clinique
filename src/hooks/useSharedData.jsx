@@ -6,7 +6,7 @@ const SharedDataContext = createContext()
 // ── Helpers ──────────────────────────────────────────────
 function genId(seed) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789"
-  let result = "CAB-", n = seed * 48271 + 1000003
+  let result = "ABC-", n = seed * 48271 + 1000003
   for (let i = 0; i < 6; i++) { n = (n*1664525+1013904223)&0x7fffffff; result+=chars[n%chars.length] }
   return result
 }
@@ -118,9 +118,9 @@ const INIT_CONSULTATIONS = [
 ]
 
 const INIT_RDV = [
-  { id:1, patientId:3, patient:"Sow Fatoumata",   date:"2026-04-05", heure:"09:00", service:"Gynécologie",   docteur:"Dr. Keïta",  motif:"CPN - 7ème mois",       rappelEnvoye:false },
-  { id:2, patientId:1, patient:"Bah Mariama",     date:"2026-04-05", heure:"10:00", service:"Cardiologie",   docteur:"Dr. Camara", motif:"Suivi tension",          rappelEnvoye:true  },
-  { id:3, patientId:5, patient:"Baldé Aissatou",  date:"2026-04-07", heure:"08:30", service:"Ophtalmologie", docteur:"Dr. Bah",    motif:"Contrôle vue",           rappelEnvoye:false },
+  { id:1, patientId:3, patient:"Sow Fatoumata",   docteurId:5,  date:"2026-04-05", heure:"09:00", service:"Gynécologie",   docteur:"Dr. Keïta",  motif:"CPN - 7ème mois",  rappelEnvoye:false },
+  { id:2, patientId:1, patient:"Bah Mariama",     docteurId:2,  date:"2026-04-05", heure:"10:00", service:"Cardiologie",   docteur:"Dr. Camara", motif:"Suivi tension",     rappelEnvoye:true  },
+  { id:3, patientId:5, patient:"Baldé Aissatou",  docteurId:6,  date:"2026-04-07", heure:"08:30", service:"Ophtalmologie", docteur:"Dr. Bah",    motif:"Contrôle vue",      rappelEnvoye:false },
 ]
 
 const INIT_RESULTATS_LABO = []
@@ -145,7 +145,7 @@ export function SharedDataProvider({ children }) {
   const [patients,       setPatients]      = useState(() => load('sd_patients_v3',       INIT_PATIENTS))
   const [file,           setFile]          = useState(() => load('sd_file_v3',           INIT_FILE))
   const [consultations,  setConsultations] = useState(() => load('sd_consultations_v1',  INIT_CONSULTATIONS))
-  const [rdv,            setRdv]           = useState(() => load('sd_rdv_v1',            INIT_RDV))
+  const [rdv,            setRdv]           = useState(() => load('sd_rdv_v2',            INIT_RDV))
   const [resultatsLabo,  setResultatsLabo] = useState(() => load('sd_resultats_labo_v1', INIT_RESULTATS_LABO))
   const [soins,          setSoins]         = useState(() => load('sd_soins_v1',          INIT_SOINS))
   const [notifs,         setNotifs]        = useState(() => load('sd_notifs_v1',         INIT_NOTIFS))
@@ -188,13 +188,13 @@ export function SharedDataProvider({ children }) {
 
   // ── RDV ───────────────────────────────────────────────
   const addRdv = useCallback((r) => {
-    setRdv(prev => { const next = [...prev, { ...r, id: Date.now() }]; save('sd_rdv_v1', next); return next })
+    setRdv(prev => { const next = [...prev, { ...r, id: Date.now() }]; save('sd_rdv_v2', next); return next })
   }, [])
   const updateRdv = useCallback((id, data) => {
-    setRdv(prev => { const next = prev.map(r => r.id===id ? {...r,...data} : r); save('sd_rdv_v1', next); return next })
+    setRdv(prev => { const next = prev.map(r => r.id===id ? {...r,...data} : r); save('sd_rdv_v2', next); return next })
   }, [])
   const removeRdv = useCallback((id) => {
-    setRdv(prev => { const next = prev.filter(r => r.id!==id); save('sd_rdv_v1', next); return next })
+    setRdv(prev => { const next = prev.filter(r => r.id!==id); save('sd_rdv_v2', next); return next })
   }, [])
 
   // ── Résultats labo ────────────────────────────────────
