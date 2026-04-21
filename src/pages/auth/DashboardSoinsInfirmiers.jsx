@@ -568,6 +568,14 @@ export default function DashboardSoinsInfirmiers() {
   }
 
   // ── Navigation ────────────────────────────────────
+  const NAV_ICONS = {
+    today:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="9" y="14" width="6" height="4" rx="1" fill="currentColor" stroke="none"/></svg>,
+    clock:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>,
+    inject:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 12 6 12 8 5 11 19 13 9 15 15 18 12 22 12"/></svg>,
+    check:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="9 12 11 14 15 10"/></svg>,
+    warn:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.3L2 20h20L13.7 3.3a2 2 0 00-3.4 0z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17.5" r="0.5" fill="currentColor" stroke="none"/></svg>,
+    history: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 .5-5.3L1 10"/></svg>,
+  }
   const NAV = [
     { id: "today",      label: "Aujourd'hui", icon: "today",   count: stats.total    },
     { id: "programmes", label: "À faire",     icon: "clock",   count: stats.programmes, color: C.blue  },
@@ -623,7 +631,7 @@ export default function DashboardSoinsInfirmiers() {
                   }}
                   onMouseEnter={e => { if (onglet !== n.id) e.currentTarget.style.background = C.slateSoft }}
                   onMouseLeave={e => { if (onglet !== n.id) e.currentTarget.style.background = "transparent" }}>
-                  <span style={{ fontSize: 18 }}>{n.icon}</span>
+                  <span style={{ display:"flex", alignItems:"center" }}>{NAV_ICONS[n.icon]}</span>
                   <span style={{ flex: 1 }}>{n.label}</span>
                   <span style={{
                     background: onglet === n.id ? C.blue : C.slateSoft,
@@ -743,7 +751,7 @@ export default function DashboardSoinsInfirmiers() {
                 cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
                 fontFamily: "inherit", transition: "all .15s", whiteSpace: "nowrap"
               }}>
-                {n.icon} {n.label}
+                {NAV_ICONS[n.icon]} {n.label}
                 <span style={{
                   background: active ? "rgba(255,255,255,0.25)" : C.slateSoft,
                   color: active ? "#fff" : C.textMuted,

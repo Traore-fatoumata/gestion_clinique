@@ -364,10 +364,15 @@ export default function DashboardComptabilite() {
     setMPmtEx(null)
   }
 
+  const NAV_ICONS = {
+    caisse:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="3"/><path d="M2 10h3M19 10h3M2 15h3M19 15h3"/></svg>,
+    historique: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>,
+    stats:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="20" x2="21" y2="20"/><rect x="4" y="10" width="4" height="10" rx="1"/><rect x="10" y="6" width="4" height="14" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg>,
+  }
   const NAV = [
-    { id:"caisse",    label:"Caisse du jour", icon:"💰", badge: nbAttente > 0 ? nbAttente : 0 },
-    { id:"historique",label:"Historique",     icon:"📋", badge: 0 },
-    { id:"stats",     label:"Statistiques",   icon:"📊", badge: 0 },
+    { id:"caisse",    label:"Caisse du jour", icon:"caisse",     badge: nbAttente > 0 ? nbAttente : 0 },
+    { id:"historique",label:"Historique",     icon:"historique", badge: 0 },
+    { id:"stats",     label:"Statistiques",   icon:"stats",      badge: 0 },
   ]
 
   return (
@@ -406,7 +411,7 @@ export default function DashboardComptabilite() {
                 background:onglet===n.id?C.tealSoft:"transparent", color:onglet===n.id?C.teal:C.textSec,
                 fontSize:13, fontWeight:onglet===n.id?700:500, cursor:"pointer", fontFamily:"inherit",
                 boxShadow:onglet===n.id?"inset 3px 0 0 "+C.teal:"none", position:"relative" }}>
-              <span style={{ fontSize:17 }}>{n.icon}</span>
+              <span style={{ display:"flex", alignItems:"center" }}>{NAV_ICONS[n.icon]}</span>
               <span style={{ flex:1, textAlign:"left" }}>{n.label}</span>
               {n.badge > 0 && <span style={{ background:C.red, color:"#fff", fontSize:10, fontWeight:700, borderRadius:10, padding:"1px 6px" }}>{n.badge}</span>}
             </button>

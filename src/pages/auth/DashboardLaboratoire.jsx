@@ -730,12 +730,19 @@ export default function DashboardLaboratoire() {
     setShowSaisie(null)
   }
 
+  const NAV_ICONS = {
+    doc:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2v8l-3.5 6A2 2 0 007.2 19h9.6a2 2 0 001.7-3L15 10V2"/><line x1="9" y1="2" x2="15" y2="2"/><line x1="9.5" y1="7" x2="14.5" y2="7"/></svg>,
+    wait:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3h14M5 21h14"/><path d="M7 3l5 9 5-9"/><path d="M7 21l5-9 5 9"/></svg>,
+    micro: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 8h2M18 8h2"/><path d="M12 12v4M8 20h8"/><line x1="12" y1="16" x2="12" y2="20"/></svg>,
+    check: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="9 12 11 14 15 10"/></svg>,
+    bar:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="20" x2="21" y2="20"/><rect x="4" y="10" width="4" height="10" rx="1"/><rect x="10" y="6" width="4" height="14" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg>,
+  }
   const NAV = [
-    { id:"toutes",     label:"Toutes",     icon:"doc", count:stats.total,      color:C.blue   },
-    { id:"en_attente", label:"En attente", icon:"⏳", count:stats.en_attente, color:C.slate  },
+    { id:"toutes",     label:"Toutes",     icon:"doc",   count:stats.total,      color:C.blue   },
+    { id:"en_attente", label:"En attente", icon:"wait",  count:stats.en_attente, color:C.slate  },
     { id:"en_cours",   label:"En cours",   icon:"micro", count:stats.en_cours,   color:C.blue   },
     { id:"termines",   label:"Terminés",   icon:"check", count:stats.termine,    color:C.green  },
-    { id:"historique", label:"Historique", icon:"bar", count:stats.total,      color:C.purple },
+    { id:"historique", label:"Historique", icon:"bar",   count:stats.total,      color:C.purple },
   ]
 
   const titres = {
@@ -772,7 +779,7 @@ export default function DashboardLaboratoire() {
                   style={{ width:"100%", display:"flex", alignItems:"center", gap:12, padding:"11px 12px", borderRadius:12, border:"none", background:onglet===n.id?C.blueSoft:"transparent", color:onglet===n.id?C.blue:C.textSec, fontSize:14, fontWeight:onglet===n.id?700:500, cursor:"pointer", textAlign:"left", marginBottom:2, fontFamily:"inherit" }}
                   onMouseEnter={e=>{ if(onglet!==n.id) e.currentTarget.style.background=C.slateSoft }}
                   onMouseLeave={e=>{ if(onglet!==n.id) e.currentTarget.style.background="transparent" }}>
-                  <span style={{ fontSize:18 }}>{n.icon}</span>
+                  <span style={{ display:"flex", alignItems:"center" }}>{NAV_ICONS[n.icon]}</span>
                   <span style={{ flex:1 }}>{n.label}</span>
                   <span style={{ background:onglet===n.id?C.blue:C.slateSoft, color:onglet===n.id?"#fff":C.textMuted, fontSize:11, fontWeight:700, borderRadius:10, padding:"2px 7px" }}>{n.count}</span>
                 </button>
@@ -863,7 +870,7 @@ export default function DashboardLaboratoire() {
             const active = onglet===n.id
             return (
               <button key={n.id} onClick={()=>setOnglet(n.id)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:active?(n.color||C.blue):"transparent", color:active?"#fff":C.textSec, fontSize:13, fontWeight:active?700:500, cursor:"pointer", display:"flex", alignItems:"center", gap:6, fontFamily:"inherit", transition:"all .15s", whiteSpace:"nowrap" }}>
-                {n.icon} {n.label}
+                {NAV_ICONS[n.icon]} {n.label}
                 <span style={{ background:active?"rgba(255,255,255,0.25)":C.slateSoft, color:active?"#fff":C.textMuted, fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:20 }}>{n.count}</span>
               </button>
             )
