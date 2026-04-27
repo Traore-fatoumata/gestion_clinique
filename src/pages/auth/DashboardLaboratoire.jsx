@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import logo from "../../assets/images/logo.jpeg"
 import { useAuth } from "../../hooks/useAuth.jsx"
+import { useSharedData } from "../../hooks/useSharedData.jsx"
 import { useNavigate } from "react-router-dom"
 
 // ══════════════════════════════════════════════════════
@@ -10,6 +11,53 @@ const today = () => new Date().toISOString().slice(0, 10)
 const getNowTime = () => new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
 const fmt = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—"
 const getAge = d => d ? Math.floor((Date.now() - new Date(d)) / (365.25 * 86400000)) : "—"
+
+// ══════════════════════════════════════════════════════
+//  PARSEUR MINDRAY — import fichier USB
+// ══════════════════════════════════════════════════════
+// Correspondance paramètres Mindray (anglais) → noms français du système
+const MINDRAY_MAP = {
+  WBC:"GB",    "LYM#":"LYM", LYM:"LYM",
+  "MON#":"MON",MON:"MON",
+  "GRA#":"GRA",GRA:"GRA",
+  "NEU#":"GRA",NEU:"GRA",
+  RBC:"GR",    HGB:"HB",
+  HCT:"HCT",
+  MCV:"VGM",
+  MCH:"TCMH",
+  MCHC:"CCMH",
+  PLT:"PLT",
+  "RDW-CV":"RDW-CV",
+  "RDW-SD":"RDW-SD",
+  MPV:"MPV",   PDW:"PDW",
+  PCT:"PCT",   "P-LCR":"P-LCR",
+  "PLR":"PLR",
+  "LYM%":"LYM%","MON%":"MON%","GRA%":"GRA%","NEU%":"NEU%",
+}
+
+function parseMindrayFile(text) {
+  const resultats = {}
+  const lines = text.split(/\r?\n/)
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("*")) continue
+    // format: "WBC   5.30   10^9/L   [4.0~10.0]"  ou  "WBC,5.30,10^9/L,4.0-10.0"
+    const parts = trimmed.split(/[\s,\t]+/).filter(Boolean)
+    if (parts.length < 2) continue
+    const rawParam = parts[0].replace(/:$/, "")
+    const value    = parts[1]
+    const unite    = parts[2] || ""
+    // valeur numérique ?
+    if (isNaN(parseFloat(value))) continue
+    const frParam = MINDRAY_MAP[rawParam.toUpperCase()] || MINDRAY_MAP[rawParam] || rawParam
+    // extraire norme entre [] ou de la forme 4.0-10.0
+    let norme = ""
+    const bracketMatch = trimmed.match(/\[([^\]]+)\]/)
+    if (bracketMatch) norme = bracketMatch[1].replace(/~/g, "-")
+    resultats[frParam] = { valeur: value, unite: unite.replace("10^9/L","Giga/l").replace("10^12/L","Téra T/l"), norme }
+  }
+  return resultats
+}
 
 // ══════════════════════════════════════════════════════
 //  DONNÉES
@@ -23,38 +71,185 @@ const PATIENTS_DB = [
 ]
 
 const TYPES_EXAMENS = [
-  "Hématologie","Biochimie","Bactériologie","Parasitologie",
-  "Immunologie","Hormonologie","Sérologie","Urines","LCR","Autre"
+  "Hématologie","Biochimie","Sérologie","Immunologie","Hormonologie",
+  "Marqueurs Tumoraux","Bactériologie","Parasitologie","Autre"
 ]
 
 const EXAMENS_PAR_TYPE = {
-  "Hématologie":   ["NFS (Numération Formule Sanguine)","Groupage sanguin","Rhésus","TP","TCA","Fibrinogène"],
-  "Biochimie":     ["Glycémie","Urée","Créatinine","Cholestérol total","HDL Cholestérol","LDL Cholestérol","Triglycérides","ALAT/ASAT","Bilirubine","Protéines totales","HbA1c"],
-  "Bactériologie": ["ECBU","Hémoculture","Coproculture","Prélèvement vaginal","Prélèvement urétral","Antibiogramme"],
-  "Parasitologie": ["Goutte épaisse","Frottis sanguin","Examen parasitologique des selles","Recherche de microfilaire"],
-  "Immunologie":   ["Test de grossesse (β-HCG)","Test rapide VIH","Test rapide Hépatite B","Test rapide Hépatite C","WDAL/TPHA"],
-  "Hormonologie":  ["TSH","T3/T4","Progestérone","Œstradiol","Prolactine"],
-  "Sérologie":     ["Sérologie VIH","Sérologie Hépatite B","Sérologie Hépatite C","Sérologie Syphilis","Sérologie Toxoplasmose","Sérologie Rubéole"],
-  "Urines":        ["Bandelette urinaire","Examen cytobactériologique","Protéinurie","Glycosurie"],
-  "LCR":           ["Examen cytologique","Biochimie LCR","Recherche de germes"],
-  "Autre":         ["Examen à définir"]
+  "Hématologie":        ["NFS (Numération Formule Sanguine)","Hémoglobine + Goutte Épaisse","Groupage Sanguin + Rhésus","TP / TCA / Fibrinogène"],
+  "Biochimie":          ["Biochimie Complète (Sang)","Bilan Hépatique (ASAT/ALAT)","Bilan Rénal (Créat/Urée)","Bilan Lipidique","Glycémie à jeun","HbA1c","Électrolytes (Na/K/Cl)"],
+  "Sérologie":          ["Sérologie Complète (ASLO/CRP/Widal/BW)","Widal + GE","CRP + ASLO","RPR / TPHA (Syphilis)"],
+  "Immunologie":        ["AgHBs + AgHBe + Anti-VHC (Hépatite)","Toxoplasmose IgM + IgG","Rubéole IgM + IgG","Toxoplasmose + Rubéole (TORCH)"],
+  "Hormonologie":       ["Bilan Hormonal Complet (Sexuel)","Hormones Thyroïdiennes (TSH/T3/T4)","BHCG Quantitatif","Vitamine D / Parathormone / Ferritine"],
+  "Marqueurs Tumoraux": ["CA-125 / CA-19.9 / ACE / CA-15-3","PSA Total (Prostate)","AFP (Alphafœtoprotéine)"],
+  "Bactériologie":      ["ECBU (Urine) + ATG","Prélèvement Vaginal + ATG","Antibiogramme"],
+  "Parasitologie":      ["Parasitologie des Selles","Goutte Épaisse + Frottis Sanguin"],
+  "Autre":              ["Examen à définir"]
 }
 
 const PARAMS_PAR_EXAMEN = {
   "NFS (Numération Formule Sanguine)": [
-    { nom: "Hémoglobine",    unite: "g/dL",   norme: "12-16"        },
-    { nom: "Globules rouges",unite: "M/mm³",  norme: "4-5.5"        },
-    { nom: "Globules blancs",unite: "/mm³",   norme: "4000-10000"   },
-    { nom: "Plaquettes",     unite: "/mm³",   norme: "150000-400000"},
-    { nom: "Hématocrite",    unite: "%",      norme: "36-46"        },
+    { nom:"GB",    unite:"Giga/l",    norme:"4-12"     },
+    { nom:"LYM",   unite:"Giga/l",    norme:"0.8-4.5"  },
+    { nom:"MON",   unite:"Giga/l",    norme:"0.1-1.5"  },
+    { nom:"GRA",   unite:"Giga/l",    norme:"2-7"      },
+    { nom:"GR",    unite:"Téra T/l",  norme:"3.5-6.0"  },
+    { nom:"HB",    unite:"g/dl",      norme:"11.5-17.5"},
+    { nom:"HCT",   unite:"%",         norme:"36-54"    },
+    { nom:"VGM",   unite:"fl",        norme:"80-100"   },
+    { nom:"TCMH",  unite:"Pg/l",      norme:"27-34"    },
+    { nom:"CCMH",  unite:"g/dl",      norme:"32-36"    },
+    { nom:"PLT",   unite:"Giga/l",    norme:"150-450"  },
   ],
-  "Glycémie":          [{ nom: "Glycémie à jeun",   unite: "g/L",   norme: "0.7-1.1" }],
-  "Urée":              [{ nom: "Urée",               unite: "g/L",   norme: "0.15-0.45" }],
-  "Créatinine":        [{ nom: "Créatinine",          unite: "mg/L",  norme: "7-12" }],
-  "Cholestérol total": [{ nom: "Cholestérol total",   unite: "g/L",   norme: "< 2" }],
-  "Triglycérides":     [{ nom: "Triglycérides",       unite: "g/L",   norme: "< 1.5" }],
-  "HbA1c":             [{ nom: "HbA1c",               unite: "%",     norme: "< 6.5" }],
-  "TSH":               [{ nom: "TSH",                 unite: "mUI/L", norme: "0.4-4.0" }],
+  "Hémoglobine + Goutte Épaisse": [
+    { nom:"Hémoglobine",    unite:"g/100ml", norme:"12-17"   },
+    { nom:"Goutte Épaisse", unite:"",        norme:"Négatif" },
+  ],
+  "Biochimie Complète (Sang)": [
+    { nom:"Créatinine",       unite:"µmol/l",  norme:"50-120"   },
+    { nom:"Urée",             unite:"mmol/l",  norme:"2.5-7.5"  },
+    { nom:"Calcium",          unite:"mmol/l",  norme:"2.2-2.9"  },
+    { nom:"Magnésium",        unite:"mmol/l",  norme:"0.66-1.03"},
+    { nom:"Glycémie",         unite:"mmol/l",  norme:"3.3-5.5"  },
+    { nom:"Cholestérol total",unite:"mmol/l",  norme:"3.8-6.5"  },
+    { nom:"Cholestérol HDL",  unite:"mmol/l",  norme:"1.06-6.52"},
+    { nom:"LDL",              unite:"mmol/l",  norme:"3.4-4.1"  },
+    { nom:"Triglycérides",    unite:"mmol/l",  norme:"0.4-1.6"  },
+    { nom:"Acide Urique",     unite:"µmol/l",  norme:"150-420"  },
+    { nom:"ASAT (SGOT)",      unite:"UI/l",    norme:"< 38"     },
+    { nom:"ALAT (SGPT)",      unite:"UI/l",    norme:"≤ 40"     },
+    { nom:"Potassium",        unite:"mmol/l",  norme:"3.5-5.5"  },
+    { nom:"Sodium",           unite:"mmol/l",  norme:"135-145"  },
+    { nom:"Chlore",           unite:"mmol/l",  norme:"98-107"   },
+  ],
+  "Bilan Hépatique (ASAT/ALAT)": [
+    { nom:"ASAT (SGOT)", unite:"UI/l", norme:"< 38" },
+    { nom:"ALAT (SGPT)", unite:"UI/l", norme:"≤ 40" },
+    { nom:"Bilirubine T",unite:"µmol/l",norme:"< 17" },
+    { nom:"GGT",         unite:"UI/l", norme:"< 50" },
+  ],
+  "Bilan Rénal (Créat/Urée)": [
+    { nom:"Créatinine", unite:"µmol/l", norme:"50-120"  },
+    { nom:"Urée",       unite:"mmol/l", norme:"2.5-7.5" },
+    { nom:"Potassium",  unite:"mmol/l", norme:"3.5-5.5" },
+    { nom:"Sodium",     unite:"mmol/l", norme:"135-145" },
+  ],
+  "Bilan Lipidique": [
+    { nom:"Cholestérol total",unite:"mmol/l",  norme:"3.8-6.5"  },
+    { nom:"Cholestérol HDL",  unite:"mmol/l",  norme:"1.06-6.52"},
+    { nom:"LDL",              unite:"mmol/l",  norme:"3.4-4.1"  },
+    { nom:"Triglycérides",    unite:"mmol/l",  norme:"0.4-1.6"  },
+  ],
+  "Glycémie à jeun":       [{ nom:"Glycémie",   unite:"mmol/l", norme:"3.3-5.5"  }],
+  "HbA1c":                 [{ nom:"HbA1c",      unite:"%",      norme:"< 6.5"    }],
+  "Électrolytes (Na/K/Cl)":[
+    { nom:"Potassium", unite:"mmol/l", norme:"3.5-5.5" },
+    { nom:"Sodium",    unite:"mmol/l", norme:"135-145" },
+    { nom:"Chlore",    unite:"mmol/l", norme:"98-107"  },
+  ],
+  "Sérologie Complète (ASLO/CRP/Widal/BW)": [
+    { nom:"Aslo (titre)",        unite:"",        norme:"≤ 200"   },
+    { nom:"Facteur Rhumatoïde",  unite:"",        norme:"Négatif" },
+    { nom:"CRP",                 unite:"",        norme:"≤ 6"     },
+    { nom:"H-Pylori",            unite:"",        norme:"Négatif" },
+    { nom:"Widal TO",            unite:"",        norme:"≤ 200"   },
+    { nom:"Widal TH",            unite:"",        norme:"≤ 200"   },
+    { nom:"BW RPR",              unite:"",        norme:"Négatif" },
+    { nom:"BW TPHA",             unite:"",        norme:"Négatif" },
+    { nom:"Hémoglobine",         unite:"g/100ml", norme:"12-17"   },
+    { nom:"Goutte Épaisse",      unite:"",        norme:"Négatif" },
+  ],
+  "Widal + GE": [
+    { nom:"Widal TO", unite:"", norme:"≤ 200" },
+    { nom:"Widal TH", unite:"", norme:"≤ 200" },
+    { nom:"Goutte Épaisse", unite:"", norme:"Négatif" },
+  ],
+  "CRP + ASLO": [
+    { nom:"CRP",  unite:"", norme:"≤ 6" },
+    { nom:"ASLO", unite:"", norme:"≤ 200" },
+  ],
+  "RPR / TPHA (Syphilis)": [
+    { nom:"RPR",  unite:"", norme:"Négatif" },
+    { nom:"TPHA", unite:"", norme:"Négatif" },
+  ],
+  "AgHBs + AgHBe + Anti-VHC (Hépatite)": [
+    { nom:"AgHBs",             unite:"",     norme:"Négatif < 0.13" },
+    { nom:"AgHBe",             unite:"UI/ml",norme:"Négatif < 0.10" },
+    { nom:"Anticorps anti-VHC",unite:"",     norme:"Négatif < 1.00" },
+  ],
+  "Toxoplasmose IgM + IgG": [
+    { nom:"Toxoplasmose IgM", unite:"UI/ml", norme:"Négatif < 0.55" },
+    { nom:"Toxoplasmose IgG", unite:"UI/ml", norme:"Négatif < 4"    },
+  ],
+  "Rubéole IgM + IgG": [
+    { nom:"Rubéole IgM", unite:"UI/ml", norme:"Négatif < 0.80" },
+    { nom:"Rubéole IgG", unite:"UI/ml", norme:"Positif ≥ 15"   },
+  ],
+  "Toxoplasmose + Rubéole (TORCH)": [
+    { nom:"Toxoplasmose IgM", unite:"UI/ml", norme:"Négatif < 0.55" },
+    { nom:"Toxoplasmose IgG", unite:"UI/ml", norme:"Négatif < 4"    },
+    { nom:"Rubéole IgM",      unite:"UI/ml", norme:"Négatif < 0.80" },
+    { nom:"Rubéole IgG",      unite:"UI/ml", norme:"Positif ≥ 15"   },
+  ],
+  "Bilan Hormonal Complet (Sexuel)": [
+    { nom:"Testostérone", unite:"ng/ml",  norme:"H:2.27-10.30 / F≥19-50:0.23-0.73" },
+    { nom:"Prolactine",   unite:"ng/l",   norme:"H:2.10-17.7 / F:1.80-29.20"       },
+    { nom:"FSH",          unite:"mUI/ml", norme:"H:2.1-18.6 / F Foll:4.5-80"       },
+    { nom:"LH",           unite:"mUI/ml", norme:"1.1-7"                             },
+    { nom:"Œstradiol",    unite:"Pg/ml",  norme:"H:<62 / F:<575"                    },
+    { nom:"Progestérone", unite:"ng/ml",  norme:"H:0.25-0.56 / F:<20"              },
+  ],
+  "Hormones Thyroïdiennes (TSH/T3/T4)": [
+    { nom:"TSH", unite:"µUI/ml", norme:"Euthyroïdie:0.25-5" },
+    { nom:"T3",  unite:"nmol/l", norme:"Euthyroïdie:0.9-2.5"},
+    { nom:"T4",  unite:"nmol/l", norme:"Euthyroïdie:60-120" },
+  ],
+  "BHCG Quantitatif": [
+    { nom:"βHCG Quantitatif", unite:"mUI/L", norme:"< 5 (non enceinte)" },
+  ],
+  "Vitamine D / Parathormone / Ferritine": [
+    { nom:"Vitamine D",   unite:"ng/ml", norme:"30-45"         },
+    { nom:"Parathormone", unite:"pg/µl", norme:"15-65"         },
+    { nom:"Ferritine",    unite:"ng/ml", norme:"H:18-270 / F:18-160" },
+  ],
+  "CA-125 / CA-19.9 / ACE / CA-15-3": [
+    { nom:"CA-125",  unite:"U/ml",  norme:"< 30"   },
+    { nom:"CA-19.9", unite:"U/ml",  norme:"< 37"   },
+    { nom:"ACE",     unite:"ng/ml", norme:"< 4.10" },
+    { nom:"CA-15-3", unite:"U/mL",  norme:"< 30"   },
+  ],
+  "PSA Total (Prostate)": [
+    { nom:"T.PSA Total", unite:"ng/ml", norme:"<40ans:0.21-1.72" },
+  ],
+  "AFP (Alphafœtoprotéine)": [
+    { nom:"AFP", unite:"UI/ml", norme:"0 à 2" },
+  ],
+  "ECBU (Urine) + ATG": [
+    { nom:"Leucocytes",                   unite:"/champ", norme:"< 10"    },
+    { nom:"Hématies",                     unite:"/champ", norme:"< 5"     },
+    { nom:"Cellules épithéliales",        unite:"/champ", norme:"—"       },
+    { nom:"Cristaux",                     unite:"/champ", norme:"—"       },
+    { nom:"Levures",                      unite:"/champ", norme:"Absent"  },
+    { nom:"Parasites",                    unite:"/champ", norme:"Absent"  },
+    { nom:"Cellules Vaginales/Urétrales", unite:"/champ", norme:"—"       },
+  ],
+  "Prélèvement Vaginal + ATG": [
+    { nom:"Leucocytes",          unite:"/champ", norme:"—"      },
+    { nom:"Hématies",            unite:"/champ", norme:"—"      },
+    { nom:"Cellules épithéliales",unite:"/champ",norme:"—"      },
+    { nom:"Levures",             unite:"/champ", norme:"Absent" },
+    { nom:"Autres éléments",     unite:"",       norme:"—"      },
+    { nom:"Résultat Gram",       unite:"",       norme:"—"      },
+  ],
+  "Parasitologie des Selles": [
+    { nom:"Aspect des selles",            unite:"",  norme:"—"       },
+    { nom:"Couleur",                      unite:"",  norme:"—"       },
+    { nom:"Recherche Œufs et Parasites",  unite:"",  norme:"Négatif" },
+  ],
+  "Goutte Épaisse + Frottis Sanguin": [
+    { nom:"Goutte Épaisse",  unite:"",  norme:"Négatif" },
+    { nom:"Frottis Sanguin", unite:"",  norme:"Négatif" },
+  ],
 }
 
 const buildParamsVides = (nomExamen) => {
@@ -363,6 +558,30 @@ function ModalSaisieResultats({ demande, onClose, onSave, onValider }) {
   const [resultats,           setResultats]           = useState(initResultats)
   const [commentaireGlobal,   setCommentaireGlobal]   = useState(demande.commentaireGlobal || "")
   const [newParamNoms,        setNewParamNoms]         = useState({})
+  const [importMsg,           setImportMsg]           = useState("")
+
+  const handleImportMindray = (nomExamen, file) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const parsed = parseMindrayFile(e.target.result)
+      if (Object.keys(parsed).length === 0) {
+        setImportMsg("Aucune valeur reconnue dans ce fichier. Vérifiez le format.")
+        return
+      }
+      setResultats(prev => {
+        const r = JSON.parse(JSON.stringify(prev))
+        if (!r[nomExamen]) r[nomExamen] = { valeurs: {}, commentaire: "" }
+        Object.entries(parsed).forEach(([param, data]) => {
+          r[nomExamen].valeurs[param] = data
+        })
+        return r
+      })
+      setImportMsg(`✓ ${Object.keys(parsed).length} paramètre(s) importé(s) depuis Mindray`)
+      setTimeout(() => setImportMsg(""), 4000)
+    }
+    reader.readAsText(file)
+  }
 
   const initExamen = (nomExamen) => {
     setResultats(prev => {
@@ -431,6 +650,12 @@ function ModalSaisieResultats({ demande, onClose, onSave, onValider }) {
             <div style={{ height:"100%", borderRadius:3, background:C.green, width:(nbExamensRemplis/demande.examens.length*100)+"%", transition:"width .3s" }} />
           </div>
 
+          {importMsg && (
+            <div style={{ padding:"10px 16px", borderRadius:10, background: importMsg.startsWith("✓") ? C.greenSoft : C.redSoft, border:"1.5px solid "+(importMsg.startsWith("✓")?C.green:C.red)+"44", color:importMsg.startsWith("✓")?C.green:C.red, fontSize:13, fontWeight:600, display:"flex", alignItems:"center", gap:8 }}>
+              {importMsg}
+            </div>
+          )}
+
           {demande.examens.map((ex) => {
             const saisi = resultats[ex.nom]
             return (
@@ -440,10 +665,20 @@ function ModalSaisieResultats({ demande, onClose, onSave, onValider }) {
                     <p style={{ fontSize:14, fontWeight:700, color:C.textPri }}>{ex.nom}</p>
                     <p style={{ fontSize:11, color:C.textMuted }}>{ex.type} · {ex.prix.toLocaleString("fr-FR")} GNF</p>
                   </div>
-                  {saisi
-                    ? <span style={{ fontSize:11, fontWeight:700, color:C.green, background:C.greenSoft, padding:"4px 10px", borderRadius:8 }}>Saisi</span>
-                    : <Btn onClick={() => initExamen(ex.nom)} small variant="primary">+ Saisir les résultats</Btn>
-                  }
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    {(ex.type==="Hématologie" || ex.nom.toLowerCase().includes("nfs") || ex.nom.toLowerCase().includes("hémato")) && (
+                      <label style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:10, background:C.purpleSoft, border:"1.5px solid "+C.purple+"44", color:C.purple, fontSize:12, fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Importer Mindray
+                        <input type="file" accept=".txt,.csv,.res,.dat" style={{ display:"none" }}
+                          onChange={e => { initExamen(ex.nom); handleImportMindray(ex.nom, e.target.files[0]); e.target.value="" }} />
+                      </label>
+                    )}
+                    {saisi
+                      ? <span style={{ fontSize:11, fontWeight:700, color:C.green, background:C.greenSoft, padding:"4px 10px", borderRadius:8 }}>Saisi</span>
+                      : <Btn onClick={() => initExamen(ex.nom)} small variant="primary">+ Saisir manuellement</Btn>
+                    }
+                  </div>
                 </div>
 
                 {saisi && (
@@ -509,51 +744,342 @@ function ModalFicheLaboratoire({ demande, onClose }) {
   }
 
   const handlePrint = () => {
-    const rows = []
-    Object.entries(demande.resultats || {}).forEach(([nomExamen, data]) => {
-      Object.entries(data.valeurs || {}).forEach(([param, d]) => {
-        const anormal = estAnormal(d.valeur, d.norme)
-        rows.push(`<tr>
-          <td style="font-weight:600">${nomExamen}</td>
-          <td>${param}</td>
-          <td style="color:${anormal?"#dc2626":"#16a34a"};font-weight:${anormal?700:400}">${d.valeur||"—"}</td>
-          <td>${d.unite||"—"}</td>
-          <td>${d.norme||"—"}</td>
-          <td style="color:${anormal?"#dc2626":"#16a34a"}">${anormal?"↑↓ Anormal":"Normal"}</td>
-        </tr>`)
-      })
-    })
-    const html = `<!DOCTYPE html><html><head>
-      <title>Résultats — ${demande.patient.nom}</title>
-      <style>body{font-family:Arial,sans-serif;padding:30px 40px;max-width:210mm;margin:0 auto}h1{color:#16a34a;margin:4px 0;font-size:20px}h2{font-size:14px;color:#555;font-weight:normal;margin:4px 0}.info{background:#f8f9fa;padding:14px;border-radius:6px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin:18px 0}table{width:100%;border-collapse:collapse;margin-top:18px}th,td{border:1px solid #e2e8f0;padding:8px 12px;font-size:13px;text-align:left}th{background:#f1f5f9;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em}.footer{margin-top:40px;border-top:1px solid #ccc;padding-top:14px;font-size:11px;color:#999;text-align:center}</style>
-    </head><body>
-      <div style="text-align:center;border-bottom:2px solid #16a34a;padding-bottom:14px;margin-bottom:20px">
-        <h1>CLINIQUE ABC MAROUANE</h1><h2>Service de Laboratoire d'Analyses Médicales</h2>
-        <p style="font-size:12px;color:#999">Conakry, Guinée · cabinet.marouane@clinique.gn</p>
-      </div>
-      <div class="info">
-        <p><strong>Nom :</strong> ${demande.patient.nom}</p>
-        <p><strong>N° Dossier :</strong> ${demande.patient.pid}</p>
-        <p><strong>Âge / Sexe :</strong> ${getAge(demande.patient.dateNaissance)} ans / ${demande.patient.sexe==="F"?"Féminin":"Masculin"}</p>
-        <p><strong>Médecin :</strong> ${demande.medecinPrescripteur}</p>
-        <p><strong>Prélèvement :</strong> ${fmt(demande.datePrelevement)} à ${demande.heurePrelevement||"—"}</p>
-        <p><strong>Rendu le :</strong> ${fmt(demande.dateRendu)} à ${demande.heureRendu||"—"}</p>
-      </div>
-      <table><thead><tr><th>Examen</th><th>Paramètre</th><th>Résultat</th><th>Unité</th><th>Référence</th><th>Statut</th></tr></thead>
-      <tbody>${rows.join("")}</tbody></table>
-      ${demande.commentaireGlobal?`<div style="margin-top:18px;padding:14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;font-size:13px"><strong>Conclusion :</strong> ${demande.commentaireGlobal}</div>`:""}
-      <div style="margin-top:40px;display:flex;justify-content:flex-end">
-        <div style="text-align:center">
-          <p style="font-size:12px;color:#666;margin-bottom:50px">${demande.validePar?"Validé par "+demande.validePar+" le "+demande.valideLe:"En attente de validation"}</p>
-          <div style="width:160px;height:70px;border:1px dashed #ccc;border-radius:8px;display:inline-block"></div>
-          <p style="font-size:11px;color:#999;margin-top:4px">Signature et cachet</p>
+    const dateEdit = new Date().toLocaleDateString("fr-FR")
+    const numRef   = `LAB-${demande.id}`
+    const nomParts = (demande.patient.nom || "").split(" ")
+    const prenom   = nomParts[0] || ""
+    const nom      = nomParts.slice(1).join(" ") || ""
+    const age      = getAge(demande.patient.dateNaissance)
+    const prescripteur = demande.medecinPrescripteur || ""
+    const service      = demande.service || ""
+
+    const css = `
+      @page { size:A4; margin:10mm 12mm; }
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#111;}
+      .page{page-break-after:always;min-height:257mm;display:flex;flex-direction:column;}
+      .page:last-child{page-break-after:avoid;}
+      .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:10px;}
+      .hdr-left{font-size:10.5px;line-height:1.55;}
+      .hdr-logo{font-size:13px;font-weight:bold;margin-bottom:2px;}
+      .hdr-logo span{font-style:italic;color:#005a8e;}
+      .hdr-right table{border-collapse:collapse;}
+      .hdr-right td{border:1px solid #555;padding:3px 10px;font-size:10px;min-width:90px;}
+      .hdr-right td:first-child{font-weight:bold;background:#f0f0f0;width:60px;}
+      .section-title{text-align:center;margin:8px 0 10px;line-height:1.5;}
+      .section-title .labo{font-size:13px;font-weight:bold;text-decoration:underline;}
+      .section-title .type{font-size:12px;font-style:italic;}
+      .pat-box{border:1px solid #555;padding:0;margin-bottom:12px;}
+      .pat-row{display:flex;}
+      .pat-cell{flex:1;padding:4px 8px;border-right:1px solid #ccc;font-size:10.5px;}
+      .pat-cell:last-child{border-right:none;}
+      .pat-cell b{display:inline-block;min-width:70px;}
+      table.res{width:100%;border-collapse:collapse;margin-bottom:12px;}
+      table.res th,table.res td{border:1px solid #555;padding:5px 7px;font-size:10.5px;vertical-align:middle;}
+      table.res th{background:#e8e8e8;font-weight:bold;text-align:center;}
+      .anormal{color:#cc0000;font-weight:bold;}
+      .positif{color:#cc0000;}
+      .negatif{color:#007700;}
+      .footer-sig{margin-top:auto;padding-top:16px;text-align:right;font-size:11px;border-top:1px solid #bbb;}
+      .interp{font-size:9.5px;margin-top:6px;border:1px solid #aaa;padding:6px 10px;background:#fafafa;}
+      .interp-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;}
+    `
+
+    // ── helper: en-tête de chaque page ───────────────────
+    const hdr = (typeAnalyse) => `
+      <div class="hdr">
+        <div class="hdr-left">
+          <div class="hdr-logo"><strong>CABINET MEDICAL</strong> <span>Marouane</span></div>
+          <div>Dr DOUMBOUYA Mamoudou</div>
+          <div>Médecin Généraliste RG</div>
+          <div>Tel : (+224)664-29-04-31 / 620-62-55-98</div>
+          <div>E-mail : amoudymtha@gmail.com</div>
+        </div>
+        <div class="hdr-right">
+          <table><tr><td>Date</td><td>${dateEdit}</td></tr>
+          <tr><td>Reçu N°</td><td>${numRef}</td></tr>
+          <tr><td>Montant</td><td></td></tr></table>
         </div>
       </div>
-      <div class="footer"><p>Document à conserver — Résultats valables à la date du prélèvement</p><p>Clinique ABC Marouane · Conakry, Guinée</p></div>
-    </body></html>`
-    const w = window.open("","_blank")
+      <div class="section-title">
+        <div class="labo">Laboratoire d'Analyse Bio Médicale</div>
+        <div class="type">${typeAnalyse}</div>
+      </div>
+      <div class="pat-box">
+        <div class="pat-row" style="border-bottom:1px solid #ccc;">
+          <div class="pat-cell"><b>N° :</b> ${numRef}</div>
+          <div class="pat-cell"><b>Effectué le :</b> ${fmt(demande.datePrelevement)||dateEdit}</div>
+        </div>
+        <div class="pat-row" style="border-bottom:1px solid #ccc;">
+          <div class="pat-cell"><b>Nom :</b> ${nom}</div>
+          <div class="pat-cell"><b>Édité le :</b> ${dateEdit}</div>
+        </div>
+        <div class="pat-row" style="border-bottom:1px solid #ccc;">
+          <div class="pat-cell"><b>Prénom :</b> ${prenom}</div>
+          <div class="pat-cell"><b>Prescripteur :</b> ${prescripteur}</div>
+        </div>
+        <div class="pat-row">
+          <div class="pat-cell"><b>Age :</b> ${age} ans</div>
+          <div class="pat-cell"><b>Service :</b> ${service}</div>
+        </div>
+      </div>`
+
+    const footSig = () => `
+      <div class="footer-sig">Le Biologiste Responsable du Laboratoire</div>`
+
+    // ── templates par type ────────────────────────────────
+    const tGeneric = (valeurs) => {
+      const rows = Object.entries(valeurs).map(([p, d]) => {
+        const an = estAnormal(d.valeur, d.norme)
+        return `<tr>
+          <td>${p}</td>
+          <td class="${an?"anormal":""}" style="text-align:center;">${d.valeur||"—"}</td>
+          <td style="text-align:center;">${d.unite||"—"}</td>
+          <td>${d.norme||"—"}</td>
+        </tr>`
+      }).join("")
+      return `<table class="res"><thead><tr>
+        <th>Paramètre</th><th>Résultat</th><th>Unité</th><th>Valeur de Référence</th>
+      </tr></thead><tbody>${rows}</tbody></table>`
+    }
+
+    const tHematologie = (valeurs) => {
+      const refH = { GB:"4-12",LYM:"0.8-4.5",MON:"0.1-1.5",GRA:"2-7",GR:"3.5-6.0",HB:"13.0-17.5",HCT:"37-54",VGM:"80-100",TCMH:"27-34",CCMH:"32-36",PLT:"100-400" }
+      const refF = { GB:"4-12",LYM:"0.8-4.5",MON:"0.1-1.5",GRA:"2-7",GR:"3.1-5.1",HB:"11.5-16.5",HCT:"36-46",VGM:"80-100",TCMH:"27-34",CCMH:"32-36",PLT:"150-450" }
+      const refN = { GB:"4-12",LYM:"2-11.2",MON:"0.40-3.10",GRA:"1.00-8.50",GR:"3.9-6.1",HB:"13.5-20.5",HCT:"43-63.5",VGM:"96.5-120",TCMH:"31-37",CCMH:"30-36",PLT:"200-450" }
+      const rows = Object.entries(valeurs).map(([p, d]) => `<tr>
+        <td>${p}</td>
+        <td style="text-align:center;font-weight:bold;">${d.valeur||""}</td>
+        <td style="text-align:center;">${d.unite||""}</td>
+        <td style="text-align:center;">${refN[p]||d.norme||""}</td>
+        <td style="text-align:center;">${refH[p]||""}</td>
+        <td style="text-align:center;">${refF[p]||""}</td>
+      </tr>`).join("")
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Résultat Hématologie (Cyan Hématologie)</div>
+      <table class="res"><thead><tr>
+        <th>Paramètres</th><th>Résultats</th><th>Unités</th>
+        <th colspan="3">Valeurs de référence</th>
+      </tr><tr>
+        <th></th><th></th><th></th>
+        <th>Normales</th><th>Homme</th><th>Femme</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <p style="font-size:9px;margin-top:4px;font-style:italic;">NB : les résultats normaux de l'hémogramme peuvent varier en fonction de l'âge, du sexe et des conditions physiologiques.</p>`
+    }
+
+    const tSerologie = (valeurs) => {
+      const rows = Object.entries(valeurs).map(([p, d]) => {
+        return `<tr>
+          <td>${p}</td>
+          <td class="${d.valeur&&d.valeur.toLowerCase().includes("négatif")?"negatif":"positif"}" style="text-align:center;">${d.valeur||"—"}</td>
+          <td style="text-align:center;">${d.titre||""}</td>
+          <td>${d.norme||"—"}</td>
+        </tr>`
+      }).join("")
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">FICHE DES RESULTATS : SEROLOGIQUE</div>
+      <table class="res"><thead><tr>
+        <th>Analyse demandée</th><th>Résultat</th><th>Titre</th><th>Valeur Normale</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <div class="interp"><div style="font-weight:bold;margin-bottom:4px;text-decoration:underline;">INTERPRETATION DES RESULTATS</div>
+      <div class="interp-grid">
+        <div>RPR+ TPHA+ : <b>SYPHILIS</b></div><div>RPR− TPHA− : absence d'infection syphilis</div>
+        <div>TO+ TH+ : <b>Typhoïde</b></div><div>TO− TH− : pas de typhoïde</div>
+        <div>TO+ TH− : Début de typhoïde</div><div>TO− TH+ : Trace (T=200)</div>
+      </div></div>`
+    }
+
+    const tImmunologieHep = (valeurs) => {
+      let no = 1
+      const rows = Object.entries(valeurs).map(([p, d]) => `<tr>
+        <td style="text-align:center;">${no++}</td>
+        <td>${p}<br><span style="font-size:9px;font-style:italic;">(E.L.F.A – système Vidas : Biomerieux)</span></td>
+        <td style="text-align:center;font-weight:bold;" class="${d.valeur&&d.valeur.toLowerCase().includes("négatif")?"negatif":"positif"}">${d.valeur||"—"}${d.vt?` VT : ${d.vt}`:""}</td>
+        <td style="text-align:center;">${d.unite||""}</td>
+        <td>${d.norme||"—"}</td>
+      </tr>`).join("")
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Résultats – Immunologie</div>
+      <table class="res"><thead><tr>
+        <th>N°</th><th>Recherche demandée</th><th>Résultats</th><th>Unité</th><th>Interprétation</th>
+      </tr></thead><tbody>${rows}</tbody></table>`
+    }
+
+    const tHormonal = (valeurs) => {
+      let no = 1
+      const rows = Object.entries(valeurs).map(([p, d]) => `<tr>
+        <td style="text-align:center;">${no++}</td>
+        <td><b>${p}</b><br><span style="font-size:9px;font-style:italic;">(E.L.F.A – système Vidas : Biomerieux)</span></td>
+        <td style="text-align:center;font-weight:bold;">${d.valeur||"—"}</td>
+        <td style="text-align:center;">${d.unite||""}</td>
+        <td style="font-size:10px;">${d.norme||"—"}</td>
+      </tr>`).join("")
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Résultat de l'analyse Hormonal</div>
+      <table class="res"><thead><tr>
+        <th>N°</th><th>Paramètre</th><th>Résultat</th><th>Unité</th><th>Valeurs Normales</th>
+      </tr></thead><tbody>${rows}</tbody></table>`
+    }
+
+    const tThyroide = (valeurs) => {
+      const rows = Object.entries(valeurs).map(([p, d]) => `<tr>
+        <td><b>${p}</b><br><span style="font-size:9px;font-style:italic;">(E.L.F.A – système Vidas : Biomerieux)</span></td>
+        <td style="text-align:center;font-weight:bold;">${d.valeur||"—"}</td>
+        <td style="text-align:center;">${d.unite||""}</td>
+        <td>${d.norme||"—"}</td>
+      </tr>`).join("")
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Résultats – Hormones Thyroïdiennes</div>
+      <table class="res"><thead><tr>
+        <th>Recherche demandée</th><th>Résultat</th><th>Unité</th><th>Interprétation (VN)</th>
+      </tr></thead><tbody>${rows}</tbody></table>`
+    }
+
+    const tMarqueurs = (valeurs) => {
+      let no = 1
+      const rows = Object.entries(valeurs).map(([p, d]) => `<tr>
+        <td style="text-align:center;">${no++}</td>
+        <td><b>${p}</b><br><span style="font-size:9px;font-style:italic;">(E.L.F.A – système Vidas : Biomerieux)</span></td>
+        <td style="text-align:center;font-weight:bold;">${d.valeur||"—"}</td>
+        <td style="text-align:center;">${d.unite||""}</td>
+        <td>${d.norme||"—"}</td>
+      </tr>`).join("")
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Résultats des Marqueurs Tumoraux</div>
+      <table class="res"><thead><tr>
+        <th>N°</th><th>Recherche demandée</th><th>Résultats</th><th>Unités</th><th>Interprétation (VN)</th>
+      </tr></thead><tbody>${rows}</tbody></table>`
+    }
+
+    const tBHCG = (valeurs) => {
+      const val = Object.values(valeurs)[0]
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Résultat de l'analyse du BHCG Quantitatif</div>
+      <table class="res" style="margin-bottom:10px;"><thead><tr>
+        <th>Paramètre</th><th>Résultat</th><th>Unité</th>
+      </tr></thead><tbody><tr>
+        <td>βHCG – Chaîne bêta de l'hormone chorionique gonadotrope<br><span style="font-size:9px;font-style:italic;">(E.L.F.A – système vidas : Biomerieux)</span></td>
+        <td style="text-align:center;font-weight:bold;">${val?.valeur||"—"}</td>
+        <td style="text-align:center;">${val?.unite||"mUI/L"}</td>
+      </tr></tbody></table>
+      <table class="res" style="font-size:10px;"><thead>
+        <tr><th colspan="2">Interprétation (VN) – Taux de βHCG selon semaine de grossesse</th></tr>
+        <tr><th>Jour / Semaine de grossesse</th><th>Taux de βHCG (mUI/L)</th></tr>
+      </thead><tbody>
+        <tr><td>Pas de grossesse</td><td>˂ 5</td></tr>
+        <tr><td>7 jours</td><td>5 – 20</td></tr>
+        <tr><td>2e Semaine</td><td>100 – 6 000</td></tr>
+        <tr><td>3e Semaine</td><td>1 500 – 25 000</td></tr>
+        <tr><td>4e Semaine</td><td>2 400 – 70 000</td></tr>
+        <tr><td>5e Semaine</td><td>10 000 – 130 000</td></tr>
+        <tr><td>6e Semaine</td><td>30 000 – 190 000</td></tr>
+        <tr><td>2–3 mois</td><td>30 000 – 100 000</td></tr>
+        <tr><td>7–9 mois</td><td>5 000 – 15 000</td></tr>
+      </tbody></table>`
+    }
+
+    const tPSA = (valeurs) => {
+      const val = Object.values(valeurs)[0]
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Résultats – Cancérologie (Antigène Spécifique Prostatique)</div>
+      <p style="margin-bottom:8px;">T.P.S.A Total : <b>${val?.valeur||"—"} ng/ml</b> &nbsp;&nbsp; (E.L.F.A – système Vidas : Biomerieux)</p>
+      <table class="res" style="font-size:10px;"><thead>
+        <tr><th colspan="2">Valeurs normales par tranche d'âge</th></tr>
+        <tr><th>Tranche d'âge</th><th>VN (ng/ml)</th></tr>
+      </thead><tbody>
+        <tr><td>Moins de 40 ans</td><td>0.21 – 1.72</td></tr>
+        <tr><td>40 – 49 ans</td><td>0.27 – 2.19</td></tr>
+        <tr><td>50 – 59 ans</td><td>0.27 – 3.42</td></tr>
+        <tr><td>60 – 69 ans</td><td>0.22 – 6.16</td></tr>
+        <tr><td>Plus de 69 ans</td><td>0.91 – 6.77</td></tr>
+      </tbody></table>
+      <p style="font-size:9px;margin-top:6px;font-style:italic;">NB : Résultat à confronter toujours avec celui du toucher rectal et aux données cliniques du patient.</p>`
+    }
+
+    const tTORCH = (valeurs) => {
+      let no = 1
+      const rows = Object.entries(valeurs).map(([p, d]) => `<tr>
+        <td style="text-align:center;">${no++}</td>
+        <td>${p}<br><span style="font-size:9px;font-style:italic;">(E.L.F.A – système Vidas : Biomerieux)</span></td>
+        <td style="text-align:center;font-weight:bold;" class="${d.valeur&&d.valeur.toLowerCase().includes("négatif")?"negatif":"positif"}">${d.valeur||"—"}</td>
+        <td style="text-align:center;">${d.unite||"UI/ml"}</td>
+        <td style="font-size:9.5px;">${d.norme||"—"}</td>
+      </tr>`).join("")
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Résultats – Immunologie (Toxoplasmose / Rubéole)</div>
+      <table class="res"><thead><tr>
+        <th>N°</th><th>Recherche demandée</th><th>Résultats</th><th>Unités</th><th>Interprétation</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <div class="interp"><div style="font-weight:bold;margin-bottom:3px;">Interprétation Toxoplasmose / Rubéole :</div>
+        <div>IgG− IgM− : Pas d'infection ni immunité — Suivi sérologique mensuel</div>
+        <div>IgG− IgM+ : Infection récente — contrôle après 15 jours</div>
+        <div>IgG+ IgM− : Infection pré-conceptionnelle (immunité)</div>
+        <div>IgG+ IgM+ : Probable évolution d'infection — confirmer par avidité IgG</div>
+      </div>`
+    }
+
+    const tECBU = (valeurs) => {
+      const rows = Object.entries(valeurs).map(([p, d]) => `<tr>
+        <td>${p}</td><td style="text-align:center;">${d.valeur||""}</td>
+      </tr>`).join("")
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Examen Cyto-Bactériologique des Urines (ECBU + ATG)</div>
+      <table class="res" style="margin-bottom:10px;"><thead><tr>
+        <th>Cytologie</th><th>Résultat</th>
+      </tr></thead><tbody>${rows}</tbody></table>
+      <p style="font-size:10px;margin:8px 0 4px;font-weight:bold;">Coloration de Gram :</p>
+      <div style="border:1px solid #aaa;padding:6px;font-size:10px;min-height:30px;"></div>`
+    }
+
+    const tParasitologie = (valeurs) => {
+      const rows = Object.entries(valeurs).map(([p, d]) => `<tr>
+        <td>${p}</td><td style="text-align:center;">${d.valeur||""}</td>
+      </tr>`).join("")
+      return `<div style="text-align:center;font-weight:bold;font-size:12px;margin-bottom:6px;text-decoration:underline;">Résultat Parasitologique des Selles</div>
+      <table class="res"><thead>
+        <tr><th colspan="2">Examen Macroscopique</th></tr>
+      </thead><tbody>${rows}</tbody></table>`
+    }
+
+    // ── choix du template par nom d'examen ───────────────
+    const genSection = (nomExamen, data) => {
+      const v = data.valeurs || {}
+      const n = nomExamen.toLowerCase()
+      if (n.includes("nfs") || (n.includes("hématologie") && !n.includes("hormones")))
+        return [nomExamen, tHematologie(v)]
+      if (n.includes("sérologie") || n.includes("aslo") || n.includes("widal") || n.includes("cpr") || n.includes("rpr") || n.includes("tpha"))
+        return [nomExamen, tSerologie(v)]
+      if (n.includes("aghbs") || n.includes("hépatite"))
+        return [nomExamen, tImmunologieHep(v)]
+      if (n.includes("torch") || n.includes("toxoplasmose") || n.includes("rubéole"))
+        return [nomExamen, tTORCH(v)]
+      if (n.includes("thyroïdien") || n.includes("tsh") || n.includes("t3") || n.includes("t4"))
+        return [nomExamen, tThyroide(v)]
+      if (n.includes("hormonal") || n.includes("testostérone") || n.includes("prolactine") || n.includes("fsh") || n.includes("œstradiol"))
+        return [nomExamen, tHormonal(v)]
+      if (n.includes("marqueurs") || n.includes("ca-125") || n.includes("ca-19") || n.includes("ace") || n.includes("ca-15"))
+        return [nomExamen, tMarqueurs(v)]
+      if (n.includes("psa") || n.includes("prostate"))
+        return [nomExamen, tPSA(v)]
+      if (n.includes("bhcg") || n.includes("βhcg"))
+        return [nomExamen, tBHCG(v)]
+      if (n.includes("ecbu") || n.includes("urine") || n.includes("vaginal"))
+        return [nomExamen, tECBU(v)]
+      if (n.includes("parasitologie") || n.includes("selles"))
+        return [nomExamen, tParasitologie(v)]
+      return [nomExamen, tGeneric(v, nomExamen)]
+    }
+
+    const pages = Object.entries(demande.resultats || {}).map(([nomExamen, data]) => {
+      const [typeLabel, contenu] = genSection(nomExamen, data)
+      return `<div class="page">${hdr(typeLabel)}${contenu}${footSig()}</div>`
+    })
+
+    if (pages.length === 0) {
+      alert("Aucun résultat à imprimer.")
+      return
+    }
+
+    const html = `<!DOCTYPE html><html lang="fr"><head>
+      <meta charset="UTF-8">
+      <title>Résultats — ${demande.patient.nom}</title>
+      <style>${css}</style>
+    </head><body>${pages.join("")}</body></html>`
+
+    const w = window.open("", "_blank")
+    if (!w) { alert("Autoriser les pop-ups pour imprimer."); return }
     w.document.write(html); w.document.close()
-    setTimeout(() => { w.print() }, 400)
+    setTimeout(() => { w.print() }, 500)
   }
 
   return (
@@ -652,10 +1178,11 @@ export default function DashboardLaboratoire() {
   const navigate   = useNavigate()
   const handleLogout = () => { logout(); navigate("/login") }
 
+  const { patients: sharedPatients, resultatsLabo, addResultatLabo, updateResultatLabo } = useSharedData()
+
   const [onglet,              setOnglet]              = useState("toutes")
   const [sidebarOpen,         setSidebarOpen]         = useState(false)
   const [demandes,            setDemandes]            = useState(DEMANDES_INIT)
-  const [patients]                                     = useState(PATIENTS_DB)
   const [showNouvelleDemande, setShowNouvelleDemande] = useState(false)
   const [showSaisie,          setShowSaisie]          = useState(null)
   const [showFiche,           setShowFiche]           = useState(null)
@@ -705,8 +1232,8 @@ export default function DashboardLaboratoire() {
   }
 
   const handleCreerDemande = (form) => {
-    const patient = patients.find(p=>p.id===parseInt(form.patientId))
-    setDemandes(prev => [{
+    const patient = sharedPatients.find(p=>p.id===parseInt(form.patientId))
+    const nouvelle = {
       id:Date.now(), patientId:patient.id, patient,
       dateDemande:today(), heureDemande:getNowTime(),
       medecinPrescripteur:form.medecinPrescripteur, service:form.service,
@@ -716,17 +1243,26 @@ export default function DashboardLaboratoire() {
       dateRendu:null, heureRendu:null,
       resultats:{}, valide:false, validePar:null, valideLe:null,
       urgent:form.urgent, commentaireGlobal:""
-    }, ...prev])
+    }
+    setDemandes(prev => [nouvelle, ...prev])
+    addResultatLabo({ ...nouvelle, type:"demande_labo" })
   }
   const handleDemarrerPrelevement = (id) => {
     setDemandes(prev => prev.map(d => d.id===id?{...d, statut:"en_cours", datePrelevement:today(), heurePrelevement:getNowTime()}:d))
+    const rl = resultatsLabo.find(r=>r.id===id)
+    if (rl) updateResultatLabo(id, { statut:"en_cours", datePrelevement:today(), heurePrelevement:getNowTime() })
   }
   const handleSauvegarder = (id, resultats, commentaireGlobal) => {
     setDemandes(prev => prev.map(d => d.id===id?{...d, resultats, commentaireGlobal, statut:"en_cours"}:d))
     setShowSaisie(null)
   }
   const handleValider = (id, resultats, commentaireGlobal) => {
-    setDemandes(prev => prev.map(d => d.id===id?{...d, resultats, commentaireGlobal, statut:"termine", dateRendu:today(), heureRendu:getNowTime(), valide:true, validePar:"Dr. Kamara", valideLe:today()+" "+getNowTime()}:d))
+    const valideLe = today()+" "+getNowTime()
+    const biologiste = user?.nom || "Biologiste"
+    setDemandes(prev => prev.map(d => d.id===id?{...d, resultats, commentaireGlobal, statut:"termine", dateRendu:today(), heureRendu:getNowTime(), valide:true, validePar:biologiste, valideLe}:d))
+    // Sauvegarder les résultats dans le contexte partagé pour que les médecins les voient
+    const rl = resultatsLabo.find(r=>r.id===id)
+    if (rl) updateResultatLabo(id, { resultats, commentaireGlobal, statut:"termine", dateRendu:today(), valide:true, validePar:biologiste, valideLe })
     setShowSaisie(null)
   }
 
@@ -754,7 +1290,7 @@ export default function DashboardLaboratoire() {
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Segoe UI', system-ui, sans-serif", color:C.textPri }}>
 
       {/* MODALS */}
-      {showNouvelleDemande && <ModalNouvelleDemande patients={patients} onClose={()=>setShowNouvelleDemande(false)} onCreate={handleCreerDemande}/>}
+      {showNouvelleDemande && <ModalNouvelleDemande patients={sharedPatients} onClose={()=>setShowNouvelleDemande(false)} onCreate={handleCreerDemande}/>}
       {showSaisie && <ModalSaisieResultats demande={showSaisie} onClose={()=>setShowSaisie(null)} onSave={(r,c)=>handleSauvegarder(showSaisie.id,r,c)} onValider={(r,c)=>handleValider(showSaisie.id,r,c)}/>}
       {showFiche  && <ModalFicheLaboratoire demande={showFiche} onClose={()=>setShowFiche(null)}/>}
 

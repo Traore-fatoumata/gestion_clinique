@@ -1629,7 +1629,7 @@ export default function DashboardMedecin() {
                 { val:mesRdv.length,                            label:"Total RDV",         bg:C.purpleSoft, fg:C.purple },
                 { val:mesRdv.filter(r=>r.date===today()).length, label:"Aujourd'hui",       bg:C.blueSoft,   fg:C.blue   },
                 { val:mesRdv.filter(r=>r.date>today()).length,   label:"À venir",           bg:C.greenSoft,  fg:C.green  },
-              ].map(({val,label,bg,fg})=>(
+              ].map(({val,label,fg})=>(
                 <Card key={label} style={{ padding:"20px" }}>
                   <p style={{ fontSize:30, fontWeight:800, color:fg, lineHeight:1 }}>{val}</p>
                   <p style={{ fontSize:12, color:C.textMuted, marginTop:6 }}>{label}</p>

@@ -783,6 +783,21 @@ function PageStats({ consultations, patients }) {
   const pp=ptsCourbe.map((p,idx)=>({ x:PL+(idx/(ptsCourbe.length-1||1))*iW, y:PT+iH-(p.val/maxRecette)*iH, ...p }))
   const areaPath=pp.length>1?`M${pp[0].x},${PT+iH} `+pp.map(p=>`L${p.x},${p.y}`).join(" ")+` L${pp[pp.length-1].x},${PT+iH} Z`:""
 
+  // Statistiques par pathologie
+  const pathoCounts = {}
+  cF.forEach(c => {
+    if (!c.motif) return
+    c.motif.split(/[,;/\n]+/).forEach(p => {
+      const k = p.trim()
+      if (k.length > 2) pathoCounts[k] = (pathoCounts[k] || 0) + 1
+    })
+  })
+  const pathoStats = Object.entries(pathoCounts)
+    .map(([nom, nb]) => ({ nom, nb }))
+    .sort((a, b) => b.nb - a.nb)
+    .slice(0, 12)
+  const maxPatho = Math.max(...pathoStats.map(p => p.nb), 1)
+
   const FILTRES=[{id:"jour",l:"Auj."},{id:"semaine",l:"Semaine"},{id:"mois",l:"Mois"},{id:"annee",l:"Année"}]
 
   const KPI_COLORS=[
@@ -1021,12 +1036,11 @@ function PageStats({ consultations, patients }) {
       </div>
 
       {/* Répartition patients */}
-      <Card style={{ marginBottom:4 }}>
+      <Card style={{ marginBottom:16 }}>
         <div style={{ padding:"18px 20px" }}>
           <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>Répartition des Patients</p>
           <p style={{ fontSize:12,color:C.textMuted,marginBottom:20 }}>Par sexe · total enregistrés</p>
           <div style={{ display:"flex",alignItems:"center",gap:32 }}>
-            {/* Barre de répartition */}
             <div style={{ flex:1,height:18,borderRadius:9,overflow:"hidden",background:"#dbeafe",display:"flex" }}>
               <div style={{ height:"100%",width:(patients.length>0?(patientsF/patients.length*100):50)+"%",background:C.green,transition:"width .6s ease" }}/>
             </div>
@@ -1045,6 +1059,37 @@ function PageStats({ consultations, patients }) {
               </div>
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Statistiques par Pathologie */}
+      <Card style={{ marginBottom:4 }}>
+        <div style={{ padding:"18px 20px" }}>
+          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16 }}>
+            <div>
+              <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>Statistiques par Pathologie</p>
+              <p style={{ fontSize:12,color:C.textMuted }}>Motifs les plus fréquents · période sélectionnée</p>
+            </div>
+            <span style={{ background:C.greenSoft,color:C.green,fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20 }}>
+              {pathoStats.length} pathologie{pathoStats.length>1?"s":""}
+            </span>
+          </div>
+          {pathoStats.length===0
+            ? <p style={{ color:C.textMuted,textAlign:"center",padding:"28px 0",fontSize:13 }}>Aucune donnée sur cette période</p>
+            : <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 32px" }}>
+                {pathoStats.map(({ nom, nb },i)=>(
+                  <div key={nom} style={{ display:"flex",alignItems:"center",gap:10 }}>
+                    <span style={{ fontSize:11,fontWeight:700,color:C.textMuted,width:16,textAlign:"right",flexShrink:0 }}>{i+1}</span>
+                    <span style={{ fontSize:12,color:C.textSec,width:160,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}
+                      title={nom}>{nom}</span>
+                    <div style={{ flex:1,height:12,background:"#f1f5f1",borderRadius:6,overflow:"hidden" }}>
+                      <div style={{ height:"100%",width:(nb/maxPatho*100)+"%",background:COULEURS[i%COULEURS.length],borderRadius:6,transition:"width .5s ease" }}/>
+                    </div>
+                    <span style={{ fontSize:12,fontWeight:700,color:C.textPri,width:22,textAlign:"right",flexShrink:0 }}>{nb}</span>
+                  </div>
+                ))}
+              </div>
+          }
         </div>
       </Card>
     </div>
@@ -1214,6 +1259,241 @@ function PagePresence({ medecins }) {
 }
 
 // ══════════════════════════════════════════════════════
+//  PAGE HISTORIQUE PATIENTS
+// ══════════════════════════════════════════════════════
+function PageHistorique({ consultations, patients }) {
+  const [search,     setSearch]     = useState("")
+  const [selPatient, setSelPatient] = useState(null)
+
+  const filtered = patients.filter(p =>
+    (p.nom + " " + (p.prenom||"") + " " + (p.telephone||"") + " " + (p.numeroDossier||""))
+      .toLowerCase().includes(search.toLowerCase())
+  )
+
+  const getHistory = (patientId) =>
+    consultations.filter(c => c.patientId === patientId)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+
+  const handlePrint = (patient) => {
+    const hist = getHistory(patient.id)
+    const rows = hist.map(c => `
+      <tr>
+        <td>${c.date||""}</td>
+        <td>${c.service||""}</td>
+        <td>${c.signePar||"—"}</td>
+        <td>${c.motif||"—"}</td>
+        <td>${c.typeVisite==="rendez_vous"?"Rendez-vous":"Consultation"}</td>
+        <td style="text-align:right">${c.montant?c.montant.toLocaleString("fr-FR")+" GNF":"—"}</td>
+        <td style="text-align:center">${c.statut==="paye"?"✓ Payé":"En attente"}</td>
+      </tr>`).join("")
+    const w = window.open("","_blank")
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>
+      @page{size:A4;margin:14mm 16mm}
+      body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#111}
+      .hdr{text-align:center;border-bottom:2px solid #16a34a;padding-bottom:10px;margin-bottom:14px}
+      .hdr h1{font-size:15pt;color:#16a34a;margin:0}
+      .hdr p{font-size:9pt;color:#555;margin:2px 0}
+      .pat-box{border:1px solid #e2ebe4;border-radius:6px;padding:10px 14px;margin-bottom:16px;background:#f7fdf9}
+      .pat-box h2{font-size:12pt;margin:0 0 8px;color:#111}
+      .pat-box p{font-size:10pt;color:#374151;margin:2px 0}
+      table{width:100%;border-collapse:collapse;font-size:9.5pt}
+      th{background:#16a34a;color:#fff;padding:7px 8px;text-align:left;font-weight:600}
+      td{padding:6px 8px;border-bottom:1px solid #e5e7eb}
+      tr:nth-child(even) td{background:#f9fafb}
+      .footer{text-align:center;font-size:8.5pt;color:#888;margin-top:20px;border-top:1px solid #e2ebe4;padding-top:8px}
+    </style></head><body>
+    <div class="hdr">
+      <h1>CABINET MÉDICAL MAROUANE</h1>
+      <p>Dr DOUMBOUYA Amadou · Médecin Généraliste &amp; Urgentiste · Tél : +224 628 72 72 72</p>
+      <p>Email : cabinetmarouane@gmail.com · Imprimé le ${new Date().toLocaleDateString("fr-FR")}</p>
+    </div>
+    <div class="pat-box">
+      <h2>Historique Patient</h2>
+      <p><b>Nom :</b> ${patient.nom}${patient.prenom?" "+patient.prenom:""} &nbsp;&nbsp; <b>Sexe :</b> ${patient.sexe||"N/A"} &nbsp;&nbsp; <b>Âge :</b> ${patient.age||"N/A"} ans</p>
+      <p><b>Tél :</b> ${patient.telephone||"N/A"} &nbsp;&nbsp; <b>Dossier N° :</b> ${patient.numeroDossier||patient.id}</p>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Service</th><th>Médecin</th><th>Motif</th><th>Type</th><th style="text-align:right">Montant</th><th style="text-align:center">Statut</th>
+      </tr></thead>
+      <tbody>${rows||"<tr><td colspan='7' style='text-align:center;color:#888'>Aucune consultation enregistrée</td></tr>"}</tbody>
+    </table>
+    <p style="margin-top:10px;font-size:9.5pt;color:#374151"><b>Total consultations :</b> ${hist.length} &nbsp;|&nbsp; <b>Total payé :</b> ${hist.filter(c=>c.statut==="paye").reduce((s,c)=>s+(c.montant||0),0).toLocaleString("fr-FR")} GNF</p>
+    <div class="footer">Document confidentiel · Cabinet Médical Marouane</div>
+    </body></html>`)
+    w.document.close()
+    w.focus()
+    setTimeout(()=>{ w.print(); w.close() },500)
+  }
+
+  return (
+    <div style={{ maxWidth:980,margin:"0 auto" }}>
+
+      {/* En-tête */}
+      <div style={{ marginBottom:24 }}>
+        <p style={{ fontSize:26,fontWeight:800,color:C.textPri,letterSpacing:"-0.5px",marginBottom:4 }}>Historique des Patients</p>
+        <p style={{ fontSize:13,color:C.textSec }}>{patients.length} patient{patients.length>1?"s":""} enregistré{patients.length>1?"s":""}</p>
+      </div>
+
+      {/* Barre de recherche */}
+      <div style={{ position:"relative",marginBottom:20,maxWidth:420 }}>
+        <svg style={{ position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }}
+          width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round">
+          <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="Rechercher par nom, téléphone, dossier…"
+          style={{ width:"100%",padding:"10px 12px 10px 38px",border:"1px solid "+C.border,borderRadius:10,fontSize:13,fontFamily:"inherit",outline:"none",background:C.white }} />
+      </div>
+
+      {/* Grille patients */}
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12 }}>
+        {filtered.map(p => {
+          const hist = getHistory(p.id)
+          const derniere = hist[0]
+          return (
+            <Card key={p.id}
+              style={{ padding:"16px 18px",cursor:"pointer",transition:"box-shadow .2s",borderRadius:12 }}
+              onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.10)"}
+              onMouseLeave={e=>e.currentTarget.style.boxShadow=""}>
+              <div style={{ display:"flex",alignItems:"flex-start",gap:12 }}>
+                <Avatar name={p.nom} size={40}/>
+                <div style={{ flex:1,minWidth:0 }}>
+                  <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>{p.nom}{p.prenom?" "+p.prenom:""}</p>
+                  <p style={{ fontSize:12,color:C.textMuted,marginBottom:8 }}>{p.telephone||"Tél. non renseigné"} · {p.age||"—"} ans · {p.sexe||"N/A"}</p>
+                  <div style={{ display:"flex",gap:8 }}>
+                    <span style={{ background:C.blueSoft,color:C.blue,fontSize:11,fontWeight:600,padding:"3px 9px",borderRadius:20 }}>
+                      {hist.length} consult.
+                    </span>
+                    {derniere&&<span style={{ background:C.slateSoft,color:C.slate,fontSize:11,padding:"3px 9px",borderRadius:20 }}>
+                      Dernier: {derniere.date}
+                    </span>}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display:"flex",gap:8,marginTop:12 }}>
+                <button onClick={()=>setSelPatient(p)}
+                  style={{ flex:1,padding:"8px",background:C.green,color:"#fff",border:"none",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
+                  Voir historique
+                </button>
+                <button onClick={()=>handlePrint(p)}
+                  style={{ padding:"8px 12px",background:C.white,color:C.textSec,border:"1px solid "+C.border,borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5 }}
+                  title="Imprimer">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                </button>
+              </div>
+            </Card>
+          )
+        })}
+        {filtered.length===0&&(
+          <p style={{ gridColumn:"1/-1",textAlign:"center",padding:"48px 0",color:C.textMuted,fontSize:14 }}>
+            Aucun patient trouvé
+          </p>
+        )}
+      </div>
+
+      {/* Modal historique */}
+      {selPatient&&(
+        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}
+          onClick={()=>setSelPatient(null)}>
+          <div style={{ background:C.white,borderRadius:16,width:"100%",maxWidth:780,maxHeight:"88vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(0,0,0,0.22)" }}
+            onClick={e=>e.stopPropagation()}>
+
+            {/* Header modal */}
+            <div style={{ padding:"20px 24px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
+              <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+                <Avatar name={selPatient.nom} size={44}/>
+                <div>
+                  <p style={{ fontSize:16,fontWeight:800,color:C.textPri }}>{selPatient.nom}{selPatient.prenom?" "+selPatient.prenom:""}</p>
+                  <p style={{ fontSize:12,color:C.textMuted }}>{selPatient.telephone||"—"} · {selPatient.age||"—"} ans · {selPatient.sexe||"N/A"} · Dossier #{selPatient.numeroDossier||selPatient.id}</p>
+                </div>
+              </div>
+              <div style={{ display:"flex",gap:8 }}>
+                <button onClick={()=>handlePrint(selPatient)}
+                  style={{ display:"flex",alignItems:"center",gap:6,padding:"9px 16px",background:C.green,color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  Imprimer
+                </button>
+                <button onClick={()=>setSelPatient(null)}
+                  style={{ width:36,height:36,borderRadius:8,border:"1px solid "+C.border,background:C.white,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.textMuted }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+
+            {/* KPI résumé */}
+            {(() => {
+              const hist = getHistory(selPatient.id)
+              const payees = hist.filter(c=>c.statut==="paye")
+              const total = payees.reduce((s,c)=>s+(c.montant||0),0)
+              return (
+                <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,padding:"16px 24px",borderBottom:"1px solid "+C.border,flexShrink:0 }}>
+                  {[
+                    { label:"Total consultations", val:hist.length, color:C.blue },
+                    { label:"Consultations payées", val:payees.length, color:C.green },
+                    { label:"Total encaissé", val:total.toLocaleString("fr-FR")+" GNF", color:C.amber },
+                  ].map(({label,val,color})=>(
+                    <div key={label} style={{ textAlign:"center",padding:"10px",background:C.slateSoft,borderRadius:10 }}>
+                      <p style={{ fontSize:20,fontWeight:800,color }}>{val}</p>
+                      <p style={{ fontSize:11,color:C.textMuted,marginTop:2 }}>{label}</p>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+
+            {/* Tableau historique */}
+            <div style={{ overflowY:"auto",flex:1,padding:"0 24px 24px" }}>
+              {(() => {
+                const hist = getHistory(selPatient.id)
+                if (hist.length===0) return (
+                  <p style={{ textAlign:"center",padding:"40px 0",color:C.textMuted,fontSize:14 }}>Aucune consultation enregistrée pour ce patient</p>
+                )
+                return (
+                  <table style={{ width:"100%",borderCollapse:"collapse",marginTop:16 }}>
+                    <thead>
+                      <tr style={{ position:"sticky",top:0,background:C.white }}>
+                        {["Date","Service","Médecin","Motif","Type","Montant","Statut"].map(h=>(
+                          <th key={h} style={{ padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.4px",borderBottom:"2px solid "+C.border }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hist.map((c,i,arr)=>(
+                        <tr key={c.id} style={{ borderBottom:i<arr.length-1?"1px solid #f0f0f0":"none" }}
+                          onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                          <td style={{ padding:"11px 12px",fontSize:13,fontWeight:600,color:C.textPri,whiteSpace:"nowrap" }}>{c.date}</td>
+                          <td style={{ padding:"11px 12px",fontSize:12,color:C.textSec }}>{c.service||"—"}</td>
+                          <td style={{ padding:"11px 12px",fontSize:12,color:C.textSec,whiteSpace:"nowrap" }}>{c.signePar||"—"}</td>
+                          <td style={{ padding:"11px 12px",fontSize:12,color:C.textSec,maxWidth:200 }}>{c.motif||"—"}</td>
+                          <td style={{ padding:"11px 12px" }}>
+                            <span style={{ background:c.typeVisite==="rendez_vous"?C.purpleSoft:C.blueSoft,color:c.typeVisite==="rendez_vous"?C.purple:C.blue,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20 }}>
+                              {c.typeVisite==="rendez_vous"?"RDV":"Consult."}
+                            </span>
+                          </td>
+                          <td style={{ padding:"11px 12px",fontSize:13,fontWeight:600,color:C.textPri,whiteSpace:"nowrap" }}>
+                            {c.montant?c.montant.toLocaleString("fr-FR")+" GNF":"—"}
+                          </td>
+                          <td style={{ padding:"11px 12px" }}>
+                            <StatutBadge statut={c.statut||"en_attente"}/>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════
 //  COMPOSANT PRINCIPAL
 // ══════════════════════════════════════════════════════
 export default function DashboardMedecinChef() {
@@ -1275,13 +1555,15 @@ export default function DashboardMedecinChef() {
     patient: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5"/><circle cx="17.5" cy="7" r="2.5"/><path d="M21.5 20c0-2.8-2-5-4.5-5.5"/></svg>,
     clock:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/><polyline points="10 15 12 17 16 13"/></svg>,
     stats:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="20" x2="21" y2="20"/><rect x="4" y="10" width="4" height="10" rx="1"/><rect x="10" y="6" width="4" height="14" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg>,
+    history: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.51"/><line x1="12" y1="7" x2="12" y2="12"/><polyline points="10 14 12 12 14 14"/></svg>,
   }
   const NAV = [
-    { id:"accueil",       label:"Tableau de bord",  icon:"accueil" },
-    { id:"consultations", label:"Consultations",     icon:"liste",   badge:enAttente },
-    { id:"comptes",       label:"Gestion Personnel", icon:"patient" },
-    { id:"presence",      label:"Suivi Présence",    icon:"clock" },
-    { id:"stats",         label:"Statistiques",      icon:"stats" },
+    { id:"accueil",       label:"Tableau de bord",   icon:"accueil" },
+    { id:"consultations", label:"Consultations",      icon:"liste",   badge:enAttente },
+    { id:"comptes",       label:"Gestion Personnel",  icon:"patient" },
+    { id:"presence",      label:"Suivi Présence",     icon:"clock" },
+    { id:"stats",         label:"Statistiques",       icon:"stats" },
+    { id:"historique",    label:"Historique Patients",icon:"history" },
   ]
 
   return (
@@ -1406,6 +1688,7 @@ export default function DashboardMedecinChef() {
         {page==="comptes"       && <PageComptes       comptes={comptes} setComptes={setComptes} medecins={medecins} setMedecins={setMedecins} />}
         {page==="presence"      && <PagePresence      medecins={medecins} />}
         {page==="stats"         && <PageStats         consultations={consultations} patients={patients} />}
+        {page==="historique"    && <PageHistorique    consultations={consultations} patients={patients} />}
       </main>
 
       <style>{`

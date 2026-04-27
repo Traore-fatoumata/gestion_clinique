@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import logo from "../../assets/images/logo.jpeg"
 import { useAuth } from "../../hooks/useAuth.jsx"
 import { useNavigate } from "react-router-dom"
@@ -282,18 +282,7 @@ export default function DashboardComptabilite() {
   const [recherche, setRecherche] = useState("")
   const [mPmt,   setMPmt]   = useState(null)
   const [mPmtEx, setMPmtEx] = useState(null)
-  const [heure, setHeure] = useState("")
-  const [dateStr, setDateStr] = useState("")
   const [filterStatut, setFilterStatut] = useState("tous")
-
-  useEffect(()=>{
-    const tick=()=>{
-      const n=new Date()
-      setHeure(n.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}))
-      setDateStr(n.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"}))
-    }
-    tick(); const t=setInterval(tick,1000); return()=>clearInterval(t)
-  },[])
 
   // Enrichir les entrées avec infos patient
   const fileEnrichie = file.map(f => {
