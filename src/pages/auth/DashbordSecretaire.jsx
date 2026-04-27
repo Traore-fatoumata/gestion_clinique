@@ -1,184 +1,283 @@
 import { useState, useEffect } from "react"
 import logo from "../../assets/images/logo.jpeg"
+import { useClinicSettings } from "../../hooks/useClinicSettings.jsx"
+import { useAuth } from "../../hooks/useAuth.jsx"
+import { useNavigate } from "react-router-dom"
+import { useSharedData } from "../../hooks/useSharedData.jsx"
 
+// ══════════════════════════════════════════════════════
+//  UTILITAIRES
+// ══════════════════════════════════════════════════════
 function genId(seed) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789"
-  let result = "CAB-", n = seed * 48271 + 1000003
-  for (let i = 0; i < 6; i++) { n = (n * 1664525 + 1013904223) & 0x7fffffff; result += chars[n % chars.length] }
+  let result = "ABC-", n = seed * 48271 + 1000003
+  for (let i = 0; i < 6; i++) { n = (n*1664525+1013904223)&0x7fffffff; result+=chars[n%chars.length] }
   return result
 }
-const today   = () => new Date().toISOString().slice(0, 10)
-const nowTime = () => new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+const today   = () => new Date().toISOString().slice(0,10)
+const nowTime = () => new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})
 const fmt     = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—"
 
-const PATIENTS_INIT = [
-  { id:1, pid:genId(1), nom:"Bah Mariama",     age:34, dateNaissance:"1990-03-12", adresse:"Ratoma, Conakry",   telephone:"+224 622 11 22 33", sexe:"F", motif:"Consultation générale", arrivee:"08:15", depart:null,    statut:"en_attente", docteur:"Non assigné", tuteur:"" },
-  { id:2, pid:genId(2), nom:"Diallo Ibrahima", age:52, dateNaissance:"1972-07-04", adresse:"Kaloum, Conakry",   telephone:"+224 628 44 55 66", sexe:"M", motif:"Cardiologie",           arrivee:"08:45", depart:null,    statut:"en_salle",   docteur:"Dr. Camara",  tuteur:"" },
-  { id:3, pid:genId(3), nom:"Sow Fatoumata",   age:28, dateNaissance:"1996-11-20", adresse:"Dixinn, Conakry",   telephone:"+224 621 77 88 99", sexe:"F", motif:"Pédiatrie",             arrivee:"09:00", depart:null,    statut:"en_attente", docteur:"Non assigné", tuteur:"" },
-  { id:4, pid:genId(4), nom:"Kouyaté Mamadou", age:61, dateNaissance:"1963-01-15", adresse:"Matam, Conakry",    telephone:"+224 624 33 44 55", sexe:"M", motif:"Diabétologie",          arrivee:"09:30", depart:null,    statut:"en_attente", docteur:"Non assigné", tuteur:"" },
-  { id:5, pid:genId(5), nom:"Baldé Aissatou",  age:19, dateNaissance:"2005-06-08", adresse:"Matoto, Conakry",   telephone:"+224 625 66 77 88", sexe:"F", motif:"Dermatologie",          arrivee:"10:00", depart:null,    statut:"en_attente", docteur:"Non assigné", tuteur:"" },
-  { id:6, pid:genId(6), nom:"Condé Ousmane",   age:45, dateNaissance:"1979-09-30", adresse:"Lambanyi, Conakry", telephone:"+224 627 99 00 11", sexe:"M", motif:"Ophtalmologie",         arrivee:"10:20", depart:"11:05", statut:"parti",      docteur:"Dr. Barry",   tuteur:"" },
+// ══════════════════════════════════════════════════════
+//  DONNÉES MOCK
+// ══════════════════════════════════════════════════════
+const PATIENTS_DB = [
+  { id:1, pid:genId(1), nom:"Bah Mariama",     age:"34 ans",    dateNaissance:"1990-03-12", sexe:"F", telephone:"+224 622 11 22 33", quartier:"Ratoma",   secteur:"Lansanayah", profession:"Commerçante", responsable:"Mamadou Bah" },
+  { id:2, pid:genId(2), nom:"Diallo Ibrahima", age:"52 ans",    dateNaissance:"1972-07-04", sexe:"M", telephone:"+224 628 44 55 66", quartier:"Kaloum",   secteur:"Boulbinet",  profession:"Enseignant",  responsable:"Lui-même"    },
+  { id:3, pid:genId(3), nom:"Sow Fatoumata",   age:"1an 3mois", dateNaissance:"2022-11-20", sexe:"F", telephone:"+224 621 77 88 99", quartier:"Dixinn",   secteur:"Yimbayah",   profession:"S/C",          responsable:"Mamadou Sow" },
+  { id:4, pid:genId(4), nom:"Kouyaté Mamadou", age:"61 ans",    dateNaissance:"1963-01-15", sexe:"M", telephone:"+224 624 33 44 55", quartier:"Matam",    secteur:"Tannerie",   profession:"Commerçant",  responsable:"Lui-même"    },
+  { id:5, pid:genId(5), nom:"Baldé Aissatou",  age:"19 ans",    dateNaissance:"2005-06-08", sexe:"F", telephone:"+224 625 66 77 88", quartier:"Matoto",   secteur:"Gbessia",    profession:"Élève",        responsable:"Mamadou Baldé"},
 ]
 
 const DOCTEURS = [
-  { id:1, nom:"Dr. Doumbouya", specialite:"Médecine générale", statut:"present",   arrive:"07:30", patients:4 },
-  { id:2, nom:"Dr. Camara",    specialite:"Cardiologie",       statut:"present",   arrive:"08:00", patients:3 },
-  { id:3, nom:"Dr. Barry",     specialite:"Diabétologie",      statut:"present",   arrive:"08:15", patients:2 },
-  { id:4, nom:"Dr. Souaré",    specialite:"Pédiatrie",         statut:"absent",    arrive:null,    patients:0 },
-  { id:5, nom:"Dr. Keïta",     specialite:"Dermatologie",      statut:"en_retard", arrive:null,    patients:1 },
-]
-
-const RDV_JOUR = [
-  { id:1, heure:"08:00", patient:"Bah Mariama",     docteur:"Dr. Doumbouya", type:"Consultation", statut:"termine"    },
-  { id:2, heure:"09:00", patient:"Diallo Ibrahima", docteur:"Dr. Camara",    type:"Suivi cardio", statut:"en_cours"   },
-  { id:3, heure:"10:00", patient:"Sow Fatoumata",   docteur:"Dr. Doumbouya", type:"Pédiatrie",    statut:"en_attente" },
-  { id:4, heure:"10:30", patient:"Kouyaté Mamadou", docteur:"Dr. Barry",     type:"Glycémie",     statut:"en_attente" },
-  { id:5, heure:"11:00", patient:"Baldé Aissatou",  docteur:"Dr. Camara",    type:"Dermatologie", statut:"en_attente" },
-  { id:6, heure:"14:00", patient:"Traoré Sekou",    docteur:"Dr. Barry",     type:"Diabétologie", statut:"programme"  },
+  { id:1, nom:"Dr. Doumbouya", specialite:"Médecine générale",          statut:"present" },
+  { id:2, nom:"Dr. Camara",    specialite:"Cardiologie",                 statut:"present" },
+  { id:3, nom:"Dr. Barry",     specialite:"Diabétologie / Endocrinologie", statut:"present" },
+  { id:4, nom:"Dr. Souaré",    specialite:"Pédiatrie",                   statut:"absent"  },
+  { id:5, nom:"Dr. Keïta",     specialite:"Gynécologie",                 statut:"present" },
+  { id:6, nom:"Dr. Bah",       specialite:"Ophtalmologie",               statut:"present" },
+  { id:7, nom:"Dr. Diallo",    specialite:"Traumatologie",               statut:"present" },
+  { id:8, nom:"Dr. Konaté",    specialite:"Neurologie",                  statut:"present" },
+  { id:9, nom:"Dr. Traoré",    specialite:"ORL",                         statut:"present" },
 ]
 
 
-const C = {
-  bg:"#f8f9fa", white:"#ffffff", textPri:"#0f172a", textSec:"#64748b", textMuted:"#94a3b8", border:"#e2e8f0",
-  green:"#16a34a", greenSoft:"#dcfce7",
-  blue:"#2563eb",  blueSoft:"#dbeafe",
-  amber:"#d97706", amberSoft:"#fef3c7",
-  red:"#dc2626",   redSoft:"#fee2e2",
-  slate:"#475569", slateSoft:"#e2e8f0",
-  purple:"#7c3aed",purpleSoft:"#ede9fe",
-  orange:"#ea580c",orangeSoft:"#ffedd5",
+function tarifParAge(dateNaissance, s={}) {
+  if (!dateNaissance) return s.tarifAdulte || 50000
+  const age = Math.floor((Date.now() - new Date(dateNaissance)) / (365.25*24*3600*1000))
+  if (age < 5)   return s.tarifNourrisson || 30000
+  if (age < 15)  return s.tarifEnfant     || 35000
+  if (age <= 60) return s.tarifAdulte     || 50000
+  return s.tarifSenior || 40000
 }
 
+// ══════════════════════════════════════════════════════
+//  COULEURS
+// ══════════════════════════════════════════════════════
+const C = {
+  bg:"#f7f9f8",      white:"#ffffff",
+  textPri:"#111827", textSec:"#374151", textMuted:"#6b7280",
+  border:"#e2ebe4",
+  green:"#16a34a",   greenSoft:"#dcfce7",  greenDark:"#15803d", greenLight:"#bbf7d0",
+  blue:"#1d6fa4",    blueSoft:"#e8f4fb",
+  amber:"#b45309",   amberSoft:"#fef3c7",
+  red:"#dc2626",     redSoft:"#fef2f2",
+  slate:"#475569",   slateSoft:"#f1f5f9",
+  purple:"#6d28d9",  purpleSoft:"#ede9fe",
+  orange:"#c2410c",  orangeSoft:"#fff7ed",
+  teal:"#0f766e",    tealSoft:"#f0fdfa",
+}
+
+// ══════════════════════════════════════════════════════
+//  COMPOSANTS DE BASE
+// ══════════════════════════════════════════════════════
 function Badge({ statut }) {
   const cfg = {
-    present:    { label:"Présent",    color:C.green,  bg:C.greenSoft },
-    en_salle:   { label:"En salle",   color:C.green,  bg:C.greenSoft, pulse:true },
-    en_cours:   { label:"En cours",   color:C.green,  bg:C.greenSoft, pulse:true },
-    en_attente: { label:"En attente", color:C.amber,  bg:C.amberSoft },
-    en_retard:  { label:"En retard",  color:C.amber,  bg:C.amberSoft },
-    programme:  { label:"Programmé",  color:C.blue,   bg:C.blueSoft  },
-    absent:     { label:"Absent",     color:C.red,    bg:C.redSoft   },
-    parti:      { label:"Parti",      color:C.slate,  bg:C.slateSoft },
-    termine:    { label:"Terminé",    color:C.slate,  bg:C.slateSoft },
+    en_attente:{ label:"En attente",  color:C.slate,  bg:C.slateSoft },
+    en_salle:  { label:"En salle",    color:C.green,  bg:C.greenSoft, pulse:true },
+    consultation:{label:"Consultation",color:C.green,  bg:C.greenSoft },
+    rendez_vous: {label:"Rendez-vous", color:C.purple, bg:C.purpleSoft},
+    parti:     { label:"Parti",       color:C.slate,  bg:C.slateSoft },
+    paye:      { label:"Payé",        color:C.green,  bg:C.greenSoft },
+    partiel:   { label:"Partiel",     color:C.slate,  bg:C.slateSoft },
+    impaye:    { label:"Impayé",      color:C.red,    bg:C.redSoft   },
   }
-  const s = cfg[statut] || cfg.programme
+  const s = cfg[statut]||cfg.en_attente
   return (
     <span style={{ display:"inline-flex", alignItems:"center", gap:5, background:s.bg, color:s.color, fontSize:12, fontWeight:600, padding:"4px 12px", borderRadius:20, border:"1px solid "+s.color+"33", whiteSpace:"nowrap" }}>
-      {s.pulse && <span style={{ width:5, height:5, borderRadius:"50%", background:s.color, animation:"blink 2s ease-in-out infinite" }} />}
+      {s.pulse&&<span style={{ width:5,height:5,borderRadius:"50%",background:s.color,animation:"blink 2s ease-in-out infinite" }}/>}
       {s.label}
     </span>
   )
 }
 
 function Avatar({ name, size=36 }) {
-  const bgs = [C.blueSoft,C.greenSoft,C.purpleSoft,C.amberSoft,C.orangeSoft]
-  const fgs = [C.blue,C.green,C.purple,C.amber,C.orange]
-  const i   = (name?.charCodeAt(0)||0) % bgs.length
+  const bgs=[C.blueSoft,C.greenSoft,C.purpleSoft,C.slateSoft,C.orangeSoft]
+  const fgs=[C.blue,C.green,C.purple,C.slate,C.orange]
+  const i=(name?.charCodeAt(0)||0)%bgs.length
   return (
-    <div style={{ width:size, height:size, borderRadius:"50%", background:bgs[i], display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+    <div style={{ width:size,height:size,borderRadius:"50%",background:bgs[i],display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
       <svg width={size*.42} height={size*.42} viewBox="0 0 24 24" fill="none" stroke={fgs[i]} strokeWidth="2" strokeLinecap="round">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
       </svg>
     </div>
   )
 }
-
 function Card({ children, style={} }) {
-  return <div style={{ background:C.white, borderRadius:16, border:"1px solid "+C.border, boxShadow:"0 1px 3px rgba(0,0,0,0.06)", ...style }}>{children}</div>
+  return <div style={{ background:C.white,borderRadius:16,border:"1px solid "+C.border,boxShadow:"0 1px 3px rgba(0,0,0,0.06)",...style }}>{children}</div>
 }
-
 function CardHeader({ title, action }) {
   return (
-    <div style={{ padding:"16px 20px", borderBottom:"1px solid "+C.border, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-      <p style={{ fontWeight:700, fontSize:15, color:C.textPri }}>{title}</p>
+    <div style={{ padding:"16px 20px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+      <p style={{ fontWeight:700,fontSize:15,color:C.textPri }}>{title}</p>
       {action}
     </div>
   )
 }
-
 function Btn({ children, onClick, variant="primary", small=false, disabled=false }) {
-  const cfg = {
-    primary:  { bg:C.blue,  hov:"#1d4ed8", color:"#fff", border:"none" },
-    success:  { bg:C.green, hov:"#15803d", color:"#fff", border:"none" },
-    secondary:{ bg:"transparent", hov:C.slateSoft, color:C.textSec, border:"1px solid "+C.border },
-  }
-  const s = cfg[variant]||cfg.primary
+  const cfg={ primary:{bg:C.blue,hov:"#155e8b",color:"#fff",border:"none"}, success:{bg:C.green,hov:"#166534",color:"#fff",border:"none"}, secondary:{bg:"transparent",hov:C.slateSoft,color:C.textSec,border:"1px solid "+C.border} }
+  const s=cfg[variant]||cfg.primary
   return (
     <button onClick={onClick} disabled={disabled}
-      style={{ background:s.bg, color:s.color, border:s.border||"none", borderRadius:10, padding:small?"7px 16px":"10px 20px", fontSize:small?12:13, fontWeight:600, cursor:disabled?"not-allowed":"pointer", display:"inline-flex", alignItems:"center", gap:6, fontFamily:"inherit", transition:"all .2s", opacity:disabled?.55:1 }}
+      style={{ background:s.bg,color:s.color,border:s.border||"none",borderRadius:10,padding:small?"7px 14px":"10px 20px",fontSize:small?12:13,fontWeight:600,cursor:disabled?"not-allowed":"pointer",display:"inline-flex",alignItems:"center",gap:6,fontFamily:"inherit",transition:"all .2s",opacity:disabled?.55:1 }}
       onMouseEnter={e=>{ if(!disabled) e.currentTarget.style.background=s.hov }}
       onMouseLeave={e=>{ if(!disabled) e.currentTarget.style.background=s.bg }}
     >{children}</button>
   )
 }
 
-function ModalPatient({ patient, historiques, onClose, onNouvelleConsultation }) {
-  if (!patient) return null
-  const visites  = historiques.filter(h=>h.patientId===patient.id).sort((a,b)=>b.date.localeCompare(a.date))
-  const nbVisites = visites.length
-  const champs = [
-    { label:"ID Clinique",       val:patient.pid },
-    { label:"Nom complet",       val:patient.nom },
-    { label:"Date de naissance", val:patient.dateNaissance ? fmt(patient.dateNaissance) : "—" },
-    { label:"Âge",               val:patient.age+" ans" },
-    { label:"Sexe",              val:patient.sexe==="F"?"Féminin":"Masculin" },
-    { label:"Téléphone",         val:patient.telephone },
-    { label:"Adresse",           val:patient.adresse, full:true },
-    { label:"Tuteur",            val:patient.tuteur||"—", full:true },
-  ]
+// ══════════════════════════════════════════════════════
+//  MODAL — ENREGISTRER NOUVEAU PATIENT (formulaire image)
+// ══════════════════════════════════════════════════════
+function ModalNouveauPatient({ onClose, onEnregistrer }) {
+  const { settings } = useClinicSettings()
+  const INIT={ nom:"",prenom:"",age:"",dateNaissance:"",sexe:"F",telephone:"",profession:"",quartier:"",secteur:"",responsable:"",telResponsable:"",montantConsultation:"" }
+  const [form, setForm]=useState(INIT)
+  const setF=(k,v)=>setForm(p=>({...p,[k]:v}))
+  const ok=form.nom&&form.prenom&&form.montantConsultation
+
+  // Calcul tarif automatique selon date de naissance
+  const tarifAuto = tarifParAge(form.dateNaissance, settings)
+  // Mise à jour auto du montant quand la date change
+  const handleDateNaissance = (val) => {
+    setForm(p=>({ ...p, dateNaissance:val, montantConsultation:tarifParAge(val, settings).toString() }))
+  }
+
+  const iSt={ width:"100%",padding:"13px 16px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
+  const foc=e=>{e.target.style.borderColor=C.blue;e.target.style.boxShadow="0 0 0 3px "+C.blueSoft}
+  const blr=e=>{e.target.style.borderColor=C.border;e.target.style.boxShadow="none"}
+
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,0.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",overflowY:"auto" }}
       onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white, borderRadius:20, width:"100%", maxWidth:580, maxHeight:"90vh", overflow:"auto", boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
-        <div style={{ padding:"22px 28px 18px", borderBottom:"1px solid "+C.border, display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-            <Avatar name={patient.nom} size={48} />
-            <div>
-              <p style={{ fontSize:18, fontWeight:800, color:C.textPri, marginBottom:3 }}>{patient.nom}</p>
-              <p style={{ fontSize:13, color:C.textSec }}>{patient.pid} · {nbVisites} visite{nbVisites>1?"s":""}</p>
+      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:860,marginTop:20,boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
+
+        {/* En-tête */}
+        <div style={{ padding:"24px 32px 20px",display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
+          <div>
+            <p style={{ fontSize:20,fontWeight:800,color:C.textPri,marginBottom:4 }}>Registre d'Accueil — Enregistrer un patient</p>
+            <p style={{ fontSize:13,color:C.textMuted }}>Remplir la fiche et indiquer le montant de consultation. Le patient ira ensuite à la comptabilité pour payer.</p>
+          </div>
+          <button onClick={onClose}
+            style={{ display:"flex",alignItems:"center",gap:6,padding:"8px 16px",border:"1px solid "+C.border,borderRadius:10,background:C.white,color:C.textSec,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}
+            onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
+            onMouseLeave={e=>e.currentTarget.style.background=C.white}>
+            Fermer
+          </button>
+        </div>
+
+        <div style={{ padding:"0 32px 28px",display:"flex",flexDirection:"column",gap:24 }}>
+
+          {/* IDENTITÉ DU PATIENT */}
+          <div>
+            <p style={{ fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>Identité du patient</p>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16 }}>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Nom de famille <span style={{ color:C.red }}>*</span></label>
+                <input value={form.nom} onChange={e=>setF("nom",e.target.value)} placeholder="Ex : DIALLO" style={iSt} onFocus={foc} onBlur={blr}/>
+              </div>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Prénom(s) <span style={{ color:C.red }}>*</span></label>
+                <input value={form.prenom} onChange={e=>setF("prenom",e.target.value)} placeholder="Ex : Aminata" style={iSt} onFocus={foc} onBlur={blr}/>
+              </div>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Téléphone</label>
+                <input value={form.telephone} onChange={e=>setF("telephone",e.target.value)} placeholder="+224 6XX XX XX XX" style={iSt} onFocus={foc} onBlur={blr}/>
+              </div>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Âge</label>
+                <input value={form.age} onChange={e=>setF("age",e.target.value)} placeholder="Ex : 35 ans" style={iSt} onFocus={foc} onBlur={blr}/>
+              </div>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Date de naissance</label>
+                <input type="date" value={form.dateNaissance} onChange={e=>handleDateNaissance(e.target.value)} style={iSt} onFocus={foc} onBlur={blr}/>
+              </div>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Sexe</label>
+                <select value={form.sexe} onChange={e=>setF("sexe",e.target.value)} style={{ ...iSt,cursor:"pointer" }}>
+                  <option value="F">Féminin</option>
+                  <option value="M">Masculin</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Profession</label>
+                <input value={form.profession} onChange={e=>setF("profession",e.target.value)} placeholder="Ex : Commerçant, Élève, S/C..." style={iSt} onFocus={foc} onBlur={blr}/>
+              </div>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Quartier</label>
+                <input value={form.quartier} onChange={e=>setF("quartier",e.target.value)} placeholder="Ex : Ratoma" style={iSt} onFocus={foc} onBlur={blr}/>
+              </div>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Secteur / District</label>
+                <input value={form.secteur} onChange={e=>setF("secteur",e.target.value)} placeholder="Ex : Yimbayah, Lansanayah..." style={iSt} onFocus={foc} onBlur={blr}/>
+              </div>
             </div>
           </div>
-          <button onClick={onClose} style={{ background:C.slateSoft, border:"none", borderRadius:8, color:C.textSec, cursor:"pointer", width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>×</button>
-        </div>
-        {nbVisites > 1 && (
-          <div style={{ background:C.amberSoft, borderBottom:"1px solid "+C.amber+"33", padding:"10px 28px", display:"flex", alignItems:"center", gap:10 }}>
-            <span style={{ fontSize:16 }}>🔁</span>
-            <p style={{ fontSize:13, color:C.amber, fontWeight:600 }}>Patient de retour — {nbVisites}ème visite · Dernière venue le {fmt(visites[0]?.date)}</p>
-          </div>
-        )}
-        <div style={{ padding:"24px 28px" }}>
-          <p style={{ fontSize:11, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Informations</p>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20 }}>
-            {champs.map(({ label, val, full })=>(
-              <div key={label} style={{ background:C.bg, borderRadius:10, padding:"12px 14px", border:"1px solid "+C.border, gridColumn:full?"1/-1":"auto" }}>
-                <p style={{ fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>{label}</p>
-                <p style={{ fontSize:13, fontWeight:600, color:C.textPri }}>{val}</p>
+
+          {/* PERSONNE RESPONSABLE */}
+          <div>
+            <p style={{ fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>Personne responsable</p>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Nom du responsable</label>
+                <input value={form.responsable} onChange={e=>setF("responsable",e.target.value)} placeholder="Ex : Mamadou Diallo ou Lui-même" style={iSt} onFocus={foc} onBlur={blr}/>
               </div>
-            ))}
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Téléphone responsable</label>
+                <input value={form.telResponsable} onChange={e=>setF("telResponsable",e.target.value)} placeholder="+224 6XX XX XX XX" style={iSt} onFocus={foc} onBlur={blr}/>
+              </div>
+            </div>
           </div>
-          {visites.length > 0 && (
-            <>
-              <p style={{ fontSize:11, fontWeight:700, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Historique des visites</p>
-              <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:20 }}>
-                {visites.map((v,i)=>(
-                  <div key={v.id} style={{ background:C.bg, borderRadius:10, padding:"12px 16px", border:"1px solid "+C.border, display:"flex", gap:12, alignItems:"flex-start" }}>
-                    <div style={{ width:28, height:28, borderRadius:8, background:C.blueSoft, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:800, color:C.blue, flexShrink:0 }}>{visites.length-i}</div>
-                    <div style={{ flex:1 }}>
-                      <p style={{ fontSize:13, fontWeight:700, color:C.textPri, marginBottom:2 }}>{fmt(v.date)}</p>
-                      <p style={{ fontSize:12, color:C.textSec }}>{v.motif} · {v.docteur}</p>
-                      {v.notes && <p style={{ fontSize:11, color:C.textMuted, marginTop:4 }}>{v.notes}</p>}
-                    </div>
+
+          {/* FRAIS DE CONSULTATION */}
+          <div>
+            <p style={{ fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>Frais de consultation <span style={{ color:C.red }}>*</span></p>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,alignItems:"start" }}>
+              <div>
+                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>
+                  Montant à payer (GNF) <span style={{ color:C.red }}>*</span>
+                </label>
+                <input type="number" value={form.montantConsultation}
+                  onChange={e=>setF("montantConsultation",e.target.value)}
+                  placeholder="Ex : 50000"
+                  style={iSt} onFocus={foc} onBlur={blr}/>
+                <p style={{ fontSize:12,color:C.textMuted,marginTop:6 }}>
+                  Saisir le montant annoncé au patient
+                </p>
+              </div>
+              <div style={{ background:C.greenSoft,borderRadius:14,padding:"16px 18px",border:"1px solid "+C.green+"44" }}>
+                <p style={{ fontSize:11,fontWeight:700,color:C.green,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10 }}>Tarif selon l'âge</p>
+                {[
+                  { label:"Nourrisson (< 5 ans)",  montant:30000 },
+                  { label:"Enfant (5 – 14 ans)",   montant:35000 },
+                  { label:"Adulte (15 – 60 ans)",  montant:50000 },
+                  { label:"Senior (> 60 ans)",     montant:40000 },
+                ].map(t=>(
+                  <div key={t.label} onClick={()=>setF("montantConsultation",t.montant.toString())}
+                    style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 8px",borderRadius:8,cursor:"pointer",
+                      background:form.montantConsultation===t.montant.toString()?"#bbf7d0":"transparent",
+                      border:form.montantConsultation===t.montant.toString()?"1px solid "+C.green:"1px solid transparent" }}>
+                    <span style={{ fontSize:12,color:C.textSec }}>{t.label}</span>
+                    <span style={{ fontSize:13,fontWeight:700,color:C.green }}>{t.montant.toLocaleString("fr-FR")} GNF</span>
                   </div>
                 ))}
+                {form.dateNaissance&&(
+                  <div style={{ marginTop:10,padding:"8px 10px",background:"#fff",borderRadius:10,border:"1px solid "+C.green+"44" }}>
+                    <p style={{ fontSize:12,color:C.textSec }}>Tarif calculé auto :</p>
+                    <p style={{ fontSize:15,fontWeight:800,color:C.green }}>{tarifAuto.toLocaleString("fr-FR")} GNF</p>
+                  </div>
+                )}
               </div>
-            </>
-          )}
-          <div style={{ background:C.greenSoft, border:"1px solid "+C.green+"33", borderRadius:12, padding:"16px 18px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-            <div>
-              <p style={{ fontSize:13, fontWeight:700, color:C.textPri, marginBottom:2 }}>Nouvelle consultation ?</p>
-              <p style={{ fontSize:12, color:C.textSec }}>Signalez au médecin chef pour assigner ce patient</p>
             </div>
-            <Btn onClick={()=>onNouvelleConsultation(patient)} small variant="success">Signaler au médecin chef</Btn>
+          </div>
+
+          {/* Boutons */}
+          <div style={{ display:"flex",justifyContent:"flex-end",gap:12,paddingTop:16,borderTop:"1px solid "+C.border }}>
+            <Btn onClick={onClose} variant="secondary">Annuler</Btn>
+            <Btn onClick={()=>{ if(ok) onEnregistrer(form) }} disabled={!ok}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Enregistrer — {form.montantConsultation ? parseInt(form.montantConsultation).toLocaleString("fr-FR")+" GNF à payer" : "Saisir le montant"}
+            </Btn>
           </div>
         </div>
       </div>
@@ -186,27 +285,231 @@ function ModalPatient({ patient, historiques, onClose, onNouvelleConsultation })
   )
 }
 
-function ModalRdv({ rdv, onClose }) {
-  if (!rdv) return null
+// ══════════════════════════════════════════════════════
+//  MODAL — RECHERCHER DOSSIER EXISTANT
+// ══════════════════════════════════════════════════════
+function ModalRechercheDossier({ patients, onClose, onSignaler }) {
+  const { settings } = useClinicSettings()
+  const [q,           setQ]           = useState("")
+  const [selPatient,  setSelPatient]  = useState(null)   // patient sélectionné pour confirmer
+  const [montant,     setMontant]     = useState("")
+
+  const resultats = q.length>=2 ? patients.filter(p=>
+    p.pid.toLowerCase().includes(q.toLowerCase())||
+    p.nom.toLowerCase().includes(q.toLowerCase())||
+    (p.telephone||"").includes(q)
+  ) : []
+
+  const iSt={ width:"100%",padding:"12px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
+
+  const tarifAuto = tarifParAge(selPatient?.dateNaissance, settings)
+
+  const handleSelectionner = (p) => {
+    setSelPatient(p)
+    setMontant(tarifParAge(p.dateNaissance, settings).toString())
+  }
+
+  const handleConfirmer = () => {
+    if (!montant) { alert("Veuillez saisir le montant de consultation."); return }
+    onSignaler(selPatient, parseInt(montant))
+    onClose()
+  }
+
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(15,23,42,0.5)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
       onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white, borderRadius:20, width:"100%", maxWidth:440, boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
-        <div style={{ padding:"22px 28px 18px", borderBottom:"1px solid "+C.border, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:580,boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
+        <div style={{ padding:"22px 28px 18px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
           <div>
-            <p style={{ fontSize:18, fontWeight:800, color:C.textPri }}>Rendez-vous</p>
-            <p style={{ fontSize:13, color:C.textSec }}>{rdv.patient} · {rdv.heure}</p>
+            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>
+              {selPatient ? "Confirmer le signalement" : "Rechercher un dossier patient"}
+            </p>
+            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>
+              {selPatient ? selPatient.nom+" · "+selPatient.pid : "Par N° dossier, nom ou téléphone"}
+            </p>
           </div>
-          <button onClick={onClose} style={{ background:C.slateSoft, border:"none", borderRadius:8, color:C.textSec, cursor:"pointer", width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>×</button>
+          <button onClick={onClose} style={{ background:C.slateSoft,border:"none",borderRadius:8,color:C.textSec,cursor:"pointer",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>×</button>
         </div>
-        <div style={{ padding:"24px 28px" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-            {[{l:"Patient",v:rdv.patient},{l:"Médecin",v:rdv.docteur},{l:"Heure",v:rdv.heure},{l:"Type",v:rdv.type},{l:"Statut",v:<Badge statut={rdv.statut}/>}].map(({l,v})=>(
-              <div key={l} style={{ background:C.bg, borderRadius:10, padding:"12px 14px", border:"1px solid "+C.border }}>
-                <p style={{ fontSize:10, color:C.textMuted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:4 }}>{l}</p>
-                <div style={{ fontSize:13, fontWeight:600, color:C.textPri }}>{v}</div>
+
+        <div style={{ padding:"20px 28px 24px" }}>
+
+          {/* ── Étape 1 : recherche ── */}
+          {!selPatient && (<>
+            <div style={{ position:"relative",marginBottom:16 }}>
+              <svg style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Ex : ABC-A1B2C3 ou Bah Mariama..."
+                style={{ ...iSt,paddingLeft:40,background:C.bg }}
+                onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.background=C.white }}
+                onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.background=C.bg }}/>
+            </div>
+            {q.length<2 && <p style={{ fontSize:13,color:C.textMuted,textAlign:"center",padding:"20px 0" }}>Tapez au moins 2 caractères pour rechercher</p>}
+            {q.length>=2 && resultats.length===0 && (
+              <div style={{ padding:"24px",textAlign:"center",background:C.bg,borderRadius:12,border:"1px solid "+C.border }}>
+                <p style={{ fontSize:14,color:C.textMuted,marginBottom:8 }}>Aucun dossier trouvé pour « {q} »</p>
+                <p style={{ fontSize:13,color:C.textSec }}>Ce patient n'est pas encore enregistré.</p>
+              </div>
+            )}
+            {resultats.map(p=>(
+              <div key={p.id} style={{ padding:"14px 16px",borderRadius:12,border:"1px solid "+C.border,marginBottom:10,display:"flex",alignItems:"center",gap:12,background:C.bg }}>
+                <Avatar name={p.nom} size={40}/>
+                <div style={{ flex:1 }}>
+                  <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>{p.nom}</p>
+                  <p style={{ fontSize:12,color:C.textSec }}>{p.pid} · {p.age} · {p.telephone}</p>
+                  <p style={{ fontSize:12,color:C.textMuted }}>{p.quartier}{p.secteur?", "+p.secteur:""}</p>
+                </div>
+                <Btn onClick={()=>handleSelectionner(p)} small variant="success">
+                  Sélectionner →
+                </Btn>
               </div>
             ))}
+          </>)}
+
+          {/* ── Étape 2 : saisie du montant ── */}
+          {selPatient && (<>
+            {/* Récapitulatif patient */}
+            <div style={{ display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:C.greenSoft,borderRadius:14,border:"1px solid "+C.green+"44",marginBottom:20 }}>
+              <Avatar name={selPatient.nom} size={42} bg={C.green}/>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:14,fontWeight:700,color:C.textPri }}>{selPatient.nom}</p>
+                <p style={{ fontSize:12,color:C.textSec }}>{selPatient.pid} · {selPatient.age} · {selPatient.telephone}</p>
+              </div>
+            </div>
+
+            {/* Saisie montant */}
+            <div style={{ marginBottom:16 }}>
+              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:8 }}>
+                Montant de consultation à payer (GNF) <span style={{ color:C.red }}>*</span>
+              </label>
+              <input type="number" value={montant} onChange={e=>setMontant(e.target.value)}
+                placeholder="Ex : 50000" style={iSt}
+                onFocus={e=>e.target.style.borderColor=C.blue}
+                onBlur={e=>e.target.style.borderColor=C.border}/>
+            </div>
+
+            {/* Grille tarifaire cliquable */}
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20 }}>
+              {[
+                { label:"Nourrisson",  sub:"< 5 ans",    montant:30000 },
+                { label:"Enfant",      sub:"5 – 14 ans", montant:35000 },
+                { label:"Adulte",      sub:"15 – 60 ans",montant:50000 },
+                { label:"Senior",      sub:"> 60 ans",   montant:40000 },
+              ].map(t=>(
+                <div key={t.label} onClick={()=>setMontant(t.montant.toString())}
+                  style={{ padding:"10px 8px",borderRadius:10,border:"2px solid "+(montant===t.montant.toString()?C.green:C.border),
+                    background:montant===t.montant.toString()?C.greenSoft:C.white,cursor:"pointer",textAlign:"center" }}>
+                  <p style={{ fontSize:12,fontWeight:700,color:montant===t.montant.toString()?C.green:C.textPri }}>{t.label}</p>
+                  <p style={{ fontSize:10,color:C.textMuted,marginBottom:4 }}>{t.sub}</p>
+                  <p style={{ fontSize:13,fontWeight:800,color:montant===t.montant.toString()?C.green:C.textSec }}>{t.montant.toLocaleString("fr-FR")} GNF</p>
+                </div>
+              ))}
+            </div>
+
+            {selPatient.dateNaissance && (
+              <div style={{ padding:"10px 14px",background:C.blueSoft,borderRadius:10,border:"1px solid "+C.blue+"33",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <span style={{ fontSize:13,color:C.textSec }}>Tarif calculé automatiquement selon l'âge</span>
+                <span style={{ fontSize:14,fontWeight:800,color:C.blue }}>{tarifAuto.toLocaleString("fr-FR")} GNF</span>
+              </div>
+            )}
+
+            <div style={{ display:"flex",gap:10 }}>
+              <Btn onClick={()=>setSelPatient(null)} variant="secondary">← Retour</Btn>
+              <Btn onClick={handleConfirmer} disabled={!montant} style={{ flex:1 }}>
+                Signaler au médecin chef — {montant ? parseInt(montant).toLocaleString("fr-FR")+" GNF" : ""}
+              </Btn>
+            </div>
+          </>)}
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+// ══════════════════════════════════════════════════════
+//  MODAL — PERMISSION / ABSENCE
+// ══════════════════════════════════════════════════════
+function ModalPermission({ medecin, onClose, onValider }) {
+  const [type, setType] = useState(null) // 'maladie' | 'urgence'
+  const [description, setDescription] = useState("")
+  const [dateDebut, setDateDebut] = useState(today())
+  const [dateFin, setDateFin] = useState(today())
+  const [justificatif, setJustificatif] = useState(null)
+
+  if (!medecin) return null
+
+  const iSt = { width:"100%",padding:"11px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:10,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
+
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
+      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
+      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:520,boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
+        <div style={{ padding:"22px 28px 18px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+          <div>
+            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>Enregistrer une absence</p>
+            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>{medecin.nom} — {medecin.specialite}</p>
+          </div>
+          <button onClick={onClose} style={{ background:C.slateSoft,border:"none",borderRadius:8,color:C.textSec,cursor:"pointer",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>×</button>
+        </div>
+
+        <div style={{ padding:"24px 28px",display:"flex",flexDirection:"column",gap:16 }}>
+          {/* Type d'absence */}
+          <div>
+            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:8 }}>Type d'absence <span style={{ color:C.red }}>*</span></label>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
+              {[
+                { val:"maladie", label:"Maladie", icon:"", color:C.slate },
+                { val:"urgence", label:"Urgence", icon:"", color:C.red },
+              ].map(opt => (
+                <div key={opt.val} onClick={()=>setType(opt.val)}
+                  style={{ padding:"12px 14px",borderRadius:12,border:"2px solid "+(type===opt.val?opt.color:C.border),background:type===opt.val?opt.color+"11":C.white,cursor:"pointer",textAlign:"center",transition:"all .15s" }}>
+                  <p style={{ fontSize:20,marginBottom:4 }}>{opt.icon}</p>
+                  <p style={{ fontSize:13,fontWeight:700,color:type===opt.val?opt.color:C.textSec }}>{opt.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Description</label>
+            <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Précisez le motif de l'absence..." style={{...iSt,minHeight:80,resize:"vertical"}} />
+          </div>
+
+          {/* Dates */}
+          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12 }}>
+            <div>
+              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Date de début <span style={{ color:C.red }}>*</span></label>
+              <input type="date" value={dateDebut} onChange={e=>setDateDebut(e.target.value)} style={iSt} />
+            </div>
+            <div>
+              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Date de fin <span style={{ color:C.red }}>*</span></label>
+              <input type="date" value={dateFin} onChange={e=>setDateFin(e.target.value)} style={iSt} min={dateDebut} />
+            </div>
+          </div>
+
+          {/* Justificatif */}
+          <div>
+            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Justificatif (optionnel)</label>
+            <input type="file" onChange={e=>setJustificatif(e.target.files?.[0]||null)} style={iSt} accept=".pdf,.jpg,.jpeg,.png" />
+            <p style={{ fontSize:11,color:C.textMuted,marginTop:4 }}>Formats acceptés : PDF, JPG, PNG</p>
+          </div>
+
+          {/* Avertissement */}
+          {type && (
+            <div style={{ background:type==="maladie"?C.slateSoft:C.redSoft,border:"1px solid "+(type==="maladie"?C.slate:C.red)+"33",borderRadius:10,padding:"12px 16px" }}>
+              <p style={{ fontSize:13,color:type==="maladie"?C.slate:C.red,fontWeight:600 }}>
+                Cette absence sera enregistrée dans l'historique de présence
+              </p>
+            </div>
+          )}
+
+          {/* Boutons */}
+          <div style={{ display:"flex",justifyContent:"flex-end",gap:10,paddingTop:8,borderTop:"1px solid "+C.border }}>
+            <Btn onClick={onClose} variant="secondary">Annuler</Btn>
+            <Btn onClick={()=>{ if(type&&dateDebut&&dateFin) { onValider({ type, description, dateDebut, dateFin, justificatif }); onClose(); } }} variant="success" disabled={!type||!dateDebut||!dateFin}>
+              Enregistrer l'absence
+            </Btn>
           </div>
         </div>
       </div>
@@ -214,21 +517,143 @@ function ModalRdv({ rdv, onClose }) {
   )
 }
 
-export default function DashboardSecretaire() {
-  const [onglet, setOnglet]                    = useState("accueil")
-  const [sidebarOpen, setSidebarOpen]          = useState(false)
-  const [patients, setPatients]                = useState(PATIENTS_INIT)
-  const [docPresence, setDocPresence]          = useState(DOCTEURS.map(d=>({...d, arrivee:d.arrive, depart:null})))
-  const [patientVu, setPatientVu]              = useState(null)
-  const [rdvVu, setRdvVu]                      = useState(null)
-  const [recherche, setRecherche]              = useState("")
-  const [showForm, setShowForm]                = useState(false)
-  const [heure, setHeure]                      = useState("")
-  const [dateStr, setDateStr]                  = useState("")
-  const [rdvForm, setRdvForm]                  = useState({ patientId:"", docteur:"", heure:"", type:"Consultation", date:today() })
+// ══════════════════════════════════════════════════════
+//  MODAL — HISTORIQUE DE PRÉSENCE
+// ══════════════════════════════════════════════════════
+function ModalHistorique({ medecins, historique, onClose }) {
+  const [filtreMedecin, setFiltreMedecin] = useState("tous")
+  const [filtreDate, setFiltreDate] = useState("")
+  const [filtreType, setFiltreType] = useState("tous")
 
-  const FORM_INIT = { nom:"", prenom:"", dateNaissance:"", adresse:"", sexe:"F", telephone:"", motif:"", tuteur:"" }
-  const [form, setForm] = useState(FORM_INIT)
+  const iSt = { width:"100%",padding:"11px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:10,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
+
+  const filtreHistorique = historique.filter(h => {
+    const medOk = filtreMedecin === "tous" || h.medecinId === parseInt(filtreMedecin)
+    const dateOk = !filtreDate || h.date === filtreDate
+    const typeOk = filtreType === "tous" || h.type === filtreType
+    return medOk && dateOk && typeOk
+  }).sort((a,b) => new Date(b.date + " " + b.heure) - new Date(a.date + " " + a.heure))
+
+  const getMedecinNom = (id) => {
+    const med = medecins.find(m => m.id === id)
+    return med ? med.nom : "Inconnu"
+  }
+
+  return (
+    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
+      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
+      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:800,maxHeight:"90vh",overflow:"auto",boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
+        <div style={{ padding:"22px 28px 18px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+          <div>
+            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>Historique de présence</p>
+            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>Consultation des pointages et absences</p>
+          </div>
+          <button onClick={onClose} style={{ background:C.slateSoft,border:"none",borderRadius:8,color:C.textSec,cursor:"pointer",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>×</button>
+        </div>
+        
+        {/* Filtres */}
+        <div style={{ padding:"18px 28px",borderBottom:"1px solid "+C.border,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12 }}>
+          <div>
+            <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textPri,marginBottom:6 }}>Médecin</label>
+            <select value={filtreMedecin} onChange={e=>setFiltreMedecin(e.target.value)} style={{ ...iSt,cursor:"pointer" }}>
+              <option value="tous">Tous les médecins</option>
+              {medecins.map(m => <option key={m.id} value={m.id}>{m.nom}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textPri,marginBottom:6 }}>Date</label>
+            <input type="date" value={filtreDate} onChange={e=>setFiltreDate(e.target.value)} style={iSt}/>
+          </div>
+          <div>
+            <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textPri,marginBottom:6 }}>Type</label>
+            <select value={filtreType} onChange={e=>setFiltreType(e.target.value)} style={{ ...iSt,cursor:"pointer" }}>
+              <option value="tous">Tous les types</option>
+              <option value="arrivée">Arrivées</option>
+              <option value="départ">Départs</option>
+              <option value="maladie">Absences maladie</option>
+              <option value="urgence">Absences urgence</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Liste */}
+        <div style={{ padding:"20px 28px" }}>
+          {filtreHistorique.length === 0 ? (
+            <p style={{ padding:24,textAlign:"center",color:C.textMuted }}>Aucun événement trouvé pour ces critères</p>
+          ) : (
+            <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+              {filtreHistorique.map((h, i) => (
+                <div key={i} style={{ padding:"14px 16px",borderRadius:12,border:"1px solid "+C.border,background:h.type==="maladie"?C.slateSoft+"33":h.type==="urgence"?C.redSoft+"33":"transparent" }}>
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 }}>
+                    <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+                      <div style={{ width:36,height:36,borderRadius:"50%",background:h.type==="maladie"?C.slateSoft:h.type==="urgence"?C.redSoft:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                        <span style={{ fontSize:18 }}>
+                          {h.type==="arrivée"?"↑":h.type==="départ"?"↓":h.type==="maladie"?"M":h.type==="urgence"?"U":"—"}
+                        </span>
+                      </div>
+                      <div>
+                        <p style={{ fontSize:14,fontWeight:700,color:C.textPri }}>{getMedecinNom(h.medecinId)}</p>
+                        <p style={{ fontSize:12,color:C.textSec }}>{h.type} · {fmt(h.date)}</p>
+                      </div>
+                    </div>
+                    <div style={{ textAlign:"right" }}>
+                      <p style={{ fontSize:14,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{h.heure}</p>
+                      {h.description && <p style={{ fontSize:11,color:C.textMuted,marginTop:2 }}>{h.description}</p>}
+                    </div>
+                  </div>
+                  {h.justificatif && (
+                    <div style={{ fontSize:11,color:C.textMuted,marginTop:6 }}>
+                      Justificatif : {h.justificatif}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════
+//  COMPOSANT PRINCIPAL
+// ══════════════════════════════════════════════════════
+export default function DashboardSecretaire() {
+  const { user, logout } = useAuth()
+  const navigate   = useNavigate()
+  const handleLogout = () => { logout(); navigate("/login") }
+
+  const { patients, addPatient, file, addToFile, rdv: rdvs, updateRdv, addNotif } = useSharedData()
+
+  // Patients actifs (en attente / en salle / en consultation) — exclut les consultés
+  const fileActif = file.filter(f => f.statut !== "termine")
+
+  const [onglet,       setOnglet]       = useState("accueil")
+  const [sidebarOpen,  setSidebarOpen]  = useState(false)
+  const [heure,        setHeure]        = useState("")
+  const [dateStr,      setDateStr]      = useState("")
+  const [showNouveau,  setShowNouveau]  = useState(false)
+  const [showRecherche,setShowRecherche]= useState(false)
+  const [notifications,setNotifications]= useState([
+    { id:1, type:"rdv",  message:"RDV de Sow Fatoumata demain à 09h00 — Gynécologie", lu:false, date:today() },
+    { id:2, type:"rdv",  message:"Rappel : Baldé Aissatou a un RDV le 07/04 à 08h30", lu:false, date:today() },
+  ])
+  const [showNotifs, setShowNotifs]=useState(false)
+  const [recherchePatients, setRecherchePatients]=useState("")
+  const [permissionModal, setPermissionModal] = useState(null) // { medecin, type: null }
+  const { settings } = useClinicSettings()
+
+  const patientsFiltres = patients.filter(p=>{
+    const q=recherchePatients.toLowerCase().trim()
+    if(!q) return true
+    return p.nom.toLowerCase().includes(q)||
+           p.pid.toLowerCase().includes(q)||
+           (p.telephone||"").includes(q)||
+           (p.quartier||"").toLowerCase().includes(q)||
+           (p.secteur||"").toLowerCase().includes(q)||
+           (p.profession||"").toLowerCase().includes(q)
+  })
 
   useEffect(()=>{
     const tick=()=>{
@@ -239,94 +664,235 @@ export default function DashboardSecretaire() {
     tick(); const t=setInterval(tick,1000); return()=>clearInterval(t)
   },[])
 
-  const totalPatients = patients.length
-  const enAttente     = patients.filter(p=>p.statut==="en_attente").length
-  const enSalle       = patients.filter(p=>p.statut==="en_salle").length
-  const docPresents   = DOCTEURS.filter(d=>d.statut==="present").length
+  const nonLues = notifications.filter(n=>!n.lu).length
 
-  const patientsFiltres = patients.filter(p=>{
-    const q=recherche.toLowerCase().trim()
-    if(!q) return true
-    return p.nom.toLowerCase().includes(q)||p.motif.toLowerCase().includes(q)||p.docteur.toLowerCase().includes(q)||p.pid.toLowerCase().includes(q)||(p.telephone||"").includes(q)||(p.adresse||"").toLowerCase().includes(q)
-  })
-  const patientsAffiches = [...patientsFiltres].sort((a,b)=>{
-    const pr=s=>(s==="en_attente"||s==="en_salle"?0:1)
-    return pr(a.statut)-pr(b.statut)
-  })
-
-  const handleAjouter = () => {
-    if (!form.nom||!form.prenom) return
-    const fullNom = form.nom+" "+form.prenom
-    const existing = patients.find(p=>p.nom===fullNom)
+  const handleEnregistrer = (form) => {
+    const fullNom = form.nom.trim()+" "+form.prenom.trim()
+    const existing = patients.find(p=>p.nom.toLowerCase()===fullNom.toLowerCase())
     if (existing) {
-      alert("Patient "+fullNom+" est de retour. Notifié au médecin chef.")
-      setForm(FORM_INIT); setShowForm(false); return
+      alert(""+fullNom+" est déjà enregistré ("+existing.pid+"). Utilisez 'Rechercher dossier' pour le signaler au médecin chef.")
+      setShowNouveau(false); return
     }
-    let age=0
-    if(form.dateNaissance){ const diff=Date.now()-new Date(form.dateNaissance).getTime(); age=Math.floor(diff/(365.25*24*3600*1000)) }
-    const nouveau={ id:patients.length+1, pid:genId(Date.now()%999999), nom:fullNom, age, dateNaissance:form.dateNaissance, adresse:form.adresse, telephone:form.telephone, sexe:form.sexe, motif:form.motif||"Consultation", arrivee:nowTime(), depart:null, statut:"en_attente", docteur:"Non assigné", tuteur:form.tuteur }
-    setPatients(prev=>[nouveau,...prev])
-    setForm(FORM_INIT); setShowForm(false)
+    let age=form.age||""
+    if (!age&&form.dateNaissance) { const a=Math.floor((Date.now()-new Date(form.dateNaissance))/(365.25*24*3600*1000)); age=a+" ans" }
+    const nouveau={
+      id:Date.now(), pid:genId(Date.now()%999999),
+      nom:fullNom, age, dateNaissance:form.dateNaissance, sexe:form.sexe,
+      telephone:form.telephone, quartier:form.quartier, secteur:form.secteur,
+      profession:form.profession, responsable:form.responsable,
+    }
+    addPatient(nouveau)
+    addToFile({ patientId:nouveau.id, pid:nouveau.pid, nom:nouveau.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantConsultation:parseInt(form.montantConsultation)||tarifParAge(form.dateNaissance, settings), paiementConsultation:null })
+    setShowNouveau(false)
+    alert(""+fullNom+" enregistré et ajouté à la file du médecin chef.")
   }
 
-  const handleNouvelleConsultation = (patient) => {
-    alert("Le médecin chef a été notifié pour "+patient.nom+".")
-    setPatientVu(null)
+  const handleSignaler = (patient, montant) => {
+    const deja = file.find(f=>f.patientId===patient.id && f.statut !== "termine")
+    if (deja) { alert(patient.nom+" est déjà dans la file d'attente."); return }
+    addToFile({ patientId:patient.id, pid:patient.pid, nom:patient.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantConsultation:montant||tarifParAge(patient.dateNaissance, settings), paiementConsultation:null })
+    alert(""+patient.nom+" signalé au médecin chef. Montant : "+(montant||tarifParAge(patient.dateNaissance, settings)).toLocaleString("fr-FR")+" GNF à payer à la comptabilité.")
   }
 
-  const updatePresence = (docteurId, action) => {
-    const t = nowTime()
-    setDocPresence(prev=>prev.map(d=>d.id===docteurId?{...d,[action]:t}:d))
+  const envoyerRappel = (rdvId) => {
+    const r = rdvs.find(x => x.id === rdvId)
+    updateRdv(rdvId, { rappelEnvoye: true })
+    if (r?.docteurId) {
+      addNotif({ docteurId: r.docteurId, titre: "Rappel de rendez-vous", patientNom: r.patient, motif: "RDV le "+fmt(r.date)+" à "+r.heure+(r.motif?" — "+r.motif:"") })
+    }
+    setNotifications(prev=>[{ id:Date.now(), type:"rdv", message:"Rappel signalé à "+r?.docteur+" pour "+r?.patient, lu:false, date:today() },...prev])
   }
 
-  const inputSt = { width:"100%", padding:"10px 14px", fontSize:14, border:"1.5px solid "+C.border, borderRadius:10, background:C.white, color:C.textPri, outline:"none", fontFamily:"inherit" }
+  // ══════════════════════════════════════════════════════
+  //  GESTION PRÉSENCE MÉDECINS
+  // ══════════════════════════════════════════════════════
+  const [medecins, setMedecins] = useState(() => {
+    const saved = localStorage.getItem('clinique_medecins_presence')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        // Vérifier si c'est un nouveau jour
+        if (parsed.date === today()) {
+          return DOCTEURS.map(d => {
+            const savedMed = parsed.medecins.find(m => m.id === d.id)
+            return savedMed ? { ...d, ...savedMed, historique: [] } : { ...d, arrivee: null, depart: null, present: false, historique: [] }
+          })
+        }
+      } catch {
+        // Erreur de parsing, on initialise à vide
+      }
+    }
+    return DOCTEURS.map(d => ({ ...d, arrivee: null, depart: null, present: false, historique: [] }))
+  })
 
-  const NAV = [
-    { id:"accueil",     label:"Accueil",     icon:"🏠", desc:"Vue d'ensemble" },
-    { id:"patients",    label:"Patients",    icon:"👥", desc:"Liste du jour"  },
-    { id:"docteurs",    label:"Médecins",    icon:"👨‍⚕️", desc:"Présences"      },
-    { id:"rdv",         label:"Rendez-vous", icon:"📅", desc:"Planning"       },
+  // Sauvegarder dans localStorage à chaque modification
+  useEffect(() => {
+    const medecinsToSave = medecins.map(m => {
+      const { historique: _historique, ...rest } = m
+      return rest
+    })
+    localStorage.setItem('clinique_medecins_presence', JSON.stringify({
+      date: today(),
+      medecins: medecinsToSave
+    }))
+  }, [medecins])
+
+  // Historique de présence
+  const [historique, setHistorique] = useState(() => {
+    const saved = localStorage.getItem('clinique_historique_presence')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        return []
+      }
+    }
+    return []
+  })
+
+  // Sauvegarder l'historique
+  useEffect(() => {
+    localStorage.setItem('clinique_historique_presence', JSON.stringify(historique))
+  }, [historique])
+
+  const pointerArrivee = (id) => {
+    const heure = nowTime()
+    setMedecins(prev => prev.map(m => 
+      m.id === id ? { 
+        ...m, 
+        arrivee: heure, 
+        depart: null, 
+        present: true,
+        historique: [...(m.historique || []), { type: 'arrivée', heure, date: today() }]
+      } : m
+    ))
+    // Ajouter à l'historique global
+    setHistorique(prev => [...prev, { medecinId: id, type: 'arrivée', heure, date: today() }])
+    const med = medecins.find(m => m.id === id)
+    alert(`${med.nom} est arrivé(e) à ${heure}`)
+  }
+
+  const pointerDepart = (id) => {
+    const heure = nowTime()
+    setMedecins(prev => prev.map(m => 
+      m.id === id ? { 
+        ...m, 
+        depart: heure, 
+        present: false,
+        historique: [...(m.historique || []), { type: 'départ', heure, date: today() }]
+      } : m
+    ))
+    // Ajouter à l'historique global
+    setHistorique(prev => [...prev, { medecinId: id, type: 'départ', heure, date: today() }])
+    const med = medecins.find(m => m.id === id)
+    alert(`${med.nom} est parti(e) à ${heure}`)
+  }
+
+  // Gestion des permissions
+  const demanderPermission = (medecin) => {
+    setPermissionModal({ medecin, type: null })
+  }
+
+  const validerPermission = ({ type, description, dateDebut, dateFin, justificatif }) => {
+    const medecin = permissionModal.medecin
+    const nouvelHistorique = [
+      ...historique,
+      { 
+        medecinId: medecin.id, 
+        type, 
+        heure: nowTime(), 
+        date: today(), 
+        description, 
+        dateDebut, 
+        dateFin, 
+        justificatif: justificatif ? justificatif.name : null 
+      }
+    ]
+    setHistorique(nouvelHistorique)
+    
+    // Mettre à jour le statut du médecin si c'est aujourd'hui
+    if (dateDebut <= today() && dateFin >= today()) {
+      setMedecins(prev => prev.map(m => 
+        m.id === medecin.id ? { 
+          ...m, 
+          present: false, 
+          arrivee: null, 
+          depart: null,
+          historique: [...(m.historique || []), { type, heure: nowTime(), date: today(), description }]
+        } : m
+      ))
+    }
+    
+    alert(`Permission enregistrée pour ${medecin.nom} (${type})`)
+  }
+
+  // Statistiques du jour
+  const presenceStats = {
+    presents: medecins.filter(m => m.present).length,
+    absents: medecins.filter(m => !m.present).length,
+    total: medecins.length,
+    pourcentage: Math.round((medecins.filter(m => m.present).length / medecins.length) * 100)
+  }
+
+  const NAV_ICONS = {
+    accueil:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
+    file:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5"/><line x1="17" y1="9" x2="22" y2="9"/><line x1="17" y1="13" x2="22" y2="13"/><line x1="17" y1="17" x2="20" y2="17"/></svg>,
+    liste:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16v16H4z" rx="2"/><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="14" x2="20" y2="14"/><line x1="9" y1="4" x2="9" y2="20"/></svg>,
+    rdv:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="12" cy="16" r="1.5" fill="currentColor" stroke="none"/></svg>,
+    presence: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/><polyline points="10 15 12 17 16 13"/></svg>,
+  }
+  const NAV=[
+    { id:"accueil",  label:"Accueil",           icon:"accueil",  desc:"Vue d'ensemble"         },
+    { id:"file",     label:"File d'attente",    icon:"file",     desc:"Patients du jour"       },
+    { id:"patients", label:"Tous les patients", icon:"liste",    desc:"Registre complet"       },
+    { id:"rdv",      label:"Rendez-vous",       icon:"rdv",      desc:"Planning"               },
+    { id:"presence", label:"Présence Médecins", icon:"presence", desc:"Pointage Arrivée/Départ"},
   ]
 
   return (
-    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Segoe UI',system-ui,sans-serif", color:C.textPri }}>
+    <div style={{ minHeight:"100vh",background:"#ffffff",fontFamily:"'Segoe UI',system-ui,sans-serif",color:C.textPri }}>
 
-      <ModalPatient patient={patientVu} historiques={[]} onClose={()=>setPatientVu(null)} onNouvelleConsultation={handleNouvelleConsultation} />
-      <ModalRdv rdv={rdvVu} onClose={()=>setRdvVu(null)} />
+      {/* MODALS */}
+      {showNouveau   && <ModalNouveauPatient patients={patients} onClose={()=>setShowNouveau(false)} onEnregistrer={handleEnregistrer}/>}
+      {showRecherche && <ModalRechercheDossier patients={patients} onClose={()=>setShowRecherche(false)} onSignaler={handleSignaler}/>}
+      {permissionModal && <ModalPermission medecin={permissionModal.medecin} onClose={()=>setPermissionModal(null)} onValider={validerPermission}/>}
+      {onglet === "historique" && <ModalHistorique medecins={medecins} historique={historique} onClose={()=>setOnglet("presence")}/>}
 
-      {/* SIDEBAR OVERLAY */}
-      {sidebarOpen && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.3)", zIndex:100 }} onClick={()=>setSidebarOpen(false)}>
-          <div style={{ position:"absolute", left:0, top:0, bottom:0, width:270, background:C.white, boxShadow:"4px 0 24px rgba(0,0,0,0.12)", display:"flex", flexDirection:"column" }} onClick={e=>e.stopPropagation()}>
-            <div style={{ padding:"22px 20px 18px", borderBottom:"1px solid "+C.border, display:"flex", alignItems:"center", gap:12 }}>
-              <img src={logo} alt="" style={{ height:44, borderRadius:8, objectFit:"cover", border:"1px solid "+C.border }} />
+      {/* SIDEBAR */}
+      {sidebarOpen&&(
+        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.3)",zIndex:100 }} onClick={()=>setSidebarOpen(false)}>
+          <div style={{ position:"absolute",left:0,top:0,bottom:0,width:265,background:C.white,boxShadow:"4px 0 24px rgba(0,0,0,0.12)",display:"flex",flexDirection:"column" }} onClick={e=>e.stopPropagation()}>
+            <div style={{ padding:"22px 20px 18px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",gap:12 }}>
+              <div style={{ width:44,height:44,borderRadius:10,background:"#fff",border:"1px solid "+C.border,padding:3,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:7,objectFit:"contain",display:"block" }}/>
+              </div>
               <div>
-                <p style={{ fontSize:14, fontWeight:800, color:C.textPri, lineHeight:1.2 }}>Clinique Marouane</p>
-                <p style={{ fontSize:12, color:C.textSec }}>Système de gestion</p>
+                <p style={{ fontSize:14,fontWeight:800,color:C.textPri }}>Clinique ABC Marouane</p>
+                <p style={{ fontSize:12,color:C.textSec }}>Espace secrétaire</p>
               </div>
             </div>
-            <nav style={{ padding:"14px 12px", flex:1 }}>
-              <p style={{ fontSize:10, color:C.textMuted, letterSpacing:"0.12em", textTransform:"uppercase", padding:"0 8px", marginBottom:8 }}>Menu principal</p>
+            <nav style={{ padding:"14px 12px",flex:1 }}>
               {NAV.map(n=>(
-                <button key={n.id} onClick={()=>{ setOnglet(n.id); setSidebarOpen(false) }} style={{ width:"100%", display:"flex", alignItems:"center", gap:12, padding:"11px 12px", borderRadius:12, border:"none", background:onglet===n.id?C.blueSoft:"transparent", color:onglet===n.id?C.blue:C.textSec, fontSize:14, fontWeight:onglet===n.id?700:500, cursor:"pointer", textAlign:"left", marginBottom:3, transition:"all .15s", boxShadow:onglet===n.id?"inset 3px 0 0 "+C.blue:"none" }}
+                <button key={n.id} onClick={()=>{ setOnglet(n.id); setSidebarOpen(false) }}
+                  style={{ width:"100%",display:"flex",alignItems:"center",gap:12,padding:"11px 12px",borderRadius:12,border:"none",background:onglet===n.id?C.blueSoft:"transparent",color:onglet===n.id?C.blue:C.textSec,fontSize:14,fontWeight:onglet===n.id?700:500,cursor:"pointer",textAlign:"left",marginBottom:3,transition:"all .15s" }}
                   onMouseEnter={e=>{ if(onglet!==n.id) e.currentTarget.style.background=C.slateSoft }}
                   onMouseLeave={e=>{ if(onglet!==n.id) e.currentTarget.style.background="transparent" }}>
-                  <span style={{ fontSize:18 }}>{n.icon}</span>
+                  <span style={{ display:"flex",alignItems:"center",justifyContent:"center",width:28,height:28,borderRadius:7,background:onglet===n.id?"rgba(37,99,235,0.12)":"transparent",flexShrink:0 }}>{NAV_ICONS[n.icon]}</span>
                   <div>
-                    <p style={{ fontSize:13, lineHeight:1.2 }}>{n.label}</p>
-                    <p style={{ fontSize:10, color:C.textMuted, lineHeight:1.2, marginTop:1 }}>{n.desc}</p>
+                    <p style={{ fontSize:13 }}>{n.label}</p>
+                    <p style={{ fontSize:10,color:C.textMuted,marginTop:1 }}>{n.desc}</p>
                   </div>
                 </button>
               ))}
             </nav>
-            <div style={{ padding:"14px 16px 20px", borderTop:"1px solid "+C.border }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:C.greenSoft, borderRadius:12, border:"1px solid "+C.green+"33" }}>
-                <div style={{ width:36, height:36, borderRadius:"50%", background:C.green, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <div style={{ padding:"14px 16px 20px",borderTop:"1px solid "+C.border }}>
+              <div style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:C.greenSoft,borderRadius:12,border:"1px solid "+C.green+"33" }}>
+                <div style={{ width:36,height:36,borderRadius:"50%",background:C.green,display:"flex",alignItems:"center",justifyContent:"center" }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 </div>
                 <div>
-                  <p style={{ fontSize:13, fontWeight:700, color:C.textPri, lineHeight:1.2 }}>Secrétaire</p>
-                  <p style={{ fontSize:11, color:C.green, fontWeight:600, marginTop:1 }}>Accueil · Clinique Marouane</p>
+                  <p style={{ fontSize:13,fontWeight:700,color:C.textPri }}>{user?.nom||"Secrétaire"}</p>
+                  <p style={{ fontSize:11,color:C.green,fontWeight:600 }}>{user?.titre||"Secrétaire"} · Accueil</p>
                 </div>
               </div>
             </div>
@@ -335,359 +901,497 @@ export default function DashboardSecretaire() {
       )}
 
       {/* HEADER */}
-      <header style={{ background:C.white, borderBottom:"1px solid "+C.border, padding:"0 24px", height:64, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50, boxShadow:"0 1px 3px rgba(0,0,0,0.05)" }}>
-        <button onClick={()=>setSidebarOpen(true)} style={{ width:40, height:40, borderRadius:8, border:"1px solid "+C.border, background:C.white, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:5 }}>
-          <div style={{ width:20, height:2, background:C.textPri, borderRadius:2 }} />
-          <div style={{ width:20, height:2, background:C.textPri, borderRadius:2 }} />
-          <div style={{ width:20, height:2, background:C.textPri, borderRadius:2 }} />
+      <header style={{ background:C.white,borderBottom:"1px solid "+C.border,padding:"0 24px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 3px rgba(0,0,0,0.05)" }}>
+        <button onClick={()=>setSidebarOpen(true)} style={{ width:40,height:40,borderRadius:8,border:"1px solid "+C.border,background:C.white,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:5 }}>
+          <div style={{ width:20,height:2,background:C.textPri,borderRadius:2 }}/><div style={{ width:20,height:2,background:C.textPri,borderRadius:2 }}/><div style={{ width:20,height:2,background:C.textPri,borderRadius:2 }}/>
         </button>
-        <div style={{ flex:1, marginLeft:20 }}>
-          <p style={{ fontSize:15, fontWeight:700, color:C.textPri, lineHeight:1.2 }}>
-            {onglet==="accueil"     && "Accueil"}
-            {onglet==="patients"    && (recherche ? "Résultats — « "+recherche+" »" : "Patients du jour")}
-            {onglet==="docteurs"    && "Médecins — Présences"}
-            {onglet==="rdv"         && "Rendez-vous"}
-          </p>
-          <p style={{ fontSize:12, color:C.textMuted, textTransform:"capitalize", lineHeight:1.2 }}>{dateStr}</p>
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-          <div style={{ position:"relative" }}>
-            <svg style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input placeholder="Nom, ID, téléphone…" value={recherche}
-              onChange={e=>{ setRecherche(e.target.value); if(e.target.value.trim()) setOnglet("patients") }}
-              style={{ padding:"8px 32px 8px 32px", fontSize:13, border:"1.5px solid "+C.border, borderRadius:10, background:C.bg, color:C.textPri, outline:"none", fontFamily:"inherit", width:220 }}
-              onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.background=C.white }}
-              onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.background=C.bg }}
-            />
-            {recherche && <button onClick={()=>setRecherche("")} style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:C.textMuted, fontSize:16 }}>✕</button>}
+
+        {/* Logo clinique */}
+        <div style={{ display:"flex",alignItems:"center",gap:10,marginLeft:12,paddingRight:20,borderRight:"1px solid "+C.border,flexShrink:0 }}>
+          <div style={{ width:38,height:38,borderRadius:9,background:"#fff",border:"1px solid "+C.border,padding:3,display:"flex",alignItems:"center",justifyContent:"center" }}>
+            <img src={logo} alt="" style={{ width:"100%",height:"100%",borderRadius:6,objectFit:"contain",display:"block" }}/>
           </div>
-          <div style={{ background:C.greenSoft, border:"1px solid "+C.green+"33", borderRadius:10, padding:"8px 16px", fontSize:14, fontWeight:700, color:C.green, fontVariantNumeric:"tabular-nums", minWidth:112, textAlign:"center" }}>{heure}</div>
-          
-          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <div>
+            <p style={{ fontSize:13,fontWeight:800,color:C.textPri,lineHeight:1.2 }}>Clinique Marouane</p>
+            <p style={{ fontSize:11,color:C.textMuted }}>Secrétariat</p>
+          </div>
+        </div>
+
+        <div style={{ flex:1,marginLeft:16 }}>
+          <p style={{ fontSize:15,fontWeight:700,color:C.textPri,lineHeight:1.2 }}>Clinique ABC Marouane — Accueil</p>
+          <p style={{ fontSize:12,color:C.textMuted,textTransform:"capitalize" }}>{dateStr}</p>
+        </div>
+        <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+          {/* Notifications */}
+          <div style={{ position:"relative" }}>
+            <button onClick={()=>setShowNotifs(v=>!v)}
+              style={{ width:40,height:40,borderRadius:10,border:"1px solid "+C.border,background:C.white,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",position:"relative" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.textSec} strokeWidth="2" strokeLinecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              {nonLues>0&&<span style={{ position:"absolute",top:-4,right:-4,width:18,height:18,borderRadius:"50%",background:C.red,color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center" }}>{nonLues}</span>}
+            </button>
+            {showNotifs&&(
+              <div style={{ position:"absolute",top:48,right:0,width:320,background:C.white,borderRadius:14,border:"1px solid "+C.border,boxShadow:"0 8px 30px rgba(0,0,0,0.15)",zIndex:200 }}>
+                <div style={{ padding:"14px 16px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                  <p style={{ fontSize:14,fontWeight:700,color:C.textPri }}>Notifications</p>
+                  <button onClick={()=>setNotifications(prev=>prev.map(n=>({...n,lu:true})))} style={{ fontSize:11,color:C.textPri,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit" }}>Tout lire</button>
+                </div>
+                {notifications.length===0&&<p style={{ padding:20,textAlign:"center",color:C.textMuted,fontSize:13 }}>Aucune notification</p>}
+                {notifications.map(n=>(
+                  <div key={n.id} onClick={()=>setNotifications(prev=>prev.map(x=>x.id===n.id?{...x,lu:true}:x))}
+                    style={{ padding:"12px 16px",borderBottom:"1px solid "+C.border,cursor:"pointer",background:n.lu?"transparent":C.blueSoft+"66",display:"flex",gap:10,alignItems:"flex-start" }}>
+                    <span style={{ fontSize:16,marginTop:1 }}>{n.type==="rdv"?"RDV":""}</span>
+                    <div style={{ flex:1 }}>
+                      <p style={{ fontSize:13,color:C.textPri,lineHeight:1.4 }}>{n.message}</p>
+                      <p style={{ fontSize:11,color:C.textMuted,marginTop:2 }}>{n.date}</p>
+                    </div>
+                    {!n.lu&&<div style={{ width:8,height:8,borderRadius:"50%",background:C.blue,flexShrink:0,marginTop:4 }}/>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{ background:C.greenSoft,border:"1px solid "+C.green+"33",borderRadius:10,padding:"6px 14px",fontSize:14,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{heure}</div>
+          <div style={{ display:"flex",alignItems:"center",gap:8 }}>
             <div style={{ textAlign:"right" }}>
-              <p style={{ fontSize:13, fontWeight:700, color:C.textPri, lineHeight:1.2 }}>Secrétaire</p>
-              <p style={{ fontSize:11, color:C.textSec }}>Clinique Marouane</p>
+              <p style={{ fontSize:13,fontWeight:700,color:C.textPri }}>{user?.nom||"Secrétaire"}</p>
+              <p style={{ fontSize:11,color:C.textSec }}>{user?.titre||"Secrétaire Médicale"}</p>
             </div>
-            <div style={{ width:36, height:36, borderRadius:"50%", background:C.greenSoft, border:"2px solid "+C.green+"33", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <div style={{ width:36,height:36,borderRadius:"50%",background:C.greenSoft,border:"2px solid "+C.green+"33",display:"flex",alignItems:"center",justifyContent:"center" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.green} strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </div>
           </div>
+          <button onClick={handleLogout} title="Se déconnecter"
+            style={{ width:36,height:36,borderRadius:8,border:"1px solid #fca5a5",background:"#fff5f5",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cc2222" strokeWidth="2" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </header>
 
-      {/* CONTENU */}
-      <main style={{ padding:"28px 28px" }}>
+      <main style={{ padding:"24px 28px" }}>
 
-        {/* ACCUEIL */}
-        {onglet==="accueil" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
-            <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr", gap:16 }}>
-              <Card style={{ padding:"28px 28px 24px" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                  <div>
-                    <p style={{ fontSize:14, color:C.textSec, marginBottom:12 }}>Patients aujourd'hui</p>
-                    <p style={{ fontSize:46, fontWeight:800, color:C.textPri, lineHeight:1, letterSpacing:"-2px", marginBottom:8 }}>{totalPatients}</p>
-                    <p style={{ fontSize:13, color:C.textMuted }}>Patients enregistrés</p>
-                  </div>
-                  <div style={{ width:54, height:54, borderRadius:"50%", background:C.blueSoft, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="1.8" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  </div>
-                </div>
-              </Card>
+        {/* ══ ACCUEIL ══ */}
+        {onglet==="accueil"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:20 }}>
+            {/* KPIs */}
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16 }}>
               {[
-                { val:enAttente,   label:"En attente",        icon:"⏳", bg:C.amberSoft, fg:C.amber },
-                { val:enSalle,     label:"En consultation",   icon:"🏥", bg:C.blueSoft,  fg:C.blue  },
-                { val:docPresents, label:"Médecins présents", icon:"👨‍⚕️", bg:C.greenSoft, fg:C.green },
-              ].map(({ val, label, icon, bg, fg })=>(
-                <Card key={label} style={{ padding:"22px 20px" }}>
-                  <div style={{ width:40, height:40, borderRadius:10, background:bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, marginBottom:14 }}>{icon}</div>
-                  <p style={{ fontSize:30, fontWeight:800, color:fg, letterSpacing:"-1px", lineHeight:1 }}>{val}</p>
-                  <p style={{ fontSize:12, color:C.textMuted, marginTop:6 }}>{label}</p>
+                { val:fileActif.length, label:"En attente", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, bg:C.blueSoft, fg:C.blue },
+                { val:fileActif.filter(f=>f.typeVisite==="rendez_vous").length, label:"Rendez-vous du jour", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, bg:C.purpleSoft, fg:C.purple },
+                { val:rdvs.filter(r=>r.date===today()).length, label:"RDV aujourd'hui", svg:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>, bg:C.slateSoft, fg:C.slate },
+              ].map(({val,label,svg,bg,fg})=>(
+                <Card key={label} style={{ padding:"20px" }}>
+                  <div style={{ width:42,height:42,borderRadius:10,background:bg,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:12,color:fg }}>{svg}</div>
+                  <p style={{ fontSize:28,fontWeight:800,color:C.textPri,lineHeight:1,marginBottom:4 }}>{val}</p>
+                  <p style={{ fontSize:12,color:C.textMuted }}>{label}</p>
                 </Card>
               ))}
             </div>
 
-            <div style={{ display:"grid", gridTemplateColumns:"1.3fr 1fr", gap:16 }}>
-              <Card>
-                <CardHeader title="Patients du jour" action={<button onClick={()=>setOnglet("patients")} style={{ background:"none", border:"none", color:C.blue, fontSize:13, cursor:"pointer", fontWeight:600 }}>Tout voir →</button>} />
-                {patients.slice(0,5).map((p,i)=>(
-                  <div key={p.id} style={{ padding:"13px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:i<4?"1px solid "+C.border:"none", cursor:"pointer", transition:"background .15s" }}
-                    onClick={()=>setPatientVu(p)}
-                    onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
-                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                      <Avatar name={p.nom} size={34} />
-                      <div>
-                        <p style={{ fontSize:13, fontWeight:600, color:C.textPri }}>{p.nom}</p>
-                        <p style={{ fontSize:11, color:C.textSec }}>{p.motif}</p>
-                      </div>
-                    </div>
-                    <div style={{ textAlign:"right" }}>
-                      <Badge statut={p.statut} />
-                      <p style={{ fontSize:11, color:C.textMuted, marginTop:3 }}>{p.arrivee}</p>
-                    </div>
-                  </div>
-                ))}
-              </Card>
-              <Card>
-                <CardHeader title="Médecins présents" action={<button onClick={()=>setOnglet("docteurs")} style={{ background:"none", border:"none", color:C.blue, fontSize:13, cursor:"pointer", fontWeight:600 }}>Tout voir →</button>} />
-                {DOCTEURS.map((d,i)=>(
-                  <div key={d.id} style={{ padding:"12px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", borderBottom:i<DOCTEURS.length-1?"1px solid "+C.border:"none", transition:"background .15s" }}
-                    onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
-                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      <Avatar name={d.nom.split(" ")[1]} size={32} />
-                      <div>
-                        <p style={{ fontSize:13, fontWeight:600, color:C.textPri }}>{d.nom}</p>
-                        <p style={{ fontSize:11, color:C.textSec }}>{d.specialite}</p>
-                      </div>
-                    </div>
-                    <Badge statut={d.statut} />
-                  </div>
-                ))}
-              </Card>
+            {/* Actions rapides */}
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14 }}>
+              {[
+                { label:"Nouveau patient",    desc:"Enregistrer un nouveau patient", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>, action:()=>setShowNouveau(true), color:C.blue },
+                { label:"Rechercher dossier", desc:"Patient déjà enregistré",        svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>, action:()=>setShowRecherche(true), color:C.green },
+              ].map(({label,desc,svg,action,color})=>(
+                <Card key={label} style={{ padding:"20px",cursor:"pointer",transition:"all .15s",border:"1.5px solid "+C.border }}
+                  onClick={action}
+                  onMouseEnter={e=>{ e.currentTarget.style.border="1.5px solid "+color; e.currentTarget.style.background=color+"11" }}
+                  onMouseLeave={e=>{ e.currentTarget.style.border="1.5px solid "+C.border; e.currentTarget.style.background=C.white }}>
+                  <div style={{ width:46,height:46,borderRadius:12,background:color+"22",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:12,color }}>{svg}</div>
+                  <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:4 }}>{label}</p>
+                  <p style={{ fontSize:12,color:C.textMuted }}>{desc}</p>
+                </Card>
+              ))}
             </div>
 
+            {/* File du jour */}
             <Card>
-              <CardHeader title="Rendez-vous du jour" action={<button onClick={()=>setOnglet("rdv")} style={{ background:"none", border:"none", color:C.blue, fontSize:13, cursor:"pointer", fontWeight:600 }}>Tout voir →</button>} />
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(6,1fr)" }}>
-                {RDV_JOUR.map((r,i)=>(
-                  <div key={r.id} style={{ padding:"18px 14px", textAlign:"center", borderRight:i<5?"1px solid "+C.border:"none", transition:"background .15s", cursor:"pointer" }}
-                    onClick={()=>setRdvVu(r)}
-                    onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
-                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                    <p style={{ fontSize:17, fontWeight:800, color:C.blue, marginBottom:6, fontVariantNumeric:"tabular-nums" }}>{r.heure}</p>
-                    <p style={{ fontSize:12, fontWeight:600, color:C.textPri, marginBottom:2 }}>{r.patient.split(" ")[0]}</p>
-                    <p style={{ fontSize:11, color:C.textMuted, marginBottom:10 }}>{r.type}</p>
-                    <Badge statut={r.statut} />
+              <CardHeader title={"File d'attente — "+fileActif.length+" patient"+(fileActif.length>1?"s":"")} action={<button onClick={()=>setOnglet("file")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir →</button>}/>
+              {fileActif.length===0
+                ? <p style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun patient en attente</p>
+                : fileActif.slice(0,4).map((f,i)=>(
+                  <div key={f.id} style={{ padding:"13px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:i<Math.min(fileActif.length,4)-1?"1px solid "+C.border:"none" }}>
+                    <Avatar name={f.nom} size={36}/>
+                    <div style={{ flex:1 }}>
+                      <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{f.nom}</p>
+                      <p style={{ fontSize:11,color:C.textSec }}>{f.pid}</p>
+                    </div>
+                    {f.typeVisite==="rendez_vous"
+                      ? <span style={{ fontSize:11,fontWeight:700,background:C.purpleSoft,color:C.purple,padding:"3px 10px",borderRadius:10 }}>RDV</span>
+                      : <span style={{ fontSize:11,fontWeight:700,background:C.greenSoft,color:C.green,padding:"3px 10px",borderRadius:10 }}>Consultation</span>
+                    }
+                    <span style={{ fontSize:13,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</span>
                   </div>
-                ))}
-              </div>
+                ))
+              }
+            </Card>
+
+            {/* RDV du jour */}
+            <Card>
+              <CardHeader title={"Rendez-vous d'aujourd'hui — "+rdvs.filter(r=>r.date===today()).length} action={<button onClick={()=>setOnglet("rdv")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir →</button>}/>
+              {rdvs.filter(r=>r.date===today()).length===0
+                ? <p style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun RDV aujourd'hui</p>
+                : rdvs.filter(r=>r.date===today()).map((r,i,arr)=>(
+                  <div key={r.id} style={{ padding:"13px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:i<arr.length-1?"1px solid "+C.border:"none" }}>
+                    <div style={{ width:44,height:44,borderRadius:10,background:C.purpleSoft,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+                      <p style={{ fontSize:12,fontWeight:800,color:C.textPri }}>{r.heure}</p>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{r.patient}</p>
+                      <p style={{ fontSize:11,color:C.textSec }}>{r.motif} · {r.docteur}</p>
+                    </div>
+                    {!r.rappelEnvoye
+                      ? <button onClick={()=>envoyerRappel(r.id)} style={{ padding:"5px 12px",background:C.slate,color:"#fff",border:"none",borderRadius:8,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>Rappeler</button>
+                      : <span style={{ fontSize:11,fontWeight:600,color:C.green }}>Rappelé</span>
+                    }
+                  </div>
+                ))
+              }
             </Card>
           </div>
         )}
 
-        {/* PATIENTS */}
-        {onglet==="patients" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
-            {showForm && (
-              <Card style={{ border:"1.5px solid "+C.blue+"33" }}>
-                <div style={{ padding:"22px 24px" }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
-                    <div>
-                      <h2 style={{ fontSize:16, fontWeight:800, color:C.textPri }}>Enregistrer un nouveau patient</h2>
-                      <p style={{ color:C.textMuted, fontSize:12, marginTop:2 }}>Le médecin chef assignera le médecin après l'enregistrement</p>
-                    </div>
-                    <Btn onClick={()=>setShowForm(false)} variant="secondary" small>✕ Fermer</Btn>
-                  </div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:16 }}>
-                    {[
-                      {label:"Nom de famille",     key:"nom",      placeholder:"Ex : Diallo",          req:true},
-                      {label:"Prénom",             key:"prenom",   placeholder:"Ex : Aminata",         req:true},
-                      {label:"Téléphone",          key:"telephone",placeholder:"+224 6XX XX XX XX"             },
-                      {label:"Adresse",            key:"adresse",  placeholder:"Ex : Ratoma, Conakry", req:true},
-                      {label:"Raison de la visite",key:"motif",    placeholder:"Ex : Fièvre…"                  },
-                      {label:"Tuteur (si mineur)", key:"tuteur",   placeholder:"Ex : Bah Mamadou"             },
-                    ].map(({ label, key, placeholder, req })=>(
-                      <div key={key}>
-                        <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.textSec, marginBottom:6 }}>{label} {req&&<span style={{ color:C.red }}>*</span>}</label>
-                        <input value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} placeholder={placeholder} style={inputSt}
-                          onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.boxShadow="0 0 0 3px "+C.blueSoft }}
-                          onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none" }} />
+        {/* ══ FILE D'ATTENTE ══ */}
+        {onglet==="file"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+              <div>
+                <p style={{ fontSize:22,fontWeight:800,color:C.textPri,marginBottom:4 }}>File d'attente</p>
+                <p style={{ fontSize:14,color:C.textSec }}>{fileActif.length} patient{fileActif.length>1?"s":""} en attente · {file.filter(f=>f.statut==="termine").length} consulté{file.filter(f=>f.statut==="termine").length>1?"s":""} aujourd'hui</p>
+              </div>
+              <div style={{ display:"flex",gap:10 }}>
+                <Btn onClick={()=>setShowNouveau(true)} small>Nouveau patient</Btn>
+                <Btn onClick={()=>setShowRecherche(true)} small variant="secondary">Dossier existant</Btn>
+              </div>
+            </div>
+            {fileActif.length===0
+              ? <Card style={{ padding:40,textAlign:"center" }}><p style={{ color:C.textMuted }}>Aucun patient en attente</p></Card>
+              : fileActif.map((f,)=>(
+                <Card key={f.id} style={{ padding:"18px 20px" }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:14 }}>
+                    <Avatar name={f.nom} size={46}/>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:4 }}>
+                        <p style={{ fontSize:15,fontWeight:700,color:C.textPri }}>{f.nom}</p>
+                        {f.typeVisite==="rendez_vous"
+                          ? <span style={{ fontSize:11,fontWeight:700,background:C.purpleSoft,color:C.purple,padding:"2px 9px",borderRadius:10 }}>RDV</span>
+                          : <span style={{ fontSize:11,fontWeight:700,background:C.greenSoft,color:C.green,padding:"2px 9px",borderRadius:10 }}>Consultation</span>
+                        }
                       </div>
-                    ))}
-                    <div>
-                      <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.textSec, marginBottom:6 }}>Date de naissance <span style={{ color:C.red }}>*</span></label>
-                      <input type="date" value={form.dateNaissance} onChange={e=>setForm({...form,dateNaissance:e.target.value})} style={inputSt}
-                        onFocus={e=>e.target.style.borderColor=C.blue}
-                        onBlur={e=>e.target.style.borderColor=C.border} />
+                      <p style={{ fontSize:12,color:C.textSec }}>{f.pid}</p>
                     </div>
-                    <div>
-                      <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.textSec, marginBottom:6 }}>Sexe</label>
-                      <select value={form.sexe} onChange={e=>setForm({...form,sexe:e.target.value})} style={{ ...inputSt, cursor:"pointer" }}>
-                        <option value="F">Féminin</option>
-                        <option value="M">Masculin</option>
-                      </select>
+                    {/* Heure d'arrivée */}
+                    <div style={{ textAlign:"center",padding:"8px 16px",background:C.greenSoft,border:"1px solid "+C.green+"33",borderRadius:10 }}>
+                      <p style={{ fontSize:10,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2 }}>Arrivée</p>
+                      <p style={{ fontSize:16,fontWeight:800,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{f.arrivee}</p>
                     </div>
+                    {/* Statut paiement consultation */}
+                    {f.paiementConsultation?.statut === "paye"
+                      ? <span style={{ fontSize:12,fontWeight:700,background:"#dcfce7",color:"#15803d",padding:"4px 10px",borderRadius:20 }}>Consultation payée</span>
+                      : <span style={{ fontSize:12,fontWeight:600,background:"#fee2e2",color:"#dc2626",padding:"4px 10px",borderRadius:20 }}>En attente paiement</span>
+                    }
                   </div>
-                  <div style={{ marginTop:16, background:C.greenSoft, border:"1px solid "+C.green+"33", borderRadius:10, padding:"12px 16px", display:"flex", alignItems:"center", gap:10 }}>
-                    <span>ℹ️</span>
-                    <p style={{ fontSize:12, color:C.green, fontWeight:600 }}>L'assignation au médecin est faite par le médecin chef. Le patient sera en statut "En attente".</p>
-                  </div>
-                  <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:20, paddingTop:20, borderTop:"1px solid "+C.border }}>
-                    <Btn onClick={()=>{ setShowForm(false); setForm(FORM_INIT) }} variant="secondary">Annuler</Btn>
-                    <Btn onClick={handleAjouter}>Enregistrer</Btn>
-                  </div>
-                </div>
-              </Card>
-            )}
-            <Card>
-              <CardHeader
-                title={"Liste du jour ("+patientsAffiches.length+" patient"+(patientsAffiches.length>1?"s":"")+")"}
-                action={!showForm && (
-                  <Btn onClick={()=>setShowForm(true)} small>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                    Nouveau patient
-                  </Btn>
-                )}
+                </Card>
+              ))
+            }
+          </div>
+        )}
+
+        {/* ══ TOUS LES PATIENTS ══ */}
+        {onglet==="patients"&&(
+          <div>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20 }}>
+              <div>
+                <p style={{ fontSize:22,fontWeight:800,color:C.textPri,marginBottom:4 }}>Registre des patients</p>
+                <p style={{ fontSize:14,color:C.textSec }}>{patients.length} patient{patients.length>1?"s":""} enregistrés</p>
+              </div>
+              <Btn onClick={()=>setShowNouveau(true)} small>Nouveau patient</Btn>
+            </div>
+
+            {/* Barre de recherche */}
+            <div style={{ position:"relative",marginBottom:16 }}>
+              <svg style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input
+                placeholder="Rechercher par nom, N° dossier, téléphone, quartier..."
+                value={recherchePatients}
+                onChange={e=>setRecherchePatients(e.target.value)}
+                style={{ width:"100%",padding:"12px 14px 12px 42px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }}
+                onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.boxShadow="0 0 0 3px "+C.blueSoft }}
+                onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.boxShadow="none" }}
               />
-              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              {recherchePatients&&<button onClick={()=>setRecherchePatients("")} style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:C.textMuted,fontSize:16 }}>×</button>}
+            </div>
+
+            <Card>
+              <div style={{ padding:"14px 20px",borderBottom:"1px solid "+C.border }}>
+                <p style={{ fontSize:14,fontWeight:700,color:C.textPri }}>
+                  {recherchePatients
+                    ? patientsFiltres.length+" résultat"+(patientsFiltres.length>1?"s":"")+" pour « "+recherchePatients+" »"
+                    : patients.length+" patients enregistrés"
+                  }
+                </p>
+              </div>
+              {patientsFiltres.length===0
+                ? <p style={{ padding:40,textAlign:"center",color:C.textMuted }}>Aucun patient trouvé pour « {recherchePatients} »</p>
+                : (
+                <table style={{ width:"100%",borderCollapse:"collapse" }}>
+                  <thead>
+                    <tr style={{ background:C.slateSoft }}>
+                      {["N° Dossier","Nom complet","Âge","Sexe","Téléphone","Quartier / Secteur","Responsable","Action"].map(h=>(
+                        <th key={h} style={{ padding:"11px 14px",textAlign:"left",fontSize:11,fontWeight:700,color:C.textSec,letterSpacing:"0.06em",textTransform:"uppercase",whiteSpace:"nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {patientsFiltres.map((p,i,arr)=>(
+                      <tr key={p.id} style={{ borderBottom:i<arr.length-1?"1px solid "+C.border:"none",transition:"background .15s" }}
+                        onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
+                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                        <td style={{ padding:"12px 14px" }}>
+                          <span style={{ fontFamily:"monospace",fontSize:11,fontWeight:700,color:C.textPri,background:C.blueSoft,padding:"3px 9px",borderRadius:8 }}>{p.pid}</span>
+                        </td>
+                        <td style={{ padding:"12px 14px" }}>
+                          <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+                            <Avatar name={p.nom} size={32}/>
+                            <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{p.nom}</p>
+                          </div>
+                        </td>
+                        <td style={{ padding:"12px 14px",fontSize:13,color:C.textSec }}>{p.age||"—"}</td>
+                        <td style={{ padding:"12px 14px" }}>
+                          <span style={{ fontSize:12,fontWeight:600,background:p.sexe==="F"?C.purpleSoft:C.blueSoft,color:p.sexe==="F"?"#1a4a25":C.blue,padding:"3px 10px",borderRadius:12 }}>
+                            {p.sexe==="F"?"Féminin":"Masculin"}
+                          </span>
+                        </td>
+                        <td style={{ padding:"12px 14px",fontSize:13,color:C.textSec }}>{p.telephone||"—"}</td>
+                        <td style={{ padding:"12px 14px",fontSize:13,color:C.textSec }}>
+                          {p.quartier||"—"}{p.secteur?", "+p.secteur:""}
+                        </td>
+                        <td style={{ padding:"12px 14px",fontSize:13,color:C.textSec }}>{p.responsable||"—"}</td>
+                        <td style={{ padding:"12px 14px" }}>
+                          <button onClick={()=>handleSignaler(p)}
+                            style={{ display:"flex",alignItems:"center",gap:5,padding:"6px 12px",background:C.greenSoft,border:"1px solid "+C.green+"33",borderRadius:8,color:C.green,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap" }}
+                            onMouseEnter={e=>{ e.currentTarget.style.background=C.green; e.currentTarget.style.color="#fff" }}
+                            onMouseLeave={e=>{ e.currentTarget.style.background=C.greenSoft; e.currentTarget.style.color=C.green }}>
+                            Envoyer au médecin
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                )
+              }
+              <p style={{ textAlign:"center",fontSize:12,color:C.textMuted,padding:"14px 0",borderTop:"1px solid "+C.border }}>© 2026 Clinique ABC Marouane. Tous droits réservés.</p>
+            </Card>
+          </div>
+        )}
+
+        {/* ══ RENDEZ-VOUS ══ */}
+        {onglet==="rdv"&&(
+          <div>
+            <div style={{ marginBottom:20 }}>
+              <p style={{ fontSize:22,fontWeight:800,color:C.textPri,marginBottom:4 }}>Rendez-vous</p>
+              <p style={{ fontSize:14,color:C.textSec }}>{rdvs.length} rendez-vous — créés par les médecins · Gérez les rappels ci-dessous</p>
+            </div>
+            <Card>
+              <CardHeader title="Tous les rendez-vous" action={
+                <span style={{ fontSize:12,color:C.textMuted,background:C.slateSoft,padding:"4px 12px",borderRadius:20 }}>
+                  Lecture seule — les médecins créent leurs RDV
+                </span>
+              }/>
+              <table style={{ width:"100%",borderCollapse:"collapse" }}>
                 <thead>
                   <tr style={{ background:C.slateSoft }}>
-                    {["ID","Patient","Action"].map(h=>(
-                      <th key={h} style={{ padding:"11px 16px", textAlign:"left", fontSize:11, fontWeight:700, color:C.textSec, letterSpacing:"0.06em", textTransform:"uppercase" }}>{h}</th>
+                    {["Patient","Date","Heure","Médecin / Service","Motif","Rappel patient","Signaler médecin"].map(h=>(
+                      <th key={h} style={{ padding:"11px 16px",textAlign:"left",fontSize:11,fontWeight:700,color:C.textSec,letterSpacing:"0.06em",textTransform:"uppercase" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {patientsAffiches.length===0
-                    ? <tr><td colSpan={3} style={{ padding:40, textAlign:"center", color:C.textMuted }}>Aucun patient trouvé pour « {recherche} »</td></tr>
-                    : patientsAffiches.map((p,i)=>(
-                      <tr key={p.id} style={{ borderBottom:i<patientsAffiches.length-1?"1px solid "+C.border:"none", transition:"background .15s" }}
-                        onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
-                        onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                        <td style={{ padding:"13px 16px" }}>
-                          <span style={{ fontFamily:"monospace", fontSize:11, fontWeight:700, color:C.blue, background:C.blueSoft, padding:"3px 8px", borderRadius:6 }}>{p.pid}</span>
-                        </td>
-                        <td style={{ padding:"13px 16px" }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                            <Avatar name={p.nom} size={30} />
-                            <p style={{ fontSize:13, fontWeight:600, color:C.textPri }}>{p.nom}</p>
-                          </div>
-                        </td>
-                        <td style={{ padding:"13px 16px" }}>
-                          <button onClick={()=>setPatientVu(p)} style={{ background:C.blueSoft, border:"1px solid "+C.blue+"33", borderRadius:8, color:C.blue, fontSize:12, fontWeight:600, cursor:"pointer", padding:"6px 14px", fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}
-                            onMouseEnter={e=>{ e.currentTarget.style.background=C.blue; e.currentTarget.style.color="#fff" }}
-                            onMouseLeave={e=>{ e.currentTarget.style.background=C.blueSoft; e.currentTarget.style.color=C.blue }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            Voir
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  }
+                  {rdvs.length===0
+                    ? <tr><td colSpan={7} style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun rendez-vous — les médecins n'en ont pas encore créé</td></tr>
+                    : rdvs.sort((a,b)=>a.date.localeCompare(b.date)).map((r,i,arr)=>(
+                    <tr key={r.id} style={{ borderBottom:i<arr.length-1?"1px solid "+C.border:"none",transition:"background .15s" }}
+                      onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <td style={{ padding:"13px 16px" }}>
+                        <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                          <Avatar name={r.patient} size={30}/>
+                          <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{r.patient}</p>
+                        </div>
+                      </td>
+                      <td style={{ padding:"13px 16px",fontSize:13,color:r.date===today()?C.green:C.textSec,fontWeight:r.date===today()?700:400 }}>
+                        {fmt(r.date)}
+                        {r.date===today()&&<span style={{ marginLeft:5,fontSize:10,fontWeight:700,background:C.greenSoft,color:C.green,padding:"2px 7px",borderRadius:10 }}>Auj.</span>}
+                      </td>
+                      <td style={{ padding:"13px 16px",fontSize:13,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{r.heure}</td>
+                      <td style={{ padding:"13px 16px" }}>
+                        <p style={{ fontSize:13,fontWeight:600,color:C.textPri }}>{r.docteur}</p>
+                        <p style={{ fontSize:11,color:C.textSec }}>{r.service}</p>
+                      </td>
+                      <td style={{ padding:"13px 16px",fontSize:12,color:C.textSec }}>{r.motif||"—"}</td>
+                      <td style={{ padding:"13px 16px" }}>
+                        {r.rappelEnvoye
+                          ? <span style={{ fontSize:12,fontWeight:600,color:C.green }}>Rappel envoyé</span>
+                          : <button onClick={()=>envoyerRappel(r.id)}
+                              style={{ padding:"5px 12px",background:C.slateSoft,color:C.slate,border:"1px solid "+C.slate+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
+                              Rappeler patient
+                            </button>
+                        }
+                      </td>
+                      <td style={{ padding:"13px 16px" }}>
+                        {r.rappelEnvoye
+                          ? <span style={{ fontSize:12,color:C.green,fontWeight:600 }}>Signalé ✓</span>
+                          : <button onClick={()=>envoyerRappel(r.id)}
+                              style={{ padding:"5px 12px",background:C.amberSoft,color:C.amber,border:"1px solid "+C.amber+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
+                              Signaler au Dr.
+                            </button>
+                        }
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </Card>
           </div>
         )}
 
-        {/* MÉDECINS */}
-        {onglet==="docteurs" && (
-          <div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16, marginBottom:20 }}>
-              {[
-                { label:"Présents",  val:DOCTEURS.filter(d=>d.statut==="present").length,   bg:C.greenSoft, fg:C.green, icon:"✅" },
-                { label:"Absents",   val:DOCTEURS.filter(d=>d.statut==="absent").length,    bg:C.redSoft,   fg:C.red,   icon:"❌" },
-                { label:"En retard", val:DOCTEURS.filter(d=>d.statut==="en_retard").length, bg:C.amberSoft, fg:C.amber, icon:"⏰" },
-              ].map(({ label, val, bg, fg, icon })=>(
-                <Card key={label} style={{ padding:"20px 22px", display:"flex", alignItems:"center", gap:16 }}>
-                  <div style={{ width:44, height:44, borderRadius:12, background:bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>{icon}</div>
-                  <div>
-                    <p style={{ fontSize:26, fontWeight:800, color:fg, letterSpacing:"-1px" }}>{val}</p>
-                    <p style={{ fontSize:12, color:C.textMuted }}>{label}</p>
-                  </div>
-                </Card>
-              ))}
-            </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:16 }}>
-              {docPresence.map(d=>(
-                <Card key={d.id} style={{ border:"1.5px solid "+(d.statut==="present"?C.green+"44":C.border) }}>
-                  <div style={{ padding:20 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
-                      <Avatar name={d.nom.split(" ")[1]} size={44} />
-                      <Badge statut={d.statut} />
-                    </div>
-                    <p style={{ fontSize:14, fontWeight:800, color:C.textPri, marginBottom:2 }}>{d.nom}</p>
-                    <p style={{ fontSize:12, color:C.textSec, marginBottom:14 }}>{d.specialite}</p>
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
-                      <div style={{ background:C.bg, borderRadius:9, padding:"10px 12px", border:"1px solid "+C.border }}>
-                        <p style={{ fontSize:10, color:C.textMuted, marginBottom:3, textTransform:"uppercase" }}>Arrivée</p>
-                        <p style={{ fontSize:15, fontWeight:700, color:d.arrivee?C.green:C.textMuted }}>{d.arrivee||"—"}</p>
-                      </div>
-                      <div style={{ background:C.bg, borderRadius:9, padding:"10px 12px", border:"1px solid "+C.border }}>
-                        <p style={{ fontSize:10, color:C.textMuted, marginBottom:3, textTransform:"uppercase" }}>Patients</p>
-                        <p style={{ fontSize:15, fontWeight:700, color:C.textPri }}>{d.patients}</p>
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", gap:8 }}>
-                      {!d.arrivee && <Btn onClick={()=>updatePresence(d.id,"arrivee")} small variant="success">✔ Arrivée</Btn>}
-                      {d.arrivee && !d.depart && <Btn onClick={()=>updatePresence(d.id,"depart")} small variant="secondary">✔ Départ</Btn>}
-                    </div>
-                    <p style={{ fontSize:10, color:C.textMuted, marginTop:10, padding:"6px 8px", background:C.slateSoft, borderRadius:6, border:"1px solid "+C.border }}>🔒 Enregistré par la secrétaire uniquement</p>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* RDV */}
-        {onglet==="rdv" && (
-          <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+        {/* ══ PRÉSENCE MÉDECINS ══ */}
+        {onglet==="presence"&&(
+          <div>
+            <div style={{ marginBottom:24 }}>
+              <p style={{ fontSize:24, fontWeight:800, color:C.textPri }}>Présence des Médecins</p>
+              <p style={{ color:C.textMuted }}>Pointage d'arrivée et de départ en temps réel — {dateStr}</p>
+            </div>
+
+            {/* Statistiques du jour */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:16, marginBottom:24 }}>
+              <Card style={{ padding:"20px" }}>
+                <div style={{ width:42, height:42, borderRadius:10, background:C.blueSoft, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:12, color:C.blue }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+                <p style={{ fontSize:28, fontWeight:800, color:C.blue, lineHeight:1, marginBottom:4 }}>{presenceStats.total}</p>
+                <p style={{ fontSize:12, color:C.textMuted }}>Médecins total</p>
+              </Card>
+              <Card style={{ padding:"20px" }}>
+                <div style={{ width:42, height:42, borderRadius:10, background:C.greenSoft, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:12, color:C.green }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <p style={{ fontSize:28, fontWeight:800, color:C.green, lineHeight:1, marginBottom:4 }}>{presenceStats.presents}</p>
+                <p style={{ fontSize:12, color:C.textMuted }}>Présents</p>
+              </Card>
+              <Card style={{ padding:"20px" }}>
+                <div style={{ width:42, height:42, borderRadius:10, background:C.redSoft, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:12, color:C.red }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+                <p style={{ fontSize:28, fontWeight:800, color:C.red, lineHeight:1, marginBottom:4 }}>{presenceStats.absents}</p>
+                <p style={{ fontSize:12, color:C.textMuted }}>Absents</p>
+              </Card>
+              <Card style={{ padding:"20px" }}>
+                <div style={{ width:42, height:42, borderRadius:10, background:C.purpleSoft, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:12, color:C.purple }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+                <p style={{ fontSize:28, fontWeight:800, color:C.purple, lineHeight:1, marginBottom:4 }}>{presenceStats.pourcentage}%</p>
+                <p style={{ fontSize:12, color:C.textMuted }}>Taux de présence</p>
+              </Card>
+            </div>
+
+            {/* Actions globales */}
+            <div style={{ marginBottom:16, display:"flex", gap:12 }}>
+              <Btn onClick={()=>setOnglet("historique")} variant="secondary">
+                Voir l'historique
+              </Btn>
+            </div>
+
+            {/* Liste des médecins */}
             <Card>
-              <CardHeader title="Créer un rendez-vous" />
-              <div style={{ padding:20 }}>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:14 }}>
-                  <div>
-                    <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.textSec, marginBottom:6 }}>Patient</label>
-                    <select value={rdvForm.patientId} onChange={e=>setRdvForm({...rdvForm,patientId:e.target.value})} style={{ ...inputSt, cursor:"pointer" }}>
-                      <option value="">— Choisir patient —</option>
-                      {patients.map(p=><option key={p.id} value={p.id}>{p.nom}</option>)}
-                    </select>
+              <CardHeader 
+                title="Liste des médecins" 
+                action={
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <span style={{ fontSize:12, color:C.textMuted }}>{medecins.filter(m=>m.present).length}/{medecins.length} présents</span>
+                    <div style={{ width:8, height:8, borderRadius:"50%", background:presenceStats.pourcentage>=80?C.green:presenceStats.pourcentage>=50?C.slate:C.red }}/>
                   </div>
-                  <div>
-                    <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.textSec, marginBottom:6 }}>Médecin</label>
-                    <select value={rdvForm.docteur} onChange={e=>setRdvForm({...rdvForm,docteur:e.target.value})} style={{ ...inputSt, cursor:"pointer" }}>
-                      <option value="">— Choisir médecin —</option>
-                      {DOCTEURS.map(d=><option key={d.id} value={d.nom}>{d.nom}</option>)}
-                    </select>
+                } 
+              />
+              <div style={{ padding:"8px" }}>
+                {medecins.map((med, i) => (
+                  <div key={med.id} style={{
+                    display:"flex", alignItems:"center", gap:16, padding:"14px 16px",
+                    borderBottom: i < medecins.length-1 ? "1px solid "+C.border : "none",
+                    background: med.present ? "transparent" : C.slateSoft+"33",
+                    borderRadius: med.present ? 0 : 8,
+                    transition:"background .15s"
+                  }}>
+                    <Avatar name={med.nom} size={44} />
+
+                    <div style={{ flex:1 }}>
+                      <p style={{ fontSize:15, fontWeight:700, color:C.textPri }}>{med.nom}</p>
+                      <p style={{ fontSize:12, color:C.textSec }}>{med.specialite}</p>
+                    </div>
+
+                    {/* Statut */}
+                    <div style={{ minWidth:110, textAlign:"center" }}>
+                      {med.present ? 
+                        <span style={{ 
+                          display:"inline-flex", alignItems:"center", gap:6,
+                          background:C.greenSoft, color:C.green, 
+                          padding:"4px 14px", borderRadius:20, 
+                          fontSize:12, fontWeight:700 
+                        }}>
+                          <span style={{ width:6, height:6, borderRadius:"50%", background:C.green, animation:"blink 2s ease-in-out infinite" }}/>
+                          Présent
+                        </span>
+                      : 
+                        <span style={{ 
+                          display:"inline-flex", alignItems:"center", gap:6,
+                          background:C.redSoft, color:C.red, 
+                          padding:"4px 14px", borderRadius:20, 
+                          fontSize:12, fontWeight:700 
+                        }}>
+                          Absent
+                        </span>
+                      }
+                    </div>
+
+                    {/* Horaires */}
+                    <div style={{ minWidth:160, fontSize:12 }}>
+                      {med.arrivee ? (
+                        <div style={{ display:"flex", alignItems:"center", gap:6, color:C.green, fontWeight:600 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          Arrivée : {med.arrivee}
+                        </div>
+                      ) : (
+                        <div style={{ color:C.textMuted }}>—</div>
+                      )}
+                      {med.depart && (
+                        <div style={{ display:"flex", alignItems:"center", gap:6, color:C.slate, fontWeight:600, marginTop:2 }}>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                          Départ : {med.depart}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ minWidth:200, display:"flex", gap:8 }}>
+                      {!med.present ? (
+                        <>
+                          <Btn onClick={() => pointerArrivee(med.id)} variant="success" small>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            Pointer arrivée
+                          </Btn>
+                          <Btn onClick={() => demanderPermission(med)} variant="secondary" small>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            Permission
+                          </Btn>
+                        </>
+                      ) : (
+                        <Btn onClick={() => pointerDepart(med.id)} variant="secondary" small>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                          Pointer départ
+                        </Btn>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.textSec, marginBottom:6 }}>Heure</label>
-                    <input type="time" value={rdvForm.heure} onChange={e=>setRdvForm({...rdvForm,heure:e.target.value})} style={inputSt} />
-                  </div>
-                  <div>
-                    <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.textSec, marginBottom:6 }}>Date</label>
-                    <input type="date" value={rdvForm.date} onChange={e=>setRdvForm({...rdvForm,date:e.target.value})} style={inputSt} />
-                  </div>
-                  <div>
-                    <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.textSec, marginBottom:6 }}>Type</label>
-                    <input value={rdvForm.type} onChange={e=>setRdvForm({...rdvForm,type:e.target.value})} placeholder="Ex : Consultation, Suivi…" style={inputSt} />
-                  </div>
-                </div>
-                <div style={{ marginTop:14 }}>
-                  <Btn onClick={()=>{ if(rdvForm.patientId&&rdvForm.heure){ alert("Rendez-vous créé avec succès"); setRdvForm({patientId:"",docteur:"",heure:"",type:"Consultation",date:today()}) } }} small>Créer le rendez-vous</Btn>
-                </div>
+                ))}
               </div>
             </Card>
-            <Card>
-              <CardHeader title={"Rendez-vous — "+new Date().toLocaleDateString("fr-FR")} />
-              {RDV_JOUR.map((r,i)=>(
-                <div key={r.id} style={{ padding:"15px 20px", display:"flex", alignItems:"center", gap:16, borderBottom:i<RDV_JOUR.length-1?"1px solid "+C.border:"none", transition:"background .15s" }}
-                  onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
-                  onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                  <div style={{ width:60, height:60, borderRadius:12, background:C.blueSoft, border:"1px solid "+C.blue+"33", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    <p style={{ fontSize:14, fontWeight:800, color:C.blue, fontVariantNumeric:"tabular-nums" }}>{r.heure}</p>
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <p style={{ fontSize:14, fontWeight:700, color:C.textPri, marginBottom:3 }}>{r.patient}</p>
-                    <p style={{ fontSize:12, color:C.textMuted }}>{r.type} · {r.docteur}</p>
-                  </div>
-                  <Badge statut={r.statut} />
-                  <button onClick={()=>setRdvVu(r)} style={{ background:C.blueSoft, border:"1px solid "+C.blue+"33", borderRadius:8, color:C.blue, fontSize:12, fontWeight:600, cursor:"pointer", padding:"7px 14px", fontFamily:"inherit", display:"flex", alignItems:"center", gap:5 }}
-                    onMouseEnter={e=>{ e.currentTarget.style.background=C.blue; e.currentTarget.style.color="#fff" }}
-                    onMouseLeave={e=>{ e.currentTarget.style.background=C.blueSoft; e.currentTarget.style.color=C.blue }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    Voir
-                  </button>
-                </div>
-              ))}
-            </Card>
           </div>
         )}
 
-      
       </main>
 
       <style>{`
