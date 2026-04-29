@@ -577,7 +577,7 @@ function ModalSaisieResultats({ demande, onClose, onSave, onValider }) {
         })
         return r
       })
-      setImportMsg(`✓ ${Object.keys(parsed).length} paramètre(s) importé(s) depuis Mindray`)
+      setImportMsg(`[OK] ${Object.keys(parsed).length} paramètre(s) importé(s) depuis Mindray`)
       setTimeout(() => setImportMsg(""), 4000)
     }
     reader.readAsText(file)
@@ -651,8 +651,11 @@ function ModalSaisieResultats({ demande, onClose, onSave, onValider }) {
           </div>
 
           {importMsg && (
-            <div style={{ padding:"10px 16px", borderRadius:10, background: importMsg.startsWith("✓") ? C.greenSoft : C.redSoft, border:"1.5px solid "+(importMsg.startsWith("✓")?C.green:C.red)+"44", color:importMsg.startsWith("✓")?C.green:C.red, fontSize:13, fontWeight:600, display:"flex", alignItems:"center", gap:8 }}>
-              {importMsg}
+            <div style={{ padding:"10px 16px", borderRadius:10, background: importMsg.startsWith("[OK]") ? C.greenSoft : C.redSoft, border:"1.5px solid "+(importMsg.startsWith("[OK]")?C.green:C.red)+"44", color:importMsg.startsWith("[OK]")?C.green:C.red, fontSize:13, fontWeight:600, display:"flex", alignItems:"center", gap:8 }}>
+              {importMsg.startsWith("[OK]")
+                ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>}
+              {importMsg.replace("[OK] ", "")}
             </div>
           )}
 
@@ -1138,7 +1141,15 @@ function ModalFicheLaboratoire({ demande, onClose }) {
                           <td style={{ padding:"10px 12px", color:C.textSec, border:"1px solid "+C.border }}>{d.unite||"—"}</td>
                           <td style={{ padding:"10px 12px", color:C.textSec, border:"1px solid "+C.border }}>{d.norme||"—"}</td>
                           <td style={{ padding:"10px 12px", border:"1px solid "+C.border }}>
-                            {anormal?<span style={{ color:C.red, fontWeight:700 }}>↑↓ Anormal</span>:<span style={{ color:C.green }}>Normal</span>}
+                            {anormal
+                              ? <span style={{ display:"inline-flex",alignItems:"center",gap:4,color:C.red,fontWeight:700 }}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+                                  Anormal
+                                </span>
+                              : <span style={{ display:"inline-flex",alignItems:"center",gap:4,color:C.green }}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                  Normal
+                                </span>}
                           </td>
                         </tr>
                       )
@@ -1180,7 +1191,6 @@ export default function DashboardLaboratoire() {
 
   const { patients: sharedPatients, resultatsLabo, addResultatLabo, updateResultatLabo } = useSharedData()
 
-  const [onglet,              setOnglet]              = useState("toutes")
   const [sidebarOpen,         setSidebarOpen]         = useState(false)
   const [demandes,            setDemandes]            = useState(DEMANDES_INIT)
   const [showNouvelleDemande, setShowNouvelleDemande] = useState(false)
@@ -1200,6 +1210,15 @@ export default function DashboardLaboratoire() {
     const t = setInterval(tick, 1000)
     return () => clearInterval(t)
   }, [])
+
+  const [onglet, setOnglet] = useState("toutes")
+
+  const NAV_ICONS = {
+    doc:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2v8l-3.5 6A2 2 0 007.2 19h9.6a2 2 0 001.7-3L15 10V2"/><line x1="9" y1="2" x2="15" y2="2"/><line x1="9.5" y1="7" x2="14.5" y2="7"/></svg>,
+    wait:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3h14M5 21h14"/><path d="M7 3l5 9 5-9"/><path d="M7 21l5-9 5 9"/></svg>,
+    micro: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 8h2M18 8h2"/><path d="M12 12v4M8 20h8"/><line x1="12" y1="16" x2="12" y2="20"/></svg>,
+    check: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="9 12 11 14 15 10"/></svg>,
+  }
 
   const getDemandesFiltrees = () => {
     let liste = demandes
@@ -1229,6 +1248,18 @@ export default function DashboardLaboratoire() {
     en_cours:   demandes.filter(d=>d.statut==="en_cours").length,
     termine:    demandes.filter(d=>d.statut==="termine").length,
     total:      demandes.length,
+  }
+
+  const NAV = [
+    { id:"toutes",     label:"Toutes",     icon:"doc",   count:stats.total,      color:C.blue  },
+    { id:"en_attente", label:"En attente", icon:"wait",  count:stats.en_attente, color:C.slate },
+    { id:"en_cours",   label:"En cours",   icon:"micro", count:stats.en_cours,   color:C.blue  },
+    { id:"termines",   label:"Terminés",   icon:"check", count:stats.termine,    color:C.green },
+  ]
+
+  const titres = {
+    toutes:"Toutes les demandes", en_attente:"En attente de prélèvement",
+    en_cours:"Analyses en cours", termines:"Résultats validés",
   }
 
   const handleCreerDemande = (form) => {
@@ -1266,25 +1297,6 @@ export default function DashboardLaboratoire() {
     setShowSaisie(null)
   }
 
-  const NAV_ICONS = {
-    doc:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2v8l-3.5 6A2 2 0 007.2 19h9.6a2 2 0 001.7-3L15 10V2"/><line x1="9" y1="2" x2="15" y2="2"/><line x1="9.5" y1="7" x2="14.5" y2="7"/></svg>,
-    wait:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3h14M5 21h14"/><path d="M7 3l5 9 5-9"/><path d="M7 21l5-9 5 9"/></svg>,
-    micro: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 8h2M18 8h2"/><path d="M12 12v4M8 20h8"/><line x1="12" y1="16" x2="12" y2="20"/></svg>,
-    check: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="9 12 11 14 15 10"/></svg>,
-    bar:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="20" x2="21" y2="20"/><rect x="4" y="10" width="4" height="10" rx="1"/><rect x="10" y="6" width="4" height="14" rx="1"/><rect x="16" y="3" width="4" height="17" rx="1"/></svg>,
-  }
-  const NAV = [
-    { id:"toutes",     label:"Toutes",     icon:"doc",   count:stats.total,      color:C.blue   },
-    { id:"en_attente", label:"En attente", icon:"wait",  count:stats.en_attente, color:C.slate  },
-    { id:"en_cours",   label:"En cours",   icon:"micro", count:stats.en_cours,   color:C.blue   },
-    { id:"termines",   label:"Terminés",   icon:"check", count:stats.termine,    color:C.green  },
-    { id:"historique", label:"Historique", icon:"bar",   count:stats.total,      color:C.purple },
-  ]
-
-  const titres = {
-    toutes:"Toutes les demandes", en_attente:"En attente de prélèvement",
-    en_cours:"Analyses en cours", termines:"Résultats validés", historique:"Historique complet"
-  }
 
   return (
     <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'Segoe UI', system-ui, sans-serif", color:C.textPri }}>
@@ -1360,7 +1372,7 @@ export default function DashboardLaboratoire() {
         <div style={{ display:"flex", alignItems:"center", gap:12 }}>
           {stats.en_attente>0&&(
             <div style={{ display:"flex", alignItems:"center", gap:6, background:C.slateSoft, border:"1px solid "+C.slate+"40", borderRadius:10, padding:"6px 12px" }}>
-              <span>⏳</span>
+            
               <span style={{ fontSize:12, fontWeight:700, color:C.slate }}>{stats.en_attente} en attente</span>
             </div>
           )}
@@ -1383,35 +1395,23 @@ export default function DashboardLaboratoire() {
 
       <main style={{ padding:"28px 28px", maxWidth:1400, margin:"0 auto" }}>
         {/* KPIs */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, marginBottom:18 }}>
           {[
-            { label:"En attente",      val:stats.en_attente, color:C.slate,  bg:C.slateSoft,  icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
-            { label:"En analyse",      val:stats.en_cours,   color:C.blue,   bg:C.blueSoft,   icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M18.4 2.6a2 2 0 0 1 1 1.8V8l-4 4-4 1 1-4 4-4V2.6"/></svg> },
-            { label:"Résultats prêts", val:stats.termine,    color:C.green,  bg:C.greenSoft,  icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg> },
-            { label:"Total demandes",  val:stats.total,      color:C.purple, bg:C.purpleSoft, icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> },
+            { label:"En attente",      val:stats.en_attente, color:C.slate,  bg:C.slateSoft,  icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+            { label:"En analyse",      val:stats.en_cours,   color:C.blue,   bg:C.blueSoft,   icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 2v8l-3.5 6A2 2 0 007.2 19h9.6a2 2 0 001.7-3L15 10V2"/><line x1="9" y1="2" x2="15" y2="2"/></svg> },
+            { label:"Résultats prêts", val:stats.termine,    color:C.green,  bg:C.greenSoft,  icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg> },
+            { label:"Total demandes",  val:stats.total,      color:C.purple, bg:C.purpleSoft, icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> },
           ].map(k=>(
-            <div key={k.label} style={{ background:C.white, borderRadius:16, border:"1px solid "+C.border, padding:"18px 20px", boxShadow:"0 1px 3px rgba(0,0,0,0.04)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div key={k.label} style={{ background:C.white, borderRadius:12, border:"1px solid "+C.border, padding:"13px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
-                <p style={{ fontSize:28, fontWeight:900, color:k.color, lineHeight:1, marginBottom:6 }}>{k.val}</p>
-                <p style={{ fontSize:12, color:C.textMuted }}>{k.label}</p>
+                <p style={{ fontSize:22, fontWeight:900, color:k.color, lineHeight:1, marginBottom:4 }}>{k.val}</p>
+                <p style={{ fontSize:11, color:C.textMuted }}>{k.label}</p>
               </div>
-              <div style={{ width:48, height:48, borderRadius:14, background:k.bg, display:"flex", alignItems:"center", justifyContent:"center", color:k.color }}>{k.icon}</div>
+              <div style={{ width:38, height:38, borderRadius:10, background:k.bg, display:"flex", alignItems:"center", justifyContent:"center", color:k.color }}>{k.icon}</div>
             </div>
           ))}
         </div>
 
-        {/* Onglets */}
-        <div style={{ display:"flex", gap:4, marginBottom:20, background:C.white, padding:5, borderRadius:14, border:"1px solid "+C.border, width:"fit-content", flexWrap:"wrap" }}>
-          {NAV.map(n=>{
-            const active = onglet===n.id
-            return (
-              <button key={n.id} onClick={()=>setOnglet(n.id)} style={{ padding:"8px 14px", borderRadius:10, border:"none", background:active?(n.color||C.blue):"transparent", color:active?"#fff":C.textSec, fontSize:13, fontWeight:active?700:500, cursor:"pointer", display:"flex", alignItems:"center", gap:6, fontFamily:"inherit", transition:"all .15s", whiteSpace:"nowrap" }}>
-                {NAV_ICONS[n.icon]} {n.label}
-                <span style={{ background:active?"rgba(255,255,255,0.25)":C.slateSoft, color:active?"#fff":C.textMuted, fontSize:11, fontWeight:700, padding:"1px 7px", borderRadius:20 }}>{n.count}</span>
-              </button>
-            )
-          })}
-        </div>
 
         {/* Barre actions */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16, flexWrap:"wrap", gap:10 }}>
@@ -1437,7 +1437,7 @@ export default function DashboardLaboratoire() {
             <thead>
               <tr style={{ background:C.slateSoft }}>
                 {["Patient","Demande","Médecin / Service","Examens","Montant","Statut","Actions"].map(h=>(
-                  <th key={h} style={{ padding:"12px 14px", textAlign:"left", fontSize:11, fontWeight:700, color:C.textMuted, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</th>
+                  <th key={h} style={{ padding:"10px 12px", textAlign:"left", fontSize:10, fontWeight:700, color:C.textMuted, letterSpacing:"0.07em", textTransform:"uppercase" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1454,7 +1454,7 @@ export default function DashboardLaboratoire() {
                 <tr key={d.id} style={{ borderBottom:i<arr.length-1?"1px solid "+C.border:"none", background:d.urgent?"#fff8f8":"transparent", transition:"background .1s" }}
                   onMouseEnter={e=>e.currentTarget.style.background=d.urgent?C.redSoft:C.slateSoft}
                   onMouseLeave={e=>e.currentTarget.style.background=d.urgent?"#fff8f8":"transparent"}>
-                  <td style={{ padding:"14px 14px" }}>
+                  <td style={{ padding:"11px 12px" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                       <Avatar name={d.patient.nom} size={36}/>
                       <div>
@@ -1466,11 +1466,11 @@ export default function DashboardLaboratoire() {
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding:"14px 14px" }}>
+                  <td style={{ padding:"11px 12px" }}>
                     <p style={{ fontSize:14, fontWeight:800, color:C.purple, fontVariantNumeric:"tabular-nums" }}>{d.heureDemande}</p>
                     <p style={{ fontSize:11, color:C.textMuted }}>{fmt(d.dateDemande)}</p>
                   </td>
-                  <td style={{ padding:"14px 14px" }}>
+                  <td style={{ padding:"11px 12px" }}>
                     <p style={{ fontSize:13, fontWeight:600, color:C.textPri }}>{d.medecinPrescripteur}</p>
                     <p style={{ fontSize:11, color:C.textMuted }}>{d.service||"—"}</p>
                   </td>
@@ -1481,18 +1481,23 @@ export default function DashboardLaboratoire() {
                       ))}
                     </div>
                   </td>
-                  <td style={{ padding:"14px 14px" }}>
+                  <td style={{ padding:"11px 12px" }}>
                     <p style={{ fontSize:13, fontWeight:700, color:C.green }}>{d.examens.reduce((s,e)=>s+(e.prix||0),0).toLocaleString("fr-FR")} GNF</p>
                   </td>
-                  <td style={{ padding:"14px 14px" }}>
+                  <td style={{ padding:"11px 12px" }}>
                     <Badge statut={d.statut}/>
                     {d.valide&&<p style={{ fontSize:10, color:C.textMuted, marginTop:4 }}>Signé par {d.validePar}</p>}
                   </td>
-                  <td style={{ padding:"14px 14px" }}>
+                  <td style={{ padding:"11px 12px" }}>
                     <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                       {d.statut==="en_attente"&&(
                         <>
-                          <Btn onClick={()=>handleDemarrerPrelevement(d.id)} small variant="success">▶ Prélever</Btn>
+                          <Btn onClick={()=>handleDemarrerPrelevement(d.id)} small variant="success">
+                            <span style={{ display:"inline-flex",alignItems:"center",gap:5 }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                              Prélever
+                            </span>
+                          </Btn>
                           <Btn onClick={()=>setShowSaisie(d)} small variant="primary">Résultats</Btn>
                         </>
                       )}

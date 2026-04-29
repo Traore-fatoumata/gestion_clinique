@@ -17,6 +17,7 @@ const SERVICES = [
   "Accueil","Ophtalmologie","ORL","Laboratoire","Pharmacie","Pédiatrie",
   "Médecine générale","Traumatologie","Gynécologie","Cardiologie",
   "Neurologie","Urologie","Chirurgie","Diabétologie / Endocrinologie",
+  "Dermatologie","Oncologie","Maladies infectieuses","Stomatologie",
 ]
 
 // ══════════════════════════════════════════════════════
@@ -478,7 +479,7 @@ function PageAccueil({ consultations, patients, file, setPage }) {
             </p>
             <p style={{ fontSize:13, color:"#92400e" }}>Cliquez pour voir les patients — seuls ceux ayant payé à la comptabilité peuvent être reçus</p>
           </div>
-          <span style={{ color:C.slate, fontSize:22, fontWeight:700 }}>→</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.slate} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
       )}
 
@@ -501,7 +502,7 @@ function PageAccueil({ consultations, patients, file, setPage }) {
       <div style={{ display:"grid", gridTemplateColumns:"1.2fr 1fr", gap:20, marginBottom:20 }}>
         {/* Consultations récentes */}
         <Card>
-          <CardHeader title="Consultations récentes" action={<button onClick={()=>setPage("consultations")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir →</button>}/>
+          <CardHeader title="Consultations récentes" action={<button onClick={()=>setPage("consultations")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir</button>}/>
           <div style={{ padding:"0 20px" }}>
             {recentes.map((c,i)=>{
               const p=patients.find(pt=>pt.id===c.patientId)
@@ -796,9 +797,158 @@ function PageStats({ consultations, patients }) {
     .map(([nom, nb]) => ({ nom, nb }))
     .sort((a, b) => b.nb - a.nb)
     .slice(0, 12)
-  const maxPatho = Math.max(...pathoStats.map(p => p.nb), 1)
 
   const FILTRES=[{id:"jour",l:"Auj."},{id:"semaine",l:"Semaine"},{id:"mois",l:"Mois"},{id:"annee",l:"Année"}]
+  const periodeLabel = FILTRES.find(f=>f.id===periode)?.l || periode
+
+  const handlePrintStats = () => {
+    const pNA = patients.length - patientsF - patientsM
+    const maxHebo2 = Math.max(...activiteHebo, 1)
+    const maxPath  = Math.max(...pathoStats.map(p=>p.nb), 1)
+
+    const barH = (v, max, maxPx=90) => Math.max(Math.round((v/max)*maxPx), v>0?6:2)
+
+    const css = `
+      @page { size:A4; margin:12mm 14mm }
+      * { box-sizing:border-box; margin:0; padding:0 }
+      body { font-family:'Segoe UI',Arial,sans-serif; font-size:9.5pt; color:#111; background:#fff }
+      .hdr { text-align:center; border-bottom:2.5px solid #16a34a; padding-bottom:8px; margin-bottom:14px }
+      .hdr h1 { font-size:15pt; color:#16a34a; font-weight:800; letter-spacing:-0.5px }
+      .hdr p  { font-size:8.5pt; color:#555; margin-top:2px }
+      .period-badge { display:inline-block; background:#dcfce7; color:#16a34a; font-size:8.5pt; font-weight:700; padding:3px 10px; border-radius:20px; margin-top:6px }
+      h2 { font-size:10.5pt; font-weight:700; color:#16a34a; border-left:3px solid #16a34a; padding-left:8px; margin:14px 0 8px }
+      .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px }
+      .kpi { border:1px solid #e2ebe4; border-radius:8px; padding:10px 12px; background:#f7fdf9 }
+      .kpi .val { font-size:18pt; font-weight:800; color:#111; line-height:1; margin-bottom:3px }
+      .kpi .lbl { font-size:8pt; color:#6b7280; font-weight:500 }
+      .kpi .sub { font-size:7.5pt; color:#9ca3af; margin-top:2px }
+      .two-col { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px }
+      .three-col { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:14px }
+      .card { border:1px solid #e2ebe4; border-radius:8px; padding:12px 14px; background:#fff }
+      .card-title { font-size:9pt; font-weight:700; color:#374151; margin-bottom:8px }
+      table { width:100%; border-collapse:collapse; font-size:8.5pt }
+      th { background:#16a34a; color:#fff; padding:5px 7px; text-align:left; font-weight:600 }
+      td { padding:5px 7px; border-bottom:1px solid #f0f0f0 }
+      tr:nth-child(even) td { background:#f9fafb }
+      .bar-wrap { display:flex; align-items:flex-end; gap:4px; height:96px; margin-top:4px }
+      .bar-col { display:flex; flex-direction:column; align-items:center; gap:3px; flex:1 }
+      .bar-val { font-size:7pt; font-weight:700; color:#16a34a }
+      .bar-box { width:100%; border-radius:3px 3px 0 0 }
+      .bar-lbl { font-size:6.5pt; color:#9ca3af; text-align:center }
+      .hbar-row { display:flex; align-items:center; gap:6px; margin-bottom:5px }
+      .hbar-lbl { font-size:8pt; color:#374151; width:130px; flex-shrink:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
+      .hbar-track { flex:1; height:10px; background:#f1f5f1; border-radius:5px; overflow:hidden }
+      .hbar-fill { height:100%; border-radius:5px }
+      .hbar-nb { font-size:8pt; font-weight:700; color:#111; width:18px; text-align:right; flex-shrink:0 }
+      .donut-legend { display:flex; flex-direction:column; gap:5px; margin-top:8px }
+      .donut-row { display:flex; align-items:center; gap:6px; font-size:8.5pt; color:#374151 }
+      .dot { width:9px; height:9px; border-radius:2px; flex-shrink:0 }
+      .footer { text-align:center; font-size:8pt; color:#888; margin-top:16px; border-top:1px solid #e2ebe4; padding-top:8px }
+      @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact } }
+    `
+
+    // ── Barres hebdo ──
+    const barHebo = activiteHebo.map((v,i)=>{
+      const h = barH(v, maxHebo2)
+      const isT = i===(new Date().getDay()||7)-1
+      const bg = isT?'#16a34a':v>0?'#86efac':'#e5e7eb'
+      return `<div class="bar-col">
+        <span class="bar-val">${v>0?v:''}</span>
+        <div class="bar-box" style="height:${h}px;background:${bg}"></div>
+        <span class="bar-lbl" style="color:${isT?'#16a34a':'#9ca3af'};font-weight:${isT?700:400}">${JOURS[i]}</span>
+      </div>`
+    }).join("")
+
+    // ── Courbe recettes → tableau ──
+    const rowsRec = ptsCourbe.map(p=>`<tr><td>${p.label}</td><td style="text-align:right;font-weight:600">${p.val.toLocaleString("fr-FR")} GNF</td></tr>`).join("")
+
+    // ── Services ──
+    const rowsServ = servicesStats.map((s,i)=>`<tr>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${COULEURS[i%COULEURS.length]};margin-right:6px"></span>${s.service}</td>
+      <td style="text-align:center">${s.nb}</td>
+      <td style="text-align:right;font-weight:600">${s.recettes.toLocaleString("fr-FR")} GNF</td>
+    </tr>`).join("")
+    const totalNb  = servicesStats.reduce((s,r)=>s+r.nb, 0)
+    const totalRec = servicesStats.reduce((s,r)=>s+r.recettes, 0)
+
+    // ── Pathologies barres horizontales ──
+    const hbars = pathoStats.slice(0,10).map((p,i)=>`
+      <div class="hbar-row">
+        <span class="hbar-lbl" title="${p.nom}">${i+1}. ${p.nom}</span>
+        <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round(p.nb/maxPath*100)}%;background:${COULEURS[i%COULEURS.length]}"></div></div>
+        <span class="hbar-nb">${p.nb}</span>
+      </div>`).join("")
+
+    // ── Répartition patients ──
+    const distRows = [
+      {l:"Femmes", v:patientsF, c:"#16a34a"},
+      {l:"Hommes", v:patientsM, c:"#1d4ed8"},
+      {l:"N/A",    v:pNA,       c:"#9ca3af"},
+    ].filter(d=>d.v>0).map(d=>`
+      <div class="donut-row">
+        <div class="dot" style="background:${d.c}"></div>
+        <span style="flex:1">${d.l}</span>
+        <b>${d.v}</b>
+        <span style="color:#9ca3af;width:32px;text-align:right">${Math.round(d.v/patients.length*100)}%</span>
+      </div>`).join("")
+
+    const w = window.open("","_blank")
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Statistiques · Cabinet Médical Marouane</title><style>${css}</style></head><body>
+    <div class="hdr">
+      <h1>CABINET MÉDICAL MAROUANE</h1>
+      <p>Dr DOUMBOUYA Amadou · Médecin Généraliste &amp; Urgentiste · Tél : +224 628 72 72 72 · cabinetmarouane@gmail.com</p>
+      <p>Rapport Statistiques &amp; Rapports &nbsp;·&nbsp; Imprimé le ${new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
+      <span class="period-badge">Période : ${periodeLabel}</span>
+    </div>
+
+    <h2>Indicateurs Clés</h2>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="val">${patients.length}</div><div class="lbl">Total Patients</div><div class="sub">${patientsF} Femmes · ${patientsM} Hommes</div></div>
+      <div class="kpi"><div class="val">${cF.length}</div><div class="lbl">Consultations</div><div class="sub">${payees.length} payées · ${enAttente.length} en attente</div></div>
+      <div class="kpi"><div class="val">${totalRecettes.toLocaleString("fr-FR")}</div><div class="lbl">Recettes (GNF)</div><div class="sub">Paiements encaissés</div></div>
+      <div class="kpi"><div class="val">${tauxPaiement}%</div><div class="lbl">Taux de paiement</div><div class="sub">Moy. ${prixMoyen.toLocaleString("fr-FR")} GNF/consult.</div></div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Activité Hebdomadaire</div>
+        <div class="bar-wrap">${barHebo}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Évolution des Recettes (GNF)</div>
+        <table><thead><tr><th>Période</th><th style="text-align:right">Recettes</th></tr></thead><tbody>${rowsRec}</tbody></table>
+      </div>
+    </div>
+
+    <h2>Consultations par Service</h2>
+    <table>
+      <thead><tr><th>Service</th><th style="text-align:center">Consultations</th><th style="text-align:right">Recettes (GNF)</th></tr></thead>
+      <tbody>
+        ${rowsServ}
+        <tr style="background:#f0fdf4;font-weight:800"><td>TOTAL</td><td style="text-align:center">${totalNb}</td><td style="text-align:right">${totalRec.toLocaleString("fr-FR")} GNF</td></tr>
+      </tbody>
+    </table>
+
+    <div class="two-col" style="margin-top:14px">
+      <div class="card">
+        <div class="card-title">Répartition des Patients par Sexe</div>
+        <div class="donut-legend" style="margin-top:4px">${distRows}</div>
+        <div style="margin-top:10px;font-size:8pt;color:#6b7280">Total enregistrés : <b>${patients.length}</b></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Statistiques par Pathologie (Top 10)</div>
+        ${pathoStats.length===0
+          ? `<p style="color:#9ca3af;font-size:8.5pt;padding:12px 0;text-align:center">Aucune donnée sur cette période</p>`
+          : hbars}
+      </div>
+    </div>
+
+    <div class="footer">Document confidentiel · Cabinet Médical Marouane · Généré automatiquement</div>
+    </body></html>`)
+    w.document.close()
+    w.focus()
+    setTimeout(()=>{ w.print(); w.close() }, 600)
+  }
 
   const KPI_COLORS=[
     { bg:"#e8f5ec", fg:C.green,   icon:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
@@ -828,12 +978,12 @@ function PageStats({ consultations, patients }) {
               </button>
             ))}
           </div>
-          <button onClick={()=>window.print()}
-            style={{ display:"flex",alignItems:"center",gap:6,padding:"8px 16px",background:C.white,color:C.textPri,border:"1px solid "+C.border,borderRadius:9,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}
-            onMouseEnter={e=>e.currentTarget.style.background="#f1f5f1"}
-            onMouseLeave={e=>e.currentTarget.style.background=C.white}>
+          <button onClick={handlePrintStats}
+            style={{ display:"flex",alignItems:"center",gap:6,padding:"8px 16px",background:C.green,color:"#fff",border:"none",borderRadius:9,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}
+            onMouseEnter={e=>e.currentTarget.style.background=C.greenDark}
+            onMouseLeave={e=>e.currentTarget.style.background=C.green}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Imprimer
+            Imprimer PDF
           </button>
         </div>
       </div>
@@ -1035,63 +1185,116 @@ function PageStats({ consultations, patients }) {
         </Card>
       </div>
 
-      {/* Répartition patients */}
-      <Card style={{ marginBottom:16 }}>
-        <div style={{ padding:"18px 20px" }}>
-          <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>Répartition des Patients</p>
-          <p style={{ fontSize:12,color:C.textMuted,marginBottom:20 }}>Par sexe · total enregistrés</p>
-          <div style={{ display:"flex",alignItems:"center",gap:32 }}>
-            <div style={{ flex:1,height:18,borderRadius:9,overflow:"hidden",background:"#dbeafe",display:"flex" }}>
-              <div style={{ height:"100%",width:(patients.length>0?(patientsF/patients.length*100):50)+"%",background:C.green,transition:"width .6s ease" }}/>
-            </div>
-            <div style={{ display:"flex",gap:24,flexShrink:0 }}>
-              <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                <div style={{ width:12,height:12,borderRadius:3,background:C.green }}/>
-                <span style={{ fontSize:13,color:C.textPri }}><b>{patientsF}</b> Femmes</span>
-              </div>
-              <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                <div style={{ width:12,height:12,borderRadius:3,background:"#1d4ed8" }}/>
-                <span style={{ fontSize:13,color:C.textPri }}><b>{patientsM}</b> Hommes</span>
-              </div>
-              <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                <div style={{ width:12,height:12,borderRadius:3,background:"#9ca3af" }}/>
-                <span style={{ fontSize:13,color:C.textPri }}><b>{patients.length-(patientsF+patientsM)}</b> N/A</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
+      {/* Répartition patients (donut) + Pathologies (barres SVG) */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:16, marginBottom:4 }}>
 
-      {/* Statistiques par Pathologie */}
-      <Card style={{ marginBottom:4 }}>
-        <div style={{ padding:"18px 20px" }}>
-          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16 }}>
-            <div>
-              <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>Statistiques par Pathologie</p>
-              <p style={{ fontSize:12,color:C.textMuted }}>Motifs les plus fréquents · période sélectionnée</p>
-            </div>
-            <span style={{ background:C.greenSoft,color:C.green,fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20 }}>
-              {pathoStats.length} pathologie{pathoStats.length>1?"s":""}
-            </span>
-          </div>
-          {pathoStats.length===0
-            ? <p style={{ color:C.textMuted,textAlign:"center",padding:"28px 0",fontSize:13 }}>Aucune donnée sur cette période</p>
-            : <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px 32px" }}>
-                {pathoStats.map(({ nom, nb },i)=>(
-                  <div key={nom} style={{ display:"flex",alignItems:"center",gap:10 }}>
-                    <span style={{ fontSize:11,fontWeight:700,color:C.textMuted,width:16,textAlign:"right",flexShrink:0 }}>{i+1}</span>
-                    <span style={{ fontSize:12,color:C.textSec,width:160,flexShrink:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}
-                      title={nom}>{nom}</span>
-                    <div style={{ flex:1,height:12,background:"#f1f5f1",borderRadius:6,overflow:"hidden" }}>
-                      <div style={{ height:"100%",width:(nb/maxPatho*100)+"%",background:COULEURS[i%COULEURS.length],borderRadius:6,transition:"width .5s ease" }}/>
-                    </div>
-                    <span style={{ fontSize:12,fontWeight:700,color:C.textPri,width:22,textAlign:"right",flexShrink:0 }}>{nb}</span>
+        {/* Donut sexe */}
+        <Card>
+          <div style={{ padding:"18px 20px" }}>
+            <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>Répartition des Patients</p>
+            <p style={{ fontSize:12,color:C.textMuted,marginBottom:14 }}>Par sexe · total enregistrés</p>
+            {(()=>{
+              const total=patients.length||1
+              const pNA=total-patientsF-patientsM
+              const data=[{label:"Femmes",val:patientsF,color:C.green},{label:"Hommes",val:patientsM,color:"#1d4ed8"},{label:"N/A",val:pNA,color:"#9ca3af"}].filter(d=>d.val>0)
+              const cx=90,cy=90,R=72,r=48
+              let cum=0
+              const slices=data.map(d=>{
+                const pct=d.val/total,start=cum; cum+=pct
+                const a1=(start*2*Math.PI)-Math.PI/2, a2=((start+pct)*2*Math.PI)-Math.PI/2
+                const x1=cx+R*Math.cos(a1),y1=cy+R*Math.sin(a1),x2=cx+R*Math.cos(a2),y2=cy+R*Math.sin(a2)
+                const xi1=cx+r*Math.cos(a1),yi1=cy+r*Math.sin(a1),xi2=cx+r*Math.cos(a2),yi2=cy+r*Math.sin(a2)
+                const large=pct>0.5?1:0
+                return {...d,pct,path:`M${xi1},${yi1} L${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} L${xi2},${yi2} A${r},${r} 0 ${large} 0 ${xi1},${yi1} Z`}
+              })
+              return (
+                <div>
+                  <div style={{ display:"flex",justifyContent:"center" }}>
+                    <svg width="180" height="180" viewBox="0 0 180 180">
+                      {slices.map((s,i)=><path key={i} d={s.path} fill={s.color} stroke="#fff" strokeWidth="2.5"/>)}
+                      <text x={cx} y={cy-8}  textAnchor="middle" fontSize="24" fontWeight="800" fill={C.textPri}>{patients.length}</text>
+                      <text x={cx} y={cy+12} textAnchor="middle" fontSize="10"  fill={C.textMuted}>patients</text>
+                    </svg>
                   </div>
-                ))}
+                  <div style={{ display:"flex",flexDirection:"column",gap:7,marginTop:6 }}>
+                    {slices.map(s=>(
+                      <div key={s.label} style={{ display:"flex",alignItems:"center",gap:8 }}>
+                        <div style={{ width:10,height:10,borderRadius:3,background:s.color,flexShrink:0 }}/>
+                        <span style={{ fontSize:12,color:C.textSec,flex:1 }}>{s.label}</span>
+                        <span style={{ fontSize:13,fontWeight:700,color:C.textPri }}>{s.val}</span>
+                        <span style={{ fontSize:11,color:C.textMuted,width:34,textAlign:"right" }}>{Math.round(s.pct*100)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        </Card>
+
+        {/* Barres verticales — Pathologies */}
+        <Card>
+          <div style={{ padding:"18px 20px" }}>
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14 }}>
+              <div>
+                <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>Statistiques par Pathologie</p>
+                <p style={{ fontSize:12,color:C.textMuted }}>Motifs les plus fréquents · période sélectionnée</p>
               </div>
-          }
-        </div>
-      </Card>
+              <span style={{ background:C.greenSoft,color:C.green,fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20 }}>
+                Top {Math.min(pathoStats.length,8)}
+              </span>
+            </div>
+            {pathoStats.length===0
+              ? <p style={{ color:C.textMuted,textAlign:"center",padding:"48px 0",fontSize:13 }}>Aucune donnée sur cette période</p>
+              : (()=>{
+                  const top=pathoStats.slice(0,8)
+                  const maxV=Math.max(...top.map(p=>p.nb),1)
+                  const VW=520,VH=210,PT2=22,PB2=56,PL2=20,PR2=8
+                  const iW2=VW-PL2-PR2, iH2=VH-PT2-PB2
+                  const n=top.length
+                  const barW=Math.min(54,Math.floor((iW2-(n-1)*10)/n))
+                  const totalSp=n*barW+(n-1)*10
+                  const startX=PL2+(iW2-totalSp)/2
+                  return (
+                    <svg width="100%" viewBox={`0 0 ${VW} ${VH}`} style={{ overflow:"visible" }}>
+                      <defs>
+                        {top.map((_,i)=>(
+                          <linearGradient key={i} id={`bg${i}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%"   stopColor={COULEURS[i%COULEURS.length]} stopOpacity="1"/>
+                            <stop offset="100%" stopColor={COULEURS[i%COULEURS.length]} stopOpacity="0.65"/>
+                          </linearGradient>
+                        ))}
+                      </defs>
+                      {/* Grille */}
+                      {[0,0.25,0.5,0.75,1].map(t=>{
+                        const y=PT2+iH2-(t*iH2)
+                        return <g key={t}>
+                          <line x1={PL2} y1={y} x2={VW-PR2} y2={y} stroke={t===0?"#d1d5db":"#f0f0f0"} strokeWidth={t===0?1.5:1}/>
+                          {t>0&&<text x={PL2-4} y={y+4} textAnchor="end" fontSize="8.5" fill="#9ca3af">{Math.round(t*maxV)}</text>}
+                        </g>
+                      })}
+                      {/* Barres */}
+                      {top.map((p,i)=>{
+                        const h=Math.max((p.nb/maxV)*iH2,6)
+                        const x=startX+i*(barW+10)
+                        const y=PT2+iH2-h
+                        const lbl=p.nom.length>9?p.nom.slice(0,8)+"…":p.nom
+                        return (
+                          <g key={p.nom}>
+                            <rect x={x} y={y} width={barW} height={h} fill={`url(#bg${i})`} rx="5" ry="5"/>
+                            <text x={x+barW/2} y={y-6} textAnchor="middle" fontSize="11" fontWeight="800" fill={COULEURS[i%COULEURS.length]}>{p.nb}</text>
+                            <text x={x+barW/2} y={PT2+iH2+16} textAnchor="middle" fontSize="8.5" fill="#6b7280">{lbl}</text>
+                            <text x={x+barW/2} y={PT2+iH2+28} textAnchor="middle" fontSize="8" fill="#9ca3af">{Math.round(p.nb/Math.max(...top.map(x=>x.nb),1)*100)}%</text>
+                          </g>
+                        )
+                      })}
+                    </svg>
+                  )
+                })()
+            }
+          </div>
+        </Card>
+      </div>
     </div>
   )
 }
@@ -1261,234 +1464,495 @@ function PagePresence({ medecins }) {
 // ══════════════════════════════════════════════════════
 //  PAGE HISTORIQUE PATIENTS
 // ══════════════════════════════════════════════════════
-function PageHistorique({ consultations, patients }) {
+function PageHistorique({ consultations, patients, resultatsLabo, soins, rdv }) {
   const [search,     setSearch]     = useState("")
   const [selPatient, setSelPatient] = useState(null)
+  const [activeTab,  setActiveTab]  = useState("consultations")
+
+  const calcAge = dn => {
+    if (!dn) return null
+    const d = new Date(dn), now = new Date()
+    let age = now.getFullYear() - d.getFullYear()
+    if (now.getMonth() < d.getMonth() || (now.getMonth()===d.getMonth() && now.getDate()<d.getDate())) age--
+    return age
+  }
+
+  const getConsults = id => consultations.filter(c=>c.patientId===id).sort((a,b)=>new Date(b.date)-new Date(a.date))
+  const getLabo     = id => (resultatsLabo||[]).filter(r=>r.patientId===id).sort((a,b)=>new Date(b.date)-new Date(a.date))
+  const getSoins    = id => (soins||[]).filter(s=>s.patientId===id).sort((a,b)=>new Date(b.date)-new Date(a.date))
+  const getRdv      = id => (rdv||[]).filter(r=>r.patientId===id).sort((a,b)=>new Date(b.date)-new Date(a.date))
 
   const filtered = patients.filter(p =>
-    (p.nom + " " + (p.prenom||"") + " " + (p.telephone||"") + " " + (p.numeroDossier||""))
+    (p.nom+" "+(p.prenom||"")+" "+(p.telephone||"")+" "+(p.pid||""))
       .toLowerCase().includes(search.toLowerCase())
   )
 
-  const getHistory = (patientId) =>
-    consultations.filter(c => c.patientId === patientId)
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
+  const printIcon = <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
 
-  const handlePrint = (patient) => {
-    const hist = getHistory(patient.id)
-    const rows = hist.map(c => `
-      <tr>
-        <td>${c.date||""}</td>
-        <td>${c.service||""}</td>
-        <td>${c.signePar||"—"}</td>
-        <td>${c.motif||"—"}</td>
-        <td>${c.typeVisite==="rendez_vous"?"Rendez-vous":"Consultation"}</td>
-        <td style="text-align:right">${c.montant?c.montant.toLocaleString("fr-FR")+" GNF":"—"}</td>
-        <td style="text-align:center">${c.statut==="paye"?"✓ Payé":"En attente"}</td>
-      </tr>`).join("")
-    const w = window.open("","_blank")
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
-    <style>
-      @page{size:A4;margin:14mm 16mm}
-      body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#111}
-      .hdr{text-align:center;border-bottom:2px solid #16a34a;padding-bottom:10px;margin-bottom:14px}
-      .hdr h1{font-size:15pt;color:#16a34a;margin:0}
-      .hdr p{font-size:9pt;color:#555;margin:2px 0}
-      .pat-box{border:1px solid #e2ebe4;border-radius:6px;padding:10px 14px;margin-bottom:16px;background:#f7fdf9}
-      .pat-box h2{font-size:12pt;margin:0 0 8px;color:#111}
-      .pat-box p{font-size:10pt;color:#374151;margin:2px 0}
-      table{width:100%;border-collapse:collapse;font-size:9.5pt}
-      th{background:#16a34a;color:#fff;padding:7px 8px;text-align:left;font-weight:600}
-      td{padding:6px 8px;border-bottom:1px solid #e5e7eb}
-      tr:nth-child(even) td{background:#f9fafb}
-      .footer{text-align:center;font-size:8.5pt;color:#888;margin-top:20px;border-top:1px solid #e2ebe4;padding-top:8px}
-    </style></head><body>
-    <div class="hdr">
+  const handlePrint = (p) => {
+    const age = calcAge(p.dateNaissance)
+    const hist = getConsults(p.id)
+    const labo = getLabo(p.id)
+    const soinsList = getSoins(p.id)
+    const rdvList = getRdv(p.id)
+    const payTotal = hist.filter(c=>c.statut==="paye").reduce((s,c)=>s+(c.montant||0),0)
+
+    const arr2str = v => Array.isArray(v)&&v.length ? v.join(", ") : (v||"—")
+    const val     = v => v || "—"
+
+    const css = `
+      @page { size:A4; margin:12mm 14mm }
+      * { box-sizing:border-box; margin:0; padding:0 }
+      body { font-family:'Segoe UI',Arial,sans-serif; font-size:9.5pt; color:#111; background:#fff }
+      .hdr { text-align:center; border-bottom:2.5px solid #16a34a; padding-bottom:8px; margin-bottom:12px }
+      .hdr h1 { font-size:14pt; color:#16a34a; font-weight:800 }
+      .hdr p  { font-size:8pt; color:#555; margin-top:2px }
+      .pat-box { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px 18px; border:1px solid #b6d9c2; border-radius:7px; padding:10px 14px; margin-bottom:12px; background:#f0fdf4 }
+      .pat-box .row { font-size:9pt; color:#374151; padding:2px 0; border-bottom:1px solid #e2ebe4 }
+      .pat-box .row b { color:#111; font-weight:700 }
+      .section-title { font-size:10.5pt; font-weight:800; color:#16a34a; border-left:3px solid #16a34a; padding-left:8px; margin:14px 0 8px; page-break-after:avoid }
+      .consult-card { border:1px solid #e2ebe4; border-radius:7px; padding:10px 13px; margin-bottom:10px; page-break-inside:avoid; background:#fff }
+      .consult-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid #e2ebe4 }
+      .consult-num { font-size:8pt; font-weight:700; color:#fff; background:#16a34a; padding:2px 8px; border-radius:20px }
+      .consult-date { font-size:10pt; font-weight:800; color:#111 }
+      .consult-service { font-size:8.5pt; color:#1d6fa4; font-weight:600 }
+      .consult-medecin { font-size:8.5pt; color:#6b7280 }
+      .consult-body { display:grid; grid-template-columns:1fr 1fr; gap:6px 18px }
+      .field { padding:4px 0; border-bottom:1px solid #f3f4f6 }
+      .field-lbl { font-size:7.5pt; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:1px }
+      .field-val { font-size:9pt; color:#111 }
+      .field.full { grid-column:1/-1 }
+      .badge { display:inline-block; font-size:7.5pt; font-weight:700; padding:2px 8px; border-radius:20px; margin-right:3px }
+      .badge-green { background:#dcfce7; color:#15803d }
+      .badge-slate { background:#f1f5f9; color:#475569 }
+      .badge-blue  { background:#dbeafe; color:#1d4ed8 }
+      .badge-amber { background:#fef3c7; color:#b45309 }
+      table { width:100%; border-collapse:collapse; font-size:8.5pt; margin-bottom:10px }
+      th { background:#16a34a; color:#fff; padding:5px 8px; text-align:left; font-weight:600 }
+      td { padding:5px 8px; border-bottom:1px solid #f0f0f0 }
+      tr:nth-child(even) td { background:#f9fafb }
+      .summary-row { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap }
+      .summary-kpi { border:1px solid #e2ebe4; border-radius:7px; padding:7px 12px; background:#f7fdf9; text-align:center; flex:1; min-width:80px }
+      .summary-kpi .sv { font-size:14pt; font-weight:800; color:#16a34a }
+      .summary-kpi .sl { font-size:7.5pt; color:#6b7280 }
+      .footer { text-align:center; font-size:8pt; color:#888; margin-top:18px; border-top:1px solid #e2ebe4; padding-top:7px }
+      @media print { body { -webkit-print-color-adjust:exact; print-color-adjust:exact } }
+    `
+
+    const hdr = `<div class="hdr">
       <h1>CABINET MÉDICAL MAROUANE</h1>
       <p>Dr DOUMBOUYA Amadou · Médecin Généraliste &amp; Urgentiste · Tél : +224 628 72 72 72</p>
-      <p>Email : cabinetmarouane@gmail.com · Imprimé le ${new Date().toLocaleDateString("fr-FR")}</p>
+      <p>cabinetmarouane@gmail.com &nbsp;·&nbsp; Dossier patient imprimé le ${new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
+    </div>`
+
+    const info = `<div class="pat-box">
+      <div class="row"><b>Nom complet :</b> ${p.nom}${p.prenom?" "+p.prenom:""}</div>
+      <div class="row"><b>N° Dossier :</b> ${p.pid||p.id}</div>
+      <div class="row"><b>Sexe :</b> ${p.sexe||"N/A"}</div>
+      <div class="row"><b>Date de naissance :</b> ${p.dateNaissance||"N/A"}${age!==null?" · "+age+" ans":""}</div>
+      <div class="row"><b>Téléphone :</b> ${p.telephone||"N/A"}</div>
+      <div class="row"><b>Profession :</b> ${p.profession||"N/A"}</div>
+      <div class="row"><b>Quartier / Secteur :</b> ${p.quartier||"N/A"}${p.secteur?" · "+p.secteur:""}</div>
+      <div class="row"><b>Responsable :</b> ${p.responsable||"N/A"}</div>
+      <div class="row"><b>Ville :</b> ${p.ville||"Conakry"}</div>
     </div>
-    <div class="pat-box">
-      <h2>Historique Patient</h2>
-      <p><b>Nom :</b> ${patient.nom}${patient.prenom?" "+patient.prenom:""} &nbsp;&nbsp; <b>Sexe :</b> ${patient.sexe||"N/A"} &nbsp;&nbsp; <b>Âge :</b> ${patient.age||"N/A"} ans</p>
-      <p><b>Tél :</b> ${patient.telephone||"N/A"} &nbsp;&nbsp; <b>Dossier N° :</b> ${patient.numeroDossier||patient.id}</p>
-    </div>
-    <table>
-      <thead><tr>
-        <th>Date</th><th>Service</th><th>Médecin</th><th>Motif</th><th>Type</th><th style="text-align:right">Montant</th><th style="text-align:center">Statut</th>
-      </tr></thead>
-      <tbody>${rows||"<tr><td colspan='7' style='text-align:center;color:#888'>Aucune consultation enregistrée</td></tr>"}</tbody>
-    </table>
-    <p style="margin-top:10px;font-size:9.5pt;color:#374151"><b>Total consultations :</b> ${hist.length} &nbsp;|&nbsp; <b>Total payé :</b> ${hist.filter(c=>c.statut==="paye").reduce((s,c)=>s+(c.montant||0),0).toLocaleString("fr-FR")} GNF</p>
-    <div class="footer">Document confidentiel · Cabinet Médical Marouane</div>
+    <div class="summary-row">
+      <div class="summary-kpi"><div class="sv">${hist.length}</div><div class="sl">Consultations</div></div>
+      <div class="summary-kpi"><div class="sv">${hist.filter(c=>c.statut==="paye").length}</div><div class="sl">Payées</div></div>
+      <div class="summary-kpi"><div class="sv">${payTotal.toLocaleString("fr-FR")} GNF</div><div class="sl">Total encaissé</div></div>
+      <div class="summary-kpi"><div class="sv">${labo.length}</div><div class="sl">Analyses Labo</div></div>
+      <div class="summary-kpi"><div class="sv">${soinsList.length}</div><div class="sl">Soins infirmiers</div></div>
+      <div class="summary-kpi"><div class="sv">${rdvList.length}</div><div class="sl">Rendez-vous</div></div>
+    </div>`
+
+    // ── Fiches consultations détaillées ──
+    const ficheC = hist.length===0
+      ? `<p style="color:#9ca3af;text-align:center;padding:12px 0">Aucune consultation enregistrée</p>`
+      : hist.map((c,i)=>{
+          const typeBadge = c.typeVisite==="rendez_vous"||c.typeConsultation==="rendez_vous"
+            ? `<span class="badge badge-blue">Rendez-vous</span>`
+            : c.typeVisite==="urgence"||c.typeConsultation==="urgence"
+              ? `<span class="badge badge-amber">Urgence</span>`
+              : `<span class="badge badge-slate">Consultation</span>`
+          const statutBadge = c.statut==="paye"
+            ? `<span class="badge badge-green">✓ Payé</span>`
+            : `<span class="badge badge-slate">En attente</span>`
+          return `<div class="consult-card">
+            <div class="consult-header">
+              <div>
+                <span class="consult-num">Consultation #${i+1}</span>
+                <span class="consult-date" style="margin-left:10px">${c.date||"—"}</span>
+              </div>
+              <div style="text-align:right">
+                ${typeBadge} ${statutBadge}
+              </div>
+            </div>
+            <div style="display:flex;gap:16px;margin-bottom:8px;font-size:8.5pt">
+              <span><b style="color:#9ca3af">Service :</b> <span class="consult-service">${val(c.service)}</span></span>
+              <span><b style="color:#9ca3af">Médecin :</b> <span class="consult-medecin">${val(c.signePar||c.medecin)}</span></span>
+              ${c.signeLe?`<span><b style="color:#9ca3af">Signé le :</b> <span style="color:#6b7280">${c.signeLe}</span></span>`:""}
+            </div>
+            <div class="consult-body">
+              <div class="field">
+                <div class="field-lbl">Motif de consultation</div>
+                <div class="field-val">${val(c.motif)}</div>
+              </div>
+              <div class="field">
+                <div class="field-lbl">Symptômes</div>
+                <div class="field-val">${arr2str(c.symptomes)}</div>
+              </div>
+              <div class="field">
+                <div class="field-lbl">Observations cliniques</div>
+                <div class="field-val">${val(c.observations)}</div>
+              </div>
+              <div class="field">
+                <div class="field-lbl">Type de visite</div>
+                <div class="field-val">${val(c.typeVisite||c.typeConsultation)}</div>
+              </div>
+              <div class="field full">
+                <div class="field-lbl">Diagnostics</div>
+                <div class="field-val">${arr2str(c.diagnostics)}</div>
+              </div>
+              <div class="field full">
+                <div class="field-lbl">Pathologies identifiées</div>
+                <div class="field-val">${arr2str(c.pathologies)}</div>
+              </div>
+              <div class="field full">
+                <div class="field-lbl">Examens demandés</div>
+                <div class="field-val">${arr2str(c.examens)}</div>
+              </div>
+              <div class="field full">
+                <div class="field-lbl">Traitements prescrits</div>
+                <div class="field-val">${arr2str(c.traitements)}</div>
+              </div>
+              <div class="field full">
+                <div class="field-lbl">Commentaires / Recommandations</div>
+                <div class="field-val">${val(c.commentaires||c.notes)}</div>
+              </div>
+              <div class="field">
+                <div class="field-lbl">Montant</div>
+                <div class="field-val">${c.montant?c.montant.toLocaleString("fr-FR")+" GNF":"—"}</div>
+              </div>
+              <div class="field">
+                <div class="field-lbl">Mode de paiement</div>
+                <div class="field-val">${c.paiement==="cash"?"Espèces":c.paiement==="carte"?"Carte bancaire":c.paiement||"—"}</div>
+              </div>
+            </div>
+          </div>`
+        }).join("")
+
+    // ── Analyses Labo ──
+    const ficheL = labo.length===0
+      ? `<p style="color:#9ca3af;text-align:center;padding:8px 0">Aucune analyse enregistrée</p>`
+      : `<table><thead><tr><th>Date</th><th>Examen</th><th>Type d'analyse</th><th>Prescripteur</th><th style="text-align:center">Statut</th></tr></thead><tbody>
+          ${labo.map(r=>`<tr><td>${r.date||"—"}</td><td><b>${r.nomExamen||"—"}</b></td><td>${r.typeAnalyse||"—"}</td><td>${r.prescripteur||"—"}</td><td style="text-align:center">${r.valide?"✓ Validé":"En attente"}</td></tr>`).join("")}
+        </tbody></table>`
+
+    // ── Soins infirmiers ──
+    const ficheS = soinsList.length===0
+      ? `<p style="color:#9ca3af;text-align:center;padding:8px 0">Aucun soin enregistré</p>`
+      : `<table><thead><tr><th>Date</th><th>Heure</th><th>Type de soin</th><th>Description</th><th>Infirmier</th><th style="text-align:center">Statut</th></tr></thead><tbody>
+          ${soinsList.map(s=>`<tr><td>${s.date||"—"}</td><td>${s.heure||"—"}</td><td>${s.type||"—"}</td><td>${s.description||"—"}</td><td>${s.infirmier||"—"}</td><td style="text-align:center">${s.statut||"—"}</td></tr>`).join("")}
+        </tbody></table>`
+
+    // ── Rendez-vous ──
+    const ficheR = rdvList.length===0
+      ? `<p style="color:#9ca3af;text-align:center;padding:8px 0">Aucun rendez-vous enregistré</p>`
+      : `<table><thead><tr><th>Date</th><th>Heure</th><th>Service</th><th>Médecin</th><th>Motif</th></tr></thead><tbody>
+          ${rdvList.map(r=>`<tr><td>${r.date||"—"}</td><td>${r.heure||"—"}</td><td>${r.service||"—"}</td><td>${r.docteur||"—"}</td><td>${r.motif||"—"}</td></tr>`).join("")}
+        </tbody></table>`
+
+    const w = window.open("","_blank")
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>Dossier Patient · ${p.nom}</title>
+      <style>${css}</style></head><body>
+      ${hdr}${info}
+      <div class="section-title">Consultations Médicales Détaillées (${hist.length})</div>
+      ${ficheC}
+      <div class="section-title">Analyses de Laboratoire (${labo.length})</div>
+      ${ficheL}
+      <div class="section-title">Soins Infirmiers (${soinsList.length})</div>
+      ${ficheS}
+      <div class="section-title">Rendez-vous (${rdvList.length})</div>
+      ${ficheR}
+      <div class="footer">Document médical confidentiel · Cabinet Médical Marouane · ${new Date().toLocaleDateString("fr-FR")}</div>
     </body></html>`)
-    w.document.close()
-    w.focus()
-    setTimeout(()=>{ w.print(); w.close() },500)
+    w.document.close(); w.focus(); setTimeout(()=>{ w.print(); w.close() },600)
   }
+
+  const TABS = [
+    { id:"consultations", label:"Consultations" },
+    { id:"labo",          label:"Analyses Labo" },
+    { id:"soins",         label:"Soins Infirmiers" },
+    { id:"rdv",           label:"Rendez-vous" },
+  ]
 
   return (
     <div style={{ maxWidth:980,margin:"0 auto" }}>
 
-      {/* En-tête */}
       <div style={{ marginBottom:24 }}>
         <p style={{ fontSize:26,fontWeight:800,color:C.textPri,letterSpacing:"-0.5px",marginBottom:4 }}>Historique des Patients</p>
         <p style={{ fontSize:13,color:C.textSec }}>{patients.length} patient{patients.length>1?"s":""} enregistré{patients.length>1?"s":""}</p>
       </div>
 
-      {/* Barre de recherche */}
-      <div style={{ position:"relative",marginBottom:20,maxWidth:420 }}>
+      <div style={{ position:"relative",marginBottom:20,maxWidth:440 }}>
         <svg style={{ position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }}
           width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round">
           <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         <input value={search} onChange={e=>setSearch(e.target.value)}
-          placeholder="Rechercher par nom, téléphone, dossier…"
-          style={{ width:"100%",padding:"10px 12px 10px 38px",border:"1px solid "+C.border,borderRadius:10,fontSize:13,fontFamily:"inherit",outline:"none",background:C.white }} />
+          placeholder="Rechercher par nom, téléphone, N° dossier…"
+          style={{ width:"100%",padding:"10px 12px 10px 38px",border:"1px solid "+C.border,borderRadius:10,fontSize:13,fontFamily:"inherit",outline:"none",background:C.white }}/>
       </div>
 
-      {/* Grille patients */}
-      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12 }}>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:12 }}>
         {filtered.map(p => {
-          const hist = getHistory(p.id)
+          const age = calcAge(p.dateNaissance)
+          const hist = getConsults(p.id)
+          const nLabo = getLabo(p.id).length
+          const nSoins = getSoins(p.id).length
           const derniere = hist[0]
           return (
-            <Card key={p.id}
-              style={{ padding:"16px 18px",cursor:"pointer",transition:"box-shadow .2s",borderRadius:12 }}
+            <Card key={p.id} style={{ padding:"16px 18px",cursor:"pointer",transition:"box-shadow .2s" }}
               onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,0.10)"}
               onMouseLeave={e=>e.currentTarget.style.boxShadow=""}>
-              <div style={{ display:"flex",alignItems:"flex-start",gap:12 }}>
-                <Avatar name={p.nom} size={40}/>
+              <div style={{ display:"flex",alignItems:"flex-start",gap:12,marginBottom:10 }}>
+                <Avatar name={p.nom} size={42}/>
                 <div style={{ flex:1,minWidth:0 }}>
-                  <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>{p.nom}{p.prenom?" "+p.prenom:""}</p>
-                  <p style={{ fontSize:12,color:C.textMuted,marginBottom:8 }}>{p.telephone||"Tél. non renseigné"} · {p.age||"—"} ans · {p.sexe||"N/A"}</p>
-                  <div style={{ display:"flex",gap:8 }}>
-                    <span style={{ background:C.blueSoft,color:C.blue,fontSize:11,fontWeight:600,padding:"3px 9px",borderRadius:20 }}>
-                      {hist.length} consult.
-                    </span>
-                    {derniere&&<span style={{ background:C.slateSoft,color:C.slate,fontSize:11,padding:"3px 9px",borderRadius:20 }}>
-                      Dernier: {derniere.date}
-                    </span>}
-                  </div>
+                  <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:1 }}>{p.nom}{p.prenom?" "+p.prenom:""}</p>
+                  <p style={{ fontSize:11,color:C.textMuted,marginBottom:1 }}>
+                    {p.sexe||"N/A"} · {age!==null?age+" ans":"—"} · {p.telephone||"—"}
+                  </p>
+                  <p style={{ fontSize:11,color:C.textMuted }}>{p.profession||"—"} · {p.quartier||"—"}</p>
                 </div>
               </div>
-              <div style={{ display:"flex",gap:8,marginTop:12 }}>
-                <button onClick={()=>setSelPatient(p)}
+              <div style={{ display:"flex",flexWrap:"wrap",gap:6,marginBottom:12 }}>
+                <span style={{ background:C.blueSoft,color:C.blue,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20 }}>{hist.length} consult.</span>
+                {nLabo>0&&<span style={{ background:C.purpleSoft,color:C.purple,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20 }}>{nLabo} labo</span>}
+                {nSoins>0&&<span style={{ background:C.tealSoft,color:C.teal,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20 }}>{nSoins} soins</span>}
+                {derniere&&<span style={{ background:C.slateSoft,color:C.slate,fontSize:11,padding:"3px 8px",borderRadius:20 }}>Dernier: {derniere.date}</span>}
+              </div>
+              <div style={{ display:"flex",gap:8 }}>
+                <button onClick={()=>{ setSelPatient(p); setActiveTab("consultations") }}
                   style={{ flex:1,padding:"8px",background:C.green,color:"#fff",border:"none",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
                   Voir historique
                 </button>
-                <button onClick={()=>handlePrint(p)}
-                  style={{ padding:"8px 12px",background:C.white,color:C.textSec,border:"1px solid "+C.border,borderRadius:8,fontSize:12,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5 }}
-                  title="Imprimer">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                <button onClick={()=>handlePrint(p)} title="Imprimer"
+                  style={{ padding:"8px 12px",background:C.white,color:C.textSec,border:"1px solid "+C.border,borderRadius:8,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5 }}>
+                  {printIcon}
                 </button>
               </div>
             </Card>
           )
         })}
         {filtered.length===0&&(
-          <p style={{ gridColumn:"1/-1",textAlign:"center",padding:"48px 0",color:C.textMuted,fontSize:14 }}>
-            Aucun patient trouvé
-          </p>
+          <p style={{ gridColumn:"1/-1",textAlign:"center",padding:"48px 0",color:C.textMuted,fontSize:14 }}>Aucun patient trouvé</p>
         )}
       </div>
 
-      {/* Modal historique */}
-      {selPatient&&(
-        <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}
-          onClick={()=>setSelPatient(null)}>
-          <div style={{ background:C.white,borderRadius:16,width:"100%",maxWidth:780,maxHeight:"88vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(0,0,0,0.22)" }}
-            onClick={e=>e.stopPropagation()}>
+      {/* ── Modal ── */}
+      {selPatient&&(()=>{
+        const age = calcAge(selPatient.dateNaissance)
+        const hist = getConsults(selPatient.id)
+        const labo = getLabo(selPatient.id)
+        const soinsList = getSoins(selPatient.id)
+        const rdvList = getRdv(selPatient.id)
+        const payees = hist.filter(c=>c.statut==="paye")
+        const totalPaye = payees.reduce((s,c)=>s+(c.montant||0),0)
+        return (
+          <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}
+            onClick={()=>setSelPatient(null)}>
+            <div style={{ background:C.white,borderRadius:16,width:"100%",maxWidth:860,maxHeight:"92vh",display:"flex",flexDirection:"column",boxShadow:"0 28px 70px rgba(0,0,0,0.25)" }}
+              onClick={e=>e.stopPropagation()}>
 
-            {/* Header modal */}
-            <div style={{ padding:"20px 24px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
-              <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-                <Avatar name={selPatient.nom} size={44}/>
-                <div>
-                  <p style={{ fontSize:16,fontWeight:800,color:C.textPri }}>{selPatient.nom}{selPatient.prenom?" "+selPatient.prenom:""}</p>
-                  <p style={{ fontSize:12,color:C.textMuted }}>{selPatient.telephone||"—"} · {selPatient.age||"—"} ans · {selPatient.sexe||"N/A"} · Dossier #{selPatient.numeroDossier||selPatient.id}</p>
+              {/* Header */}
+              <div style={{ padding:"18px 22px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
+                <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+                  <Avatar name={selPatient.nom} size={46}/>
+                  <div>
+                    <p style={{ fontSize:17,fontWeight:800,color:C.textPri,marginBottom:2 }}>{selPatient.nom}{selPatient.prenom?" "+selPatient.prenom:""}</p>
+                    <p style={{ fontSize:12,color:C.textMuted }}>{selPatient.pid||"—"} · {selPatient.sexe||"N/A"} · {age!==null?age+" ans":"—"} · {selPatient.telephone||"—"}</p>
+                  </div>
+                </div>
+                <div style={{ display:"flex",gap:8 }}>
+                  <button onClick={()=>handlePrint(selPatient)}
+                    style={{ display:"flex",alignItems:"center",gap:6,padding:"9px 16px",background:C.green,color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
+                    {printIcon} Imprimer
+                  </button>
+                  <button onClick={()=>setSelPatient(null)}
+                    style={{ width:36,height:36,borderRadius:8,border:"1px solid "+C.border,background:C.white,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.textMuted }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
                 </div>
               </div>
-              <div style={{ display:"flex",gap:8 }}>
-                <button onClick={()=>handlePrint(selPatient)}
-                  style={{ display:"flex",alignItems:"center",gap:6,padding:"9px 16px",background:C.green,color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                  Imprimer
-                </button>
-                <button onClick={()=>setSelPatient(null)}
-                  style={{ width:36,height:36,borderRadius:8,border:"1px solid "+C.border,background:C.white,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:C.textMuted }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-            </div>
 
-            {/* KPI résumé */}
-            {(() => {
-              const hist = getHistory(selPatient.id)
-              const payees = hist.filter(c=>c.statut==="paye")
-              const total = payees.reduce((s,c)=>s+(c.montant||0),0)
-              return (
-                <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,padding:"16px 24px",borderBottom:"1px solid "+C.border,flexShrink:0 }}>
+              {/* Infos complètes patient */}
+              <div style={{ padding:"12px 22px",borderBottom:"1px solid "+C.border,background:"#f9fafb",flexShrink:0 }}>
+                <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"4px 16px" }}>
                   {[
-                    { label:"Total consultations", val:hist.length, color:C.blue },
-                    { label:"Consultations payées", val:payees.length, color:C.green },
-                    { label:"Total encaissé", val:total.toLocaleString("fr-FR")+" GNF", color:C.amber },
-                  ].map(({label,val,color})=>(
-                    <div key={label} style={{ textAlign:"center",padding:"10px",background:C.slateSoft,borderRadius:10 }}>
-                      <p style={{ fontSize:20,fontWeight:800,color }}>{val}</p>
-                      <p style={{ fontSize:11,color:C.textMuted,marginTop:2 }}>{label}</p>
+                    ["Date naiss.", selPatient.dateNaissance||(age!==null?age+" ans":"—")],
+                    ["Profession", selPatient.profession||"—"],
+                    ["Quartier",   (selPatient.quartier||"—")+(selPatient.secteur?" · "+selPatient.secteur:"")],
+                    ["Responsable",selPatient.responsable||"—"],
+                  ].map(([lbl,val])=>(
+                    <div key={lbl}>
+                      <span style={{ fontSize:10,color:C.textMuted,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px" }}>{lbl}</span>
+                      <p style={{ fontSize:12,color:C.textPri,fontWeight:500,marginTop:1 }}>{val}</p>
                     </div>
                   ))}
                 </div>
-              )
-            })()}
+              </div>
 
-            {/* Tableau historique */}
-            <div style={{ overflowY:"auto",flex:1,padding:"0 24px 24px" }}>
-              {(() => {
-                const hist = getHistory(selPatient.id)
-                if (hist.length===0) return (
-                  <p style={{ textAlign:"center",padding:"40px 0",color:C.textMuted,fontSize:14 }}>Aucune consultation enregistrée pour ce patient</p>
-                )
-                return (
-                  <table style={{ width:"100%",borderCollapse:"collapse",marginTop:16 }}>
-                    <thead>
-                      <tr style={{ position:"sticky",top:0,background:C.white }}>
-                        {["Date","Service","Médecin","Motif","Type","Montant","Statut"].map(h=>(
-                          <th key={h} style={{ padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.4px",borderBottom:"2px solid "+C.border }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {hist.map((c,i,arr)=>(
-                        <tr key={c.id} style={{ borderBottom:i<arr.length-1?"1px solid #f0f0f0":"none" }}
-                          onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
-                          onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                          <td style={{ padding:"11px 12px",fontSize:13,fontWeight:600,color:C.textPri,whiteSpace:"nowrap" }}>{c.date}</td>
-                          <td style={{ padding:"11px 12px",fontSize:12,color:C.textSec }}>{c.service||"—"}</td>
-                          <td style={{ padding:"11px 12px",fontSize:12,color:C.textSec,whiteSpace:"nowrap" }}>{c.signePar||"—"}</td>
-                          <td style={{ padding:"11px 12px",fontSize:12,color:C.textSec,maxWidth:200 }}>{c.motif||"—"}</td>
-                          <td style={{ padding:"11px 12px" }}>
-                            <span style={{ background:c.typeVisite==="rendez_vous"?C.purpleSoft:C.blueSoft,color:c.typeVisite==="rendez_vous"?C.purple:C.blue,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:20 }}>
-                              {c.typeVisite==="rendez_vous"?"RDV":"Consult."}
-                            </span>
-                          </td>
-                          <td style={{ padding:"11px 12px",fontSize:13,fontWeight:600,color:C.textPri,whiteSpace:"nowrap" }}>
-                            {c.montant?c.montant.toLocaleString("fr-FR")+" GNF":"—"}
-                          </td>
-                          <td style={{ padding:"11px 12px" }}>
-                            <StatutBadge statut={c.statut||"en_attente"}/>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )
-              })()}
+              {/* KPI 4 colonnes */}
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,padding:"12px 22px",borderBottom:"1px solid "+C.border,flexShrink:0 }}>
+                {[
+                  { label:"Consultations", val:hist.length,      color:C.blue,   bg:C.blueSoft   },
+                  { label:"Total encaissé",val:totalPaye.toLocaleString("fr-FR")+" GNF", color:C.green,  bg:C.greenSoft  },
+                  { label:"Analyses Labo", val:labo.length,      color:C.purple, bg:C.purpleSoft },
+                  { label:"Soins / RDV",   val:soinsList.length+" / "+rdvList.length, color:C.teal,   bg:C.tealSoft   },
+                ].map(({label,val,color,bg})=>(
+                  <div key={label} style={{ textAlign:"center",padding:"8px 6px",background:bg,borderRadius:10 }}>
+                    <p style={{ fontSize:18,fontWeight:800,color,lineHeight:1,marginBottom:3 }}>{val}</p>
+                    <p style={{ fontSize:10,color:C.textMuted }}>{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Onglets */}
+              <div style={{ display:"flex",borderBottom:"1px solid "+C.border,flexShrink:0,paddingLeft:22 }}>
+                {TABS.map(t=>(
+                  <button key={t.id} onClick={()=>setActiveTab(t.id)}
+                    style={{ padding:"11px 18px",border:"none",background:"none",cursor:"pointer",fontSize:13,fontWeight:activeTab===t.id?700:500,
+                      color:activeTab===t.id?C.green:C.textSec,
+                      borderBottom:activeTab===t.id?"2px solid "+C.green:"2px solid transparent",
+                      fontFamily:"inherit",transition:"color .15s" }}>
+                    {t.label}
+                    <span style={{ marginLeft:6,background:activeTab===t.id?C.greenSoft:"#f1f5f1",color:activeTab===t.id?C.green:C.textMuted,fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:20 }}>
+                      {t.id==="consultations"?hist.length:t.id==="labo"?labo.length:t.id==="soins"?soinsList.length:rdvList.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Contenu onglets */}
+              <div style={{ overflowY:"auto",flex:1,padding:"16px 22px 20px" }}>
+
+                {/* ── Consultations ── */}
+                {activeTab==="consultations"&&(
+                  hist.length===0
+                    ? <p style={{ textAlign:"center",padding:"36px 0",color:C.textMuted,fontSize:14 }}>Aucune consultation enregistrée</p>
+                    : <table style={{ width:"100%",borderCollapse:"collapse" }}>
+                        <thead><tr>
+                          {["Date","Service","Médecin","Motif","Diagnostics","Traitements","Montant","Statut"].map(h=>(
+                            <th key={h} style={{ padding:"9px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.4px",borderBottom:"2px solid "+C.border }}>{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {hist.map((c,i,arr)=>(
+                            <tr key={c.id} style={{ borderBottom:i<arr.length-1?"1px solid #f0f0f0":"none" }}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+                              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                              <td style={{ padding:"10px",fontSize:12,fontWeight:600,color:C.textPri,whiteSpace:"nowrap" }}>{c.date}</td>
+                              <td style={{ padding:"10px",fontSize:11,color:C.textSec,maxWidth:120 }}>{c.service||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:11,color:C.textSec,whiteSpace:"nowrap" }}>{c.signePar||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:11,color:C.textSec,maxWidth:140 }}>{c.motif||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:11,color:C.textSec,maxWidth:150 }}>{Array.isArray(c.diagnostics)&&c.diagnostics.length?c.diagnostics.join(", "):"—"}</td>
+                              <td style={{ padding:"10px",fontSize:11,color:C.textSec,maxWidth:150 }}>{Array.isArray(c.traitements)&&c.traitements.length?c.traitements.join(", "):"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,fontWeight:600,color:C.textPri,whiteSpace:"nowrap" }}>{c.montant?c.montant.toLocaleString("fr-FR")+" GNF":"—"}</td>
+                              <td style={{ padding:"10px" }}><StatutBadge statut={c.statut||"en_attente"}/></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                )}
+
+                {/* ── Analyses Labo ── */}
+                {activeTab==="labo"&&(
+                  labo.length===0
+                    ? <p style={{ textAlign:"center",padding:"36px 0",color:C.textMuted,fontSize:14 }}>Aucune analyse de laboratoire enregistrée</p>
+                    : <table style={{ width:"100%",borderCollapse:"collapse" }}>
+                        <thead><tr>
+                          {["Date","Examen","Type d'analyse","Prescripteur","Statut"].map(h=>(
+                            <th key={h} style={{ padding:"9px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.4px",borderBottom:"2px solid "+C.border }}>{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {labo.map((r,i,arr)=>(
+                            <tr key={r.id} style={{ borderBottom:i<arr.length-1?"1px solid #f0f0f0":"none" }}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+                              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                              <td style={{ padding:"10px",fontSize:12,fontWeight:600,color:C.textPri,whiteSpace:"nowrap" }}>{r.date||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{r.nomExamen||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{r.typeAnalyse||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{r.prescripteur||"—"}</td>
+                              <td style={{ padding:"10px" }}>
+                                <span style={{ background:r.valide?C.greenSoft:C.slateSoft,color:r.valide?C.green:C.slate,fontSize:11,fontWeight:600,padding:"3px 9px",borderRadius:20 }}>
+                                  {r.valide?"Validé":"En attente"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                )}
+
+                {/* ── Soins Infirmiers ── */}
+                {activeTab==="soins"&&(
+                  soinsList.length===0
+                    ? <p style={{ textAlign:"center",padding:"36px 0",color:C.textMuted,fontSize:14 }}>Aucun soin infirmier enregistré</p>
+                    : <table style={{ width:"100%",borderCollapse:"collapse" }}>
+                        <thead><tr>
+                          {["Date","Heure","Type","Description","Infirmier","Statut"].map(h=>(
+                            <th key={h} style={{ padding:"9px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.4px",borderBottom:"2px solid "+C.border }}>{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {soinsList.map((s,i,arr)=>(
+                            <tr key={s.id} style={{ borderBottom:i<arr.length-1?"1px solid #f0f0f0":"none" }}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+                              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                              <td style={{ padding:"10px",fontSize:12,fontWeight:600,color:C.textPri }}>{s.date||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{s.heure||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{s.type||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec,maxWidth:200 }}>{s.description||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{s.infirmier||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{s.statut||"—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                )}
+
+                {/* ── Rendez-vous ── */}
+                {activeTab==="rdv"&&(
+                  rdvList.length===0
+                    ? <p style={{ textAlign:"center",padding:"36px 0",color:C.textMuted,fontSize:14 }}>Aucun rendez-vous enregistré</p>
+                    : <table style={{ width:"100%",borderCollapse:"collapse" }}>
+                        <thead><tr>
+                          {["Date","Heure","Service","Médecin","Motif"].map(h=>(
+                            <th key={h} style={{ padding:"9px 10px",textAlign:"left",fontSize:10,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.4px",borderBottom:"2px solid "+C.border }}>{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {rdvList.map((r,i,arr)=>(
+                            <tr key={r.id} style={{ borderBottom:i<arr.length-1?"1px solid #f0f0f0":"none" }}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f9fafb"}
+                              onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                              <td style={{ padding:"10px",fontSize:12,fontWeight:600,color:C.textPri,whiteSpace:"nowrap" }}>{r.date}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{r.heure||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{r.service||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{r.docteur||"—"}</td>
+                              <td style={{ padding:"10px",fontSize:12,color:C.textSec }}>{r.motif||"—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
@@ -1501,7 +1965,7 @@ export default function DashboardMedecinChef() {
   const navigate   = useNavigate()
   const handleLogout = () => { logout(); navigate("/login") }
 
-  const { patients: sharedPatients, consultations: sharedConsultations, addConsultation, updateConsultation, file, updateFileEntry, addNotif } = useSharedData()
+  const { patients: sharedPatients, consultations: sharedConsultations, addConsultation, updateConsultation, file, updateFileEntry, addNotif, resultatsLabo, soins, rdv } = useSharedData()
 
   const [page,         setPage]         = useState("accueil")
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
@@ -1688,7 +2152,7 @@ export default function DashboardMedecinChef() {
         {page==="comptes"       && <PageComptes       comptes={comptes} setComptes={setComptes} medecins={medecins} setMedecins={setMedecins} />}
         {page==="presence"      && <PagePresence      medecins={medecins} />}
         {page==="stats"         && <PageStats         consultations={consultations} patients={patients} />}
-        {page==="historique"    && <PageHistorique    consultations={consultations} patients={patients} />}
+        {page==="historique"    && <PageHistorique    consultations={consultations} patients={patients} resultatsLabo={resultatsLabo} soins={soins} rdv={rdv} />}
       </main>
 
       <style>{`

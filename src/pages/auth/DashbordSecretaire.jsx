@@ -358,7 +358,7 @@ function ModalRechercheDossier({ patients, onClose, onSignaler }) {
                   <p style={{ fontSize:12,color:C.textMuted }}>{p.quartier}{p.secteur?", "+p.secteur:""}</p>
                 </div>
                 <Btn onClick={()=>handleSelectionner(p)} small variant="success">
-                  Sélectionner →
+                  <span style={{ display:"inline-flex",alignItems:"center",gap:5 }}>Sélectionner<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
                 </Btn>
               </div>
             ))}
@@ -412,7 +412,7 @@ function ModalRechercheDossier({ patients, onClose, onSignaler }) {
             )}
 
             <div style={{ display:"flex",gap:10 }}>
-              <Btn onClick={()=>setSelPatient(null)} variant="secondary">← Retour</Btn>
+              <Btn onClick={()=>setSelPatient(null)} variant="secondary"><span style={{ display:"inline-flex",alignItems:"center",gap:5 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Retour</span></Btn>
               <Btn onClick={handleConfirmer} disabled={!montant} style={{ flex:1 }}>
                 Signaler au médecin chef — {montant ? parseInt(montant).toLocaleString("fr-FR")+" GNF" : ""}
               </Btn>
@@ -588,7 +588,11 @@ function ModalHistorique({ medecins, historique, onClose }) {
                     <div style={{ display:"flex",alignItems:"center",gap:10 }}>
                       <div style={{ width:36,height:36,borderRadius:"50%",background:h.type==="maladie"?C.slateSoft:h.type==="urgence"?C.redSoft:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>
                         <span style={{ fontSize:18 }}>
-                          {h.type==="arrivée"?"↑":h.type==="départ"?"↓":h.type==="maladie"?"M":h.type==="urgence"?"U":"—"}
+                          {h.type==="arrivée"
+                            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                            : h.type==="départ"
+                            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            : h.type==="maladie" ? "M" : h.type==="urgence" ? "U" : "—"}
                         </span>
                       </div>
                       <div>
@@ -1006,7 +1010,7 @@ export default function DashboardSecretaire() {
 
             {/* File du jour */}
             <Card>
-              <CardHeader title={"File d'attente — "+fileActif.length+" patient"+(fileActif.length>1?"s":"")} action={<button onClick={()=>setOnglet("file")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir →</button>}/>
+              <CardHeader title={"File d'attente — "+fileActif.length+" patient"+(fileActif.length>1?"s":"")} action={<button onClick={()=>setOnglet("file")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir</button>}/>
               {fileActif.length===0
                 ? <p style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun patient en attente</p>
                 : fileActif.slice(0,4).map((f,i)=>(
@@ -1028,7 +1032,7 @@ export default function DashboardSecretaire() {
 
             {/* RDV du jour */}
             <Card>
-              <CardHeader title={"Rendez-vous d'aujourd'hui — "+rdvs.filter(r=>r.date===today()).length} action={<button onClick={()=>setOnglet("rdv")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir →</button>}/>
+              <CardHeader title={"Rendez-vous d'aujourd'hui — "+rdvs.filter(r=>r.date===today()).length} action={<button onClick={()=>setOnglet("rdv")} style={{ background:"none",border:"none",color:C.blue,fontSize:13,cursor:"pointer",fontWeight:600 }}>Tout voir</button>}/>
               {rdvs.filter(r=>r.date===today()).length===0
                 ? <p style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun RDV aujourd'hui</p>
                 : rdvs.filter(r=>r.date===today()).map((r,i,arr)=>(
@@ -1202,14 +1206,14 @@ export default function DashboardSecretaire() {
               <table style={{ width:"100%",borderCollapse:"collapse" }}>
                 <thead>
                   <tr style={{ background:C.slateSoft }}>
-                    {["Patient","Date","Heure","Médecin / Service","Motif","Rappel patient","Signaler médecin"].map(h=>(
+                    {["Patient","Date","Heure","Médecin / Service","Motif","Action"].map(h=>(
                       <th key={h} style={{ padding:"11px 16px",textAlign:"left",fontSize:11,fontWeight:700,color:C.textSec,letterSpacing:"0.06em",textTransform:"uppercase" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {rdvs.length===0
-                    ? <tr><td colSpan={7} style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun rendez-vous — les médecins n'en ont pas encore créé</td></tr>
+                    ? <tr><td colSpan={6} style={{ padding:32,textAlign:"center",color:C.textMuted }}>Aucun rendez-vous — les médecins n'en ont pas encore créé</td></tr>
                     : rdvs.sort((a,b)=>a.date.localeCompare(b.date)).map((r,i,arr)=>(
                     <tr key={r.id} style={{ borderBottom:i<arr.length-1?"1px solid "+C.border:"none",transition:"background .15s" }}
                       onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
@@ -1232,19 +1236,14 @@ export default function DashboardSecretaire() {
                       <td style={{ padding:"13px 16px",fontSize:12,color:C.textSec }}>{r.motif||"—"}</td>
                       <td style={{ padding:"13px 16px" }}>
                         {r.rappelEnvoye
-                          ? <span style={{ fontSize:12,fontWeight:600,color:C.green }}>Rappel envoyé</span>
+                          ? <span style={{ display:"inline-flex",alignItems:"center",gap:5,fontSize:12,fontWeight:600,color:C.green }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                              Rappel envoyé au médecin
+                            </span>
                           : <button onClick={()=>envoyerRappel(r.id)}
-                              style={{ padding:"5px 12px",background:C.slateSoft,color:C.slate,border:"1px solid "+C.slate+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
-                              Rappeler patient
-                            </button>
-                        }
-                      </td>
-                      <td style={{ padding:"13px 16px" }}>
-                        {r.rappelEnvoye
-                          ? <span style={{ fontSize:12,color:C.green,fontWeight:600 }}>Signalé ✓</span>
-                          : <button onClick={()=>envoyerRappel(r.id)}
-                              style={{ padding:"5px 12px",background:C.amberSoft,color:C.amber,border:"1px solid "+C.amber+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
-                              Signaler au Dr.
+                              style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"6px 14px",background:C.amberSoft,color:C.amber,border:"1px solid "+C.amber+"33",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}>
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                              Rappeler le médecin
                             </button>
                         }
                       </td>
@@ -1262,7 +1261,7 @@ export default function DashboardSecretaire() {
           <div>
             <div style={{ marginBottom:24 }}>
               <p style={{ fontSize:24, fontWeight:800, color:C.textPri }}>Présence des Médecins</p>
-              <p style={{ color:C.textMuted }}>Pointage d'arrivée et de départ en temps réel — {dateStr}</p>
+              <p style={{ color:C.textMuted }}>Pointage d'arrivée et de départ en temps réel </p>
             </div>
 
             {/* Statistiques du jour */}

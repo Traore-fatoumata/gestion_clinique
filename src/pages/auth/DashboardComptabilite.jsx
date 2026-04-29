@@ -186,7 +186,9 @@ function ModalPaiementExamens({ entree, onClose, onSave }) {
             {montantNum > 0 && (
               <div style={{ display:"flex",alignItems:"center",gap:6,padding:"7px 12px",borderRadius:8,background:statutFinal==="paye"?C.greenSoft:C.amberSoft,border:"1px solid "+(statutFinal==="paye"?C.green:C.amber)+"33" }}>
                 <span style={{ fontSize:12,fontWeight:700,color:statutFinal==="paye"?C.green:C.amber }}>
-                  {statutFinal==="paye" ? "✓ Solde intégralement réglé" : `Reste à payer après : ${fmtMoney(restant - montantNum)}`}
+                  {statutFinal==="paye"
+                    ? <span style={{ display:"inline-flex",alignItems:"center",gap:5 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Solde intégralement réglé</span>
+                    : `Reste à payer après : ${fmtMoney(restant - montantNum)}`}
                 </span>
               </div>
             )}
@@ -470,7 +472,7 @@ export default function DashboardComptabilite() {
                   <tbody>
                     {lignesConsult.length === 0 ? (
                       <tr><td colSpan={6} style={{ padding:32, textAlign:"center", color:C.textMuted, fontSize:13 }}>
-                        {filterStatut==="impaye" ? "Aucune consultation impayée ✓" : "Aucune consultation trouvée"}
+                        {filterStatut==="impaye" ? "Aucune consultation impayée — tout est réglé" : "Aucune consultation trouvée"}
                       </td></tr>
                     ) : lignesConsult.map((l, i) => (
                       <tr key={l.key} style={{ borderBottom:i<lignesConsult.length-1?"1px solid "+C.border:"none" }}
@@ -532,7 +534,7 @@ export default function DashboardComptabilite() {
                   <tbody>
                     {lignesExamens.length === 0 ? (
                       <tr><td colSpan={6} style={{ padding:32, textAlign:"center", color:C.textMuted, fontSize:13 }}>
-                        {filterStatut==="impaye" ? "Aucun examen impayé ✓" : "Aucun examen prescrit"}
+                        {filterStatut==="impaye" ? "Aucun examen impayé — tout est réglé" : "Aucun examen prescrit"}
                       </td></tr>
                     ) : lignesExamens.map((l, i) => (
                       <tr key={l.key} style={{ borderBottom:i<lignesExamens.length-1?"1px solid "+C.border:"none" }}

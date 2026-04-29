@@ -866,7 +866,7 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
                     return (
                       <button key={ex.nom} type="button" onClick={()=>ajouterExamen(ex)} disabled={!!deja}
                         style={{ padding:"4px 10px", background:deja?C.greenSoft:C.white, color:deja?C.green:C.textPri, border:"1px solid "+(deja?C.green:C.border), borderRadius:20, fontSize:11, fontWeight:600, cursor:deja?"default":"pointer", opacity:deja?.7:1 }}>
-                        {deja?"✓ ":""}{ex.nom} — {ex.prix.toLocaleString("fr-FR")} GNF
+                        {deja&&<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight:4 }}><polyline points="20 6 9 17 4 12"/></svg>}{ex.nom} — {ex.prix.toLocaleString("fr-FR")} GNF
                       </button>
                     )
                   })}
@@ -988,11 +988,11 @@ function ModalConsultation({ patient, medecin, consultation, onClose, onSauvegar
                           <div style={{ display:"flex", gap:4, flexShrink:0 }}>
                             {[1,2,3,4,5].map(n=>(
                               <button key={n} type="button" onClick={()=>updateAssistant(st.id, key, n)}
-                                style={{ width:28, height:28, borderRadius:6, border:"none", cursor:"pointer", fontSize:16, lineHeight:1,
+                                style={{ width:28, height:28, borderRadius:6, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
                                   background: n<=st[key] ? C.green : "#e5e7eb",
                                   color: n<=st[key] ? "#fff" : "#9ca3af",
-                                  fontWeight:700, transition:"all .15s" }}>
-                                ★
+                                  transition:"all .15s" }}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                               </button>
                             ))}
                             <span style={{ fontSize:11, color:C.textMuted, width:30, textAlign:"center", lineHeight:"28px", flexShrink:0 }}>{st[key]>0?st[key]+"/5":"—"}</span>
@@ -1272,7 +1272,7 @@ export default function DashboardMedecin() {
     }
     setMConsult(null)
     const msg = (data.fraisExamens||0) > 0
-      ? `Consultation signée. Frais d'examens : ${data.fraisExamens.toLocaleString("fr-FR")} GNF → orienter le patient vers la comptabilité.`
+      ? `Consultation signée. Frais d'examens : ${data.fraisExamens.toLocaleString("fr-FR")} GNF — orienter le patient vers la comptabilité.`
       : "Consultation signée et validée."
     alert(msg)
   }
@@ -1507,7 +1507,7 @@ export default function DashboardMedecin() {
                   </p>
                   <p style={{ fontSize:12, color:"#991b1b" }}>Cliquez pour accéder et signer</p>
                 </div>
-                <span style={{ color:C.red, fontSize:20, fontWeight:700 }}>→</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </div>
             )}
 
@@ -1516,7 +1516,7 @@ export default function DashboardMedecin() {
               <CardHeader
                 title="Mes patients du jour"
                 sub={medecin.specialite+" · "+mesPatients.length+" patient"+(mesPatients.length>1?"s":"")}
-                action={<button onClick={()=>setOnglet("patients")} style={{ background:"none", border:"none", color:C.blue, fontSize:13, cursor:"pointer", fontWeight:600 }}>Tout voir →</button>}
+                action={<button onClick={()=>setOnglet("patients")} style={{ background:"none", border:"none", color:C.blue, fontSize:13, cursor:"pointer", fontWeight:600 }}>Tout voir</button>}
               />
               {mesPatients.length===0
                 ? <p style={{ padding:40, textAlign:"center", color:C.textMuted }}>Aucun patient assigné aujourd'hui</p>

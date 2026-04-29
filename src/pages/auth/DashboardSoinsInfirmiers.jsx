@@ -204,7 +204,7 @@ function CloseBtn({ onClose }) {
       color: C.textSec, cursor: "pointer", width: 32, height: 32,
       display: "flex", alignItems: "center", justifyContent: "center",
       fontSize: 18, fontFamily: "inherit", flexShrink: 0
-    }}>×</button>
+    }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   )
 }
 function Field({ label, children, required }) {
@@ -873,13 +873,28 @@ export default function DashboardSoinsInfirmiers() {
                       {s.statut === "en_cours" && (
                         <>
                           <Btn onClick={() => setShowExecution(s)} small variant="success">Terminer</Btn>
-                          <Btn onClick={() => handleAnnuler(s.id)} small variant="danger">× Annuler</Btn>
+                          <Btn onClick={() => handleAnnuler(s.id)} small variant="danger">
+                            <span style={{ display:"inline-flex",alignItems:"center",gap:5 }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                              Annuler
+                            </span>
+                          </Btn>
                         </>
                       )}
                       {s.statut === "retarde" && (
                         <>
-                          <Btn onClick={() => handleDemarrer(s.id)} small variant="success">▶ Reprendre</Btn>
-                          <Btn onClick={() => handleAnnuler(s.id)} small variant="danger">× Annuler</Btn>
+                          <Btn onClick={() => handleDemarrer(s.id)} small variant="success">
+                            <span style={{ display:"inline-flex",alignItems:"center",gap:5 }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                              Reprendre
+                            </span>
+                          </Btn>
+                          <Btn onClick={() => handleAnnuler(s.id)} small variant="danger">
+                            <span style={{ display:"inline-flex",alignItems:"center",gap:5 }}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                              Annuler
+                            </span>
+                          </Btn>
                         </>
                       )}
                       {s.statut === "fait" && (
