@@ -4,621 +4,11 @@ import { useClinicSettings } from "../../hooks/useClinicSettings.jsx"
 import { useAuth } from "../../hooks/useAuth.jsx"
 import { useNavigate } from "react-router-dom"
 import { useSharedData } from "../../hooks/useSharedData.jsx"
-
-// ══════════════════════════════════════════════════════
-//  UTILITAIRES
-// ══════════════════════════════════════════════════════
-function genId(seed) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789"
-  let result = "ABC-", n = seed * 48271 + 1000003
-  for (let i = 0; i < 6; i++) { n = (n*1664525+1013904223)&0x7fffffff; result+=chars[n%chars.length] }
-  return result
-}
-const today   = () => new Date().toISOString().slice(0,10)
-const nowTime = () => new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})
-const fmt     = d => d ? new Date(d).toLocaleDateString("fr-FR") : "—"
-
-// ══════════════════════════════════════════════════════
-//  DONNÉES MOCK
-// ══════════════════════════════════════════════════════
-const PATIENTS_DB = [
-  { id:1, pid:genId(1), nom:"Bah Mariama",     age:"34 ans",    dateNaissance:"1990-03-12", sexe:"F", telephone:"+224 622 11 22 33", quartier:"Ratoma",   secteur:"Lansanayah", profession:"Commerçante", responsable:"Mamadou Bah" },
-  { id:2, pid:genId(2), nom:"Diallo Ibrahima", age:"52 ans",    dateNaissance:"1972-07-04", sexe:"M", telephone:"+224 628 44 55 66", quartier:"Kaloum",   secteur:"Boulbinet",  profession:"Enseignant",  responsable:"Lui-même"    },
-  { id:3, pid:genId(3), nom:"Sow Fatoumata",   age:"1an 3mois", dateNaissance:"2022-11-20", sexe:"F", telephone:"+224 621 77 88 99", quartier:"Dixinn",   secteur:"Yimbayah",   profession:"S/C",          responsable:"Mamadou Sow" },
-  { id:4, pid:genId(4), nom:"Kouyaté Mamadou", age:"61 ans",    dateNaissance:"1963-01-15", sexe:"M", telephone:"+224 624 33 44 55", quartier:"Matam",    secteur:"Tannerie",   profession:"Commerçant",  responsable:"Lui-même"    },
-  { id:5, pid:genId(5), nom:"Baldé Aissatou",  age:"19 ans",    dateNaissance:"2005-06-08", sexe:"F", telephone:"+224 625 66 77 88", quartier:"Matoto",   secteur:"Gbessia",    profession:"Élève",        responsable:"Mamadou Baldé"},
-]
-
-const DOCTEURS = [
-  { id:1, nom:"Dr. Doumbouya", specialite:"Médecine générale",          statut:"present" },
-  { id:2, nom:"Dr. Camara",    specialite:"Cardiologie",                 statut:"present" },
-  { id:3, nom:"Dr. Barry",     specialite:"Diabétologie / Endocrinologie", statut:"present" },
-  { id:4, nom:"Dr. Souaré",    specialite:"Pédiatrie",                   statut:"absent"  },
-  { id:5, nom:"Dr. Keïta",     specialite:"Gynécologie",                 statut:"present" },
-  { id:6, nom:"Dr. Bah",       specialite:"Ophtalmologie",               statut:"present" },
-  { id:7, nom:"Dr. Diallo",    specialite:"Traumatologie",               statut:"present" },
-  { id:8, nom:"Dr. Konaté",    specialite:"Neurologie",                  statut:"present" },
-  { id:9, nom:"Dr. Traoré",    specialite:"ORL",                         statut:"present" },
-]
-
-
-function tarifParAge(dateNaissance, s={}) {
-  if (!dateNaissance) return s.tarifAdulte || 50000
-  const age = Math.floor((Date.now() - new Date(dateNaissance)) / (365.25*24*3600*1000))
-  if (age < 5)   return s.tarifNourrisson || 30000
-  if (age < 15)  return s.tarifEnfant     || 35000
-  if (age <= 60) return s.tarifAdulte     || 50000
-  return s.tarifSenior || 40000
-}
-
-// ══════════════════════════════════════════════════════
-//  COULEURS
-// ══════════════════════════════════════════════════════
-const C = {
-  bg:"#f7f9f8",      white:"#ffffff",
-  textPri:"#111827", textSec:"#374151", textMuted:"#6b7280",
-  border:"#e2ebe4",
-  green:"#16a34a",   greenSoft:"#dcfce7",  greenDark:"#15803d", greenLight:"#bbf7d0",
-  blue:"#1d6fa4",    blueSoft:"#e8f4fb",
-  amber:"#b45309",   amberSoft:"#fef3c7",
-  red:"#dc2626",     redSoft:"#fef2f2",
-  slate:"#475569",   slateSoft:"#f1f5f9",
-  purple:"#6d28d9",  purpleSoft:"#ede9fe",
-  orange:"#c2410c",  orangeSoft:"#fff7ed",
-  teal:"#0f766e",    tealSoft:"#f0fdfa",
-}
-
-// ══════════════════════════════════════════════════════
-//  COMPOSANTS DE BASE
-// ══════════════════════════════════════════════════════
-function Badge({ statut }) {
-  const cfg = {
-    en_attente:{ label:"En attente",  color:C.slate,  bg:C.slateSoft },
-    en_salle:  { label:"En salle",    color:C.green,  bg:C.greenSoft, pulse:true },
-    consultation:{label:"Consultation",color:C.green,  bg:C.greenSoft },
-    rendez_vous: {label:"Rendez-vous", color:C.purple, bg:C.purpleSoft},
-    parti:     { label:"Parti",       color:C.slate,  bg:C.slateSoft },
-    paye:      { label:"Payé",        color:C.green,  bg:C.greenSoft },
-    partiel:   { label:"Partiel",     color:C.slate,  bg:C.slateSoft },
-    impaye:    { label:"Impayé",      color:C.red,    bg:C.redSoft   },
-  }
-  const s = cfg[statut]||cfg.en_attente
-  return (
-    <span style={{ display:"inline-flex", alignItems:"center", gap:5, background:s.bg, color:s.color, fontSize:12, fontWeight:600, padding:"4px 12px", borderRadius:20, border:"1px solid "+s.color+"33", whiteSpace:"nowrap" }}>
-      {s.pulse&&<span style={{ width:5,height:5,borderRadius:"50%",background:s.color,animation:"blink 2s ease-in-out infinite" }}/>}
-      {s.label}
-    </span>
-  )
-}
-
-function Avatar({ name, size=36 }) {
-  const bgs=[C.blueSoft,C.greenSoft,C.purpleSoft,C.slateSoft,C.orangeSoft]
-  const fgs=[C.blue,C.green,C.purple,C.slate,C.orange]
-  const i=(name?.charCodeAt(0)||0)%bgs.length
-  return (
-    <div style={{ width:size,height:size,borderRadius:"50%",background:bgs[i],display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
-      <svg width={size*.42} height={size*.42} viewBox="0 0 24 24" fill="none" stroke={fgs[i]} strokeWidth="2" strokeLinecap="round">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-      </svg>
-    </div>
-  )
-}
-function Card({ children, style={} }) {
-  return <div style={{ background:C.white,borderRadius:16,border:"1px solid "+C.border,boxShadow:"0 1px 3px rgba(0,0,0,0.06)",...style }}>{children}</div>
-}
-function CardHeader({ title, action }) {
-  return (
-    <div style={{ padding:"16px 20px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-      <p style={{ fontWeight:700,fontSize:15,color:C.textPri }}>{title}</p>
-      {action}
-    </div>
-  )
-}
-function Btn({ children, onClick, variant="primary", small=false, disabled=false }) {
-  const cfg={ primary:{bg:C.blue,hov:"#155e8b",color:"#fff",border:"none"}, success:{bg:C.green,hov:"#166534",color:"#fff",border:"none"}, secondary:{bg:"transparent",hov:C.slateSoft,color:C.textSec,border:"1px solid "+C.border} }
-  const s=cfg[variant]||cfg.primary
-  return (
-    <button onClick={onClick} disabled={disabled}
-      style={{ background:s.bg,color:s.color,border:s.border||"none",borderRadius:10,padding:small?"7px 14px":"10px 20px",fontSize:small?12:13,fontWeight:600,cursor:disabled?"not-allowed":"pointer",display:"inline-flex",alignItems:"center",gap:6,fontFamily:"inherit",transition:"all .2s",opacity:disabled?.55:1 }}
-      onMouseEnter={e=>{ if(!disabled) e.currentTarget.style.background=s.hov }}
-      onMouseLeave={e=>{ if(!disabled) e.currentTarget.style.background=s.bg }}
-    >{children}</button>
-  )
-}
-
-// ══════════════════════════════════════════════════════
-//  MODAL — ENREGISTRER NOUVEAU PATIENT (formulaire image)
-// ══════════════════════════════════════════════════════
-function ModalNouveauPatient({ onClose, onEnregistrer }) {
-  const { settings } = useClinicSettings()
-  const INIT={ nom:"",prenom:"",age:"",dateNaissance:"",sexe:"F",telephone:"",profession:"",quartier:"",secteur:"",responsable:"",telResponsable:"",montantConsultation:"" }
-  const [form, setForm]=useState(INIT)
-  const setF=(k,v)=>setForm(p=>({...p,[k]:v}))
-  const ok=form.nom&&form.prenom&&form.montantConsultation
-
-  // Calcul tarif automatique selon date de naissance
-  const tarifAuto = tarifParAge(form.dateNaissance, settings)
-  // Mise à jour auto du montant quand la date change
-  const handleDateNaissance = (val) => {
-    setForm(p=>({ ...p, dateNaissance:val, montantConsultation:tarifParAge(val, settings).toString() }))
-  }
-
-  const iSt={ width:"100%",padding:"13px 16px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
-  const foc=e=>{e.target.style.borderColor=C.blue;e.target.style.boxShadow="0 0 0 3px "+C.blueSoft}
-  const blr=e=>{e.target.style.borderColor=C.border;e.target.style.boxShadow="none"}
-
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",overflowY:"auto" }}
-      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:860,marginTop:20,boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
-
-        {/* En-tête */}
-        <div style={{ padding:"24px 32px 20px",display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
-          <div>
-            <p style={{ fontSize:20,fontWeight:800,color:C.textPri,marginBottom:4 }}>Registre d'Accueil — Enregistrer un patient</p>
-            <p style={{ fontSize:13,color:C.textMuted }}>Remplir la fiche et indiquer le montant de consultation. Le patient ira ensuite à la comptabilité pour payer.</p>
-          </div>
-          <button onClick={onClose}
-            style={{ display:"flex",alignItems:"center",gap:6,padding:"8px 16px",border:"1px solid "+C.border,borderRadius:10,background:C.white,color:C.textSec,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit" }}
-            onMouseEnter={e=>e.currentTarget.style.background=C.slateSoft}
-            onMouseLeave={e=>e.currentTarget.style.background=C.white}>
-            Fermer
-          </button>
-        </div>
-
-        <div style={{ padding:"0 32px 28px",display:"flex",flexDirection:"column",gap:24 }}>
-
-          {/* IDENTITÉ DU PATIENT */}
-          <div>
-            <p style={{ fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>Identité du patient</p>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16 }}>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Nom de famille <span style={{ color:C.red }}>*</span></label>
-                <input value={form.nom} onChange={e=>setF("nom",e.target.value)} placeholder="Ex : DIALLO" style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Prénom(s) <span style={{ color:C.red }}>*</span></label>
-                <input value={form.prenom} onChange={e=>setF("prenom",e.target.value)} placeholder="Ex : Aminata" style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Téléphone</label>
-                <input value={form.telephone} onChange={e=>setF("telephone",e.target.value)} placeholder="+224 6XX XX XX XX" style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Âge</label>
-                <input value={form.age} onChange={e=>setF("age",e.target.value)} placeholder="Ex : 35 ans" style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Date de naissance</label>
-                <input type="date" value={form.dateNaissance} onChange={e=>handleDateNaissance(e.target.value)} style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Sexe</label>
-                <select value={form.sexe} onChange={e=>setF("sexe",e.target.value)} style={{ ...iSt,cursor:"pointer" }}>
-                  <option value="F">Féminin</option>
-                  <option value="M">Masculin</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Profession</label>
-                <input value={form.profession} onChange={e=>setF("profession",e.target.value)} placeholder="Ex : Commerçant, Élève, S/C..." style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Quartier</label>
-                <input value={form.quartier} onChange={e=>setF("quartier",e.target.value)} placeholder="Ex : Ratoma" style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Secteur / District</label>
-                <input value={form.secteur} onChange={e=>setF("secteur",e.target.value)} placeholder="Ex : Yimbayah, Lansanayah..." style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-            </div>
-          </div>
-
-          {/* PERSONNE RESPONSABLE */}
-          <div>
-            <p style={{ fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>Personne responsable</p>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Nom du responsable</label>
-                <input value={form.responsable} onChange={e=>setF("responsable",e.target.value)} placeholder="Ex : Mamadou Diallo ou Lui-même" style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>Téléphone responsable</label>
-                <input value={form.telResponsable} onChange={e=>setF("telResponsable",e.target.value)} placeholder="+224 6XX XX XX XX" style={iSt} onFocus={foc} onBlur={blr}/>
-              </div>
-            </div>
-          </div>
-
-          {/* FRAIS DE CONSULTATION */}
-          <div>
-            <p style={{ fontSize:11,fontWeight:700,color:C.textMuted,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:16 }}>Frais de consultation <span style={{ color:C.red }}>*</span></p>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,alignItems:"start" }}>
-              <div>
-                <label style={{ display:"block",fontSize:13,fontWeight:500,color:C.textPri,marginBottom:8 }}>
-                  Montant à payer (GNF) <span style={{ color:C.red }}>*</span>
-                </label>
-                <input type="number" value={form.montantConsultation}
-                  onChange={e=>setF("montantConsultation",e.target.value)}
-                  placeholder="Ex : 50000"
-                  style={iSt} onFocus={foc} onBlur={blr}/>
-                <p style={{ fontSize:12,color:C.textMuted,marginTop:6 }}>
-                  Saisir le montant annoncé au patient
-                </p>
-              </div>
-              <div style={{ background:C.greenSoft,borderRadius:14,padding:"16px 18px",border:"1px solid "+C.green+"44" }}>
-                <p style={{ fontSize:11,fontWeight:700,color:C.green,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10 }}>Tarif selon l'âge</p>
-                {[
-                  { label:"Nourrisson (< 5 ans)",  montant:30000 },
-                  { label:"Enfant (5 – 14 ans)",   montant:35000 },
-                  { label:"Adulte (15 – 60 ans)",  montant:50000 },
-                  { label:"Senior (> 60 ans)",     montant:40000 },
-                ].map(t=>(
-                  <div key={t.label} onClick={()=>setF("montantConsultation",t.montant.toString())}
-                    style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 8px",borderRadius:8,cursor:"pointer",
-                      background:form.montantConsultation===t.montant.toString()?"#bbf7d0":"transparent",
-                      border:form.montantConsultation===t.montant.toString()?"1px solid "+C.green:"1px solid transparent" }}>
-                    <span style={{ fontSize:12,color:C.textSec }}>{t.label}</span>
-                    <span style={{ fontSize:13,fontWeight:700,color:C.green }}>{t.montant.toLocaleString("fr-FR")} GNF</span>
-                  </div>
-                ))}
-                {form.dateNaissance&&(
-                  <div style={{ marginTop:10,padding:"8px 10px",background:"#fff",borderRadius:10,border:"1px solid "+C.green+"44" }}>
-                    <p style={{ fontSize:12,color:C.textSec }}>Tarif calculé auto :</p>
-                    <p style={{ fontSize:15,fontWeight:800,color:C.green }}>{tarifAuto.toLocaleString("fr-FR")} GNF</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Boutons */}
-          <div style={{ display:"flex",justifyContent:"flex-end",gap:12,paddingTop:16,borderTop:"1px solid "+C.border }}>
-            <Btn onClick={onClose} variant="secondary">Annuler</Btn>
-            <Btn onClick={()=>{ if(ok) onEnregistrer(form) }} disabled={!ok}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-              Enregistrer — {form.montantConsultation ? parseInt(form.montantConsultation).toLocaleString("fr-FR")+" GNF à payer" : "Saisir le montant"}
-            </Btn>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ══════════════════════════════════════════════════════
-//  MODAL — RECHERCHER DOSSIER EXISTANT
-// ══════════════════════════════════════════════════════
-function ModalRechercheDossier({ patients, onClose, onSignaler }) {
-  const { settings } = useClinicSettings()
-  const [q,           setQ]           = useState("")
-  const [selPatient,  setSelPatient]  = useState(null)   // patient sélectionné pour confirmer
-  const [montant,     setMontant]     = useState("")
-
-  const resultats = q.length>=2 ? patients.filter(p=>
-    p.pid.toLowerCase().includes(q.toLowerCase())||
-    p.nom.toLowerCase().includes(q.toLowerCase())||
-    (p.telephone||"").includes(q)
-  ) : []
-
-  const iSt={ width:"100%",padding:"12px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:12,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
-
-  const tarifAuto = tarifParAge(selPatient?.dateNaissance, settings)
-
-  const handleSelectionner = (p) => {
-    setSelPatient(p)
-    setMontant(tarifParAge(p.dateNaissance, settings).toString())
-  }
-
-  const handleConfirmer = () => {
-    if (!montant) { alert("Veuillez saisir le montant de consultation."); return }
-    onSignaler(selPatient, parseInt(montant))
-    onClose()
-  }
-
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
-      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:580,boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
-        <div style={{ padding:"22px 28px 18px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          <div>
-            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>
-              {selPatient ? "Confirmer le signalement" : "Rechercher un dossier patient"}
-            </p>
-            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>
-              {selPatient ? selPatient.nom+" · "+selPatient.pid : "Par N° dossier, nom ou téléphone"}
-            </p>
-          </div>
-          <button onClick={onClose} style={{ background:C.slateSoft,border:"none",borderRadius:8,color:C.textSec,cursor:"pointer",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>×</button>
-        </div>
-
-        <div style={{ padding:"20px 28px 24px" }}>
-
-          {/* ── Étape 1 : recherche ── */}
-          {!selPatient && (<>
-            <div style={{ position:"relative",marginBottom:16 }}>
-              <svg style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Ex : ABC-A1B2C3 ou Bah Mariama..."
-                style={{ ...iSt,paddingLeft:40,background:C.bg }}
-                onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.background=C.white }}
-                onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.background=C.bg }}/>
-            </div>
-            {q.length<2 && <p style={{ fontSize:13,color:C.textMuted,textAlign:"center",padding:"20px 0" }}>Tapez au moins 2 caractères pour rechercher</p>}
-            {q.length>=2 && resultats.length===0 && (
-              <div style={{ padding:"24px",textAlign:"center",background:C.bg,borderRadius:12,border:"1px solid "+C.border }}>
-                <p style={{ fontSize:14,color:C.textMuted,marginBottom:8 }}>Aucun dossier trouvé pour « {q} »</p>
-                <p style={{ fontSize:13,color:C.textSec }}>Ce patient n'est pas encore enregistré.</p>
-              </div>
-            )}
-            {resultats.map(p=>(
-              <div key={p.id} style={{ padding:"14px 16px",borderRadius:12,border:"1px solid "+C.border,marginBottom:10,display:"flex",alignItems:"center",gap:12,background:C.bg }}>
-                <Avatar name={p.nom} size={40}/>
-                <div style={{ flex:1 }}>
-                  <p style={{ fontSize:14,fontWeight:700,color:C.textPri,marginBottom:2 }}>{p.nom}</p>
-                  <p style={{ fontSize:12,color:C.textSec }}>{p.pid} · {p.age} · {p.telephone}</p>
-                  <p style={{ fontSize:12,color:C.textMuted }}>{p.quartier}{p.secteur?", "+p.secteur:""}</p>
-                </div>
-                <Btn onClick={()=>handleSelectionner(p)} small variant="success">
-                  <span style={{ display:"inline-flex",alignItems:"center",gap:5 }}>Sélectionner<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
-                </Btn>
-              </div>
-            ))}
-          </>)}
-
-          {/* ── Étape 2 : saisie du montant ── */}
-          {selPatient && (<>
-            {/* Récapitulatif patient */}
-            <div style={{ display:"flex",alignItems:"center",gap:12,padding:"14px 16px",background:C.greenSoft,borderRadius:14,border:"1px solid "+C.green+"44",marginBottom:20 }}>
-              <Avatar name={selPatient.nom} size={42} bg={C.green}/>
-              <div style={{ flex:1 }}>
-                <p style={{ fontSize:14,fontWeight:700,color:C.textPri }}>{selPatient.nom}</p>
-                <p style={{ fontSize:12,color:C.textSec }}>{selPatient.pid} · {selPatient.age} · {selPatient.telephone}</p>
-              </div>
-            </div>
-
-            {/* Saisie montant */}
-            <div style={{ marginBottom:16 }}>
-              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:8 }}>
-                Montant de consultation à payer (GNF) <span style={{ color:C.red }}>*</span>
-              </label>
-              <input type="number" value={montant} onChange={e=>setMontant(e.target.value)}
-                placeholder="Ex : 50000" style={iSt}
-                onFocus={e=>e.target.style.borderColor=C.blue}
-                onBlur={e=>e.target.style.borderColor=C.border}/>
-            </div>
-
-            {/* Grille tarifaire cliquable */}
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20 }}>
-              {[
-                { label:"Nourrisson",  sub:"< 5 ans",    montant:30000 },
-                { label:"Enfant",      sub:"5 – 14 ans", montant:35000 },
-                { label:"Adulte",      sub:"15 – 60 ans",montant:50000 },
-                { label:"Senior",      sub:"> 60 ans",   montant:40000 },
-              ].map(t=>(
-                <div key={t.label} onClick={()=>setMontant(t.montant.toString())}
-                  style={{ padding:"10px 8px",borderRadius:10,border:"2px solid "+(montant===t.montant.toString()?C.green:C.border),
-                    background:montant===t.montant.toString()?C.greenSoft:C.white,cursor:"pointer",textAlign:"center" }}>
-                  <p style={{ fontSize:12,fontWeight:700,color:montant===t.montant.toString()?C.green:C.textPri }}>{t.label}</p>
-                  <p style={{ fontSize:10,color:C.textMuted,marginBottom:4 }}>{t.sub}</p>
-                  <p style={{ fontSize:13,fontWeight:800,color:montant===t.montant.toString()?C.green:C.textSec }}>{t.montant.toLocaleString("fr-FR")} GNF</p>
-                </div>
-              ))}
-            </div>
-
-            {selPatient.dateNaissance && (
-              <div style={{ padding:"10px 14px",background:C.blueSoft,borderRadius:10,border:"1px solid "+C.blue+"33",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                <span style={{ fontSize:13,color:C.textSec }}>Tarif calculé automatiquement selon l'âge</span>
-                <span style={{ fontSize:14,fontWeight:800,color:C.blue }}>{tarifAuto.toLocaleString("fr-FR")} GNF</span>
-              </div>
-            )}
-
-            <div style={{ display:"flex",gap:10 }}>
-              <Btn onClick={()=>setSelPatient(null)} variant="secondary"><span style={{ display:"inline-flex",alignItems:"center",gap:5 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Retour</span></Btn>
-              <Btn onClick={handleConfirmer} disabled={!montant} style={{ flex:1 }}>
-                Signaler au médecin chef — {montant ? parseInt(montant).toLocaleString("fr-FR")+" GNF" : ""}
-              </Btn>
-            </div>
-          </>)}
-
-        </div>
-      </div>
-    </div>
-  )
-}
-
-
-// ══════════════════════════════════════════════════════
-//  MODAL — PERMISSION / ABSENCE
-// ══════════════════════════════════════════════════════
-function ModalPermission({ medecin, onClose, onValider }) {
-  const [type, setType] = useState(null) // 'maladie' | 'urgence'
-  const [description, setDescription] = useState("")
-  const [dateDebut, setDateDebut] = useState(today())
-  const [dateFin, setDateFin] = useState(today())
-  const [justificatif, setJustificatif] = useState(null)
-
-  if (!medecin) return null
-
-  const iSt = { width:"100%",padding:"11px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:10,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
-
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
-      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:520,boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
-        <div style={{ padding:"22px 28px 18px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          <div>
-            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>Enregistrer une absence</p>
-            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>{medecin.nom} — {medecin.specialite}</p>
-          </div>
-          <button onClick={onClose} style={{ background:C.slateSoft,border:"none",borderRadius:8,color:C.textSec,cursor:"pointer",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>×</button>
-        </div>
-
-        <div style={{ padding:"24px 28px",display:"flex",flexDirection:"column",gap:16 }}>
-          {/* Type d'absence */}
-          <div>
-            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:8 }}>Type d'absence <span style={{ color:C.red }}>*</span></label>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
-              {[
-                { val:"maladie", label:"Maladie", icon:"", color:C.slate },
-                { val:"urgence", label:"Urgence", icon:"", color:C.red },
-              ].map(opt => (
-                <div key={opt.val} onClick={()=>setType(opt.val)}
-                  style={{ padding:"12px 14px",borderRadius:12,border:"2px solid "+(type===opt.val?opt.color:C.border),background:type===opt.val?opt.color+"11":C.white,cursor:"pointer",textAlign:"center",transition:"all .15s" }}>
-                  <p style={{ fontSize:20,marginBottom:4 }}>{opt.icon}</p>
-                  <p style={{ fontSize:13,fontWeight:700,color:type===opt.val?opt.color:C.textSec }}>{opt.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Description</label>
-            <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Précisez le motif de l'absence..." style={{...iSt,minHeight:80,resize:"vertical"}} />
-          </div>
-
-          {/* Dates */}
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12 }}>
-            <div>
-              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Date de début <span style={{ color:C.red }}>*</span></label>
-              <input type="date" value={dateDebut} onChange={e=>setDateDebut(e.target.value)} style={iSt} />
-            </div>
-            <div>
-              <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Date de fin <span style={{ color:C.red }}>*</span></label>
-              <input type="date" value={dateFin} onChange={e=>setDateFin(e.target.value)} style={iSt} min={dateDebut} />
-            </div>
-          </div>
-
-          {/* Justificatif */}
-          <div>
-            <label style={{ display:"block",fontSize:13,fontWeight:600,color:C.textPri,marginBottom:6 }}>Justificatif (optionnel)</label>
-            <input type="file" onChange={e=>setJustificatif(e.target.files?.[0]||null)} style={iSt} accept=".pdf,.jpg,.jpeg,.png" />
-            <p style={{ fontSize:11,color:C.textMuted,marginTop:4 }}>Formats acceptés : PDF, JPG, PNG</p>
-          </div>
-
-          {/* Avertissement */}
-          {type && (
-            <div style={{ background:type==="maladie"?C.slateSoft:C.redSoft,border:"1px solid "+(type==="maladie"?C.slate:C.red)+"33",borderRadius:10,padding:"12px 16px" }}>
-              <p style={{ fontSize:13,color:type==="maladie"?C.slate:C.red,fontWeight:600 }}>
-                Cette absence sera enregistrée dans l'historique de présence
-              </p>
-            </div>
-          )}
-
-          {/* Boutons */}
-          <div style={{ display:"flex",justifyContent:"flex-end",gap:10,paddingTop:8,borderTop:"1px solid "+C.border }}>
-            <Btn onClick={onClose} variant="secondary">Annuler</Btn>
-            <Btn onClick={()=>{ if(type&&dateDebut&&dateFin) { onValider({ type, description, dateDebut, dateFin, justificatif }); onClose(); } }} variant="success" disabled={!type||!dateDebut||!dateFin}>
-              Enregistrer l'absence
-            </Btn>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ══════════════════════════════════════════════════════
-//  MODAL — HISTORIQUE DE PRÉSENCE
-// ══════════════════════════════════════════════════════
-function ModalHistorique({ medecins, historique, onClose }) {
-  const [filtreMedecin, setFiltreMedecin] = useState("tous")
-  const [filtreDate, setFiltreDate] = useState("")
-  const [filtreType, setFiltreType] = useState("tous")
-
-  const iSt = { width:"100%",padding:"11px 14px",fontSize:14,border:"1.5px solid "+C.border,borderRadius:10,background:C.white,color:C.textPri,outline:"none",fontFamily:"inherit" }
-
-  const filtreHistorique = historique.filter(h => {
-    const medOk = filtreMedecin === "tous" || h.medecinId === parseInt(filtreMedecin)
-    const dateOk = !filtreDate || h.date === filtreDate
-    const typeOk = filtreType === "tous" || h.type === filtreType
-    return medOk && dateOk && typeOk
-  }).sort((a,b) => new Date(b.date + " " + b.heure) - new Date(a.date + " " + a.heure))
-
-  const getMedecinNom = (id) => {
-    const med = medecins.find(m => m.id === id)
-    return med ? med.nom : "Inconnu"
-  }
-
-  return (
-    <div style={{ position:"fixed",inset:0,background:"rgba(15,23,42,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
-      onClick={e=>{ if(e.target===e.currentTarget) onClose() }}>
-      <div style={{ background:C.white,borderRadius:20,width:"100%",maxWidth:800,maxHeight:"90vh",overflow:"auto",boxShadow:"0 25px 60px rgba(0,0,0,0.2)" }}>
-        <div style={{ padding:"22px 28px 18px",borderBottom:"1px solid "+C.border,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          <div>
-            <p style={{ fontSize:18,fontWeight:800,color:C.textPri }}>Historique de présence</p>
-            <p style={{ fontSize:13,color:C.textSec,marginTop:3 }}>Consultation des pointages et absences</p>
-          </div>
-          <button onClick={onClose} style={{ background:C.slateSoft,border:"none",borderRadius:8,color:C.textSec,cursor:"pointer",width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>×</button>
-        </div>
-        
-        {/* Filtres */}
-        <div style={{ padding:"18px 28px",borderBottom:"1px solid "+C.border,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12 }}>
-          <div>
-            <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textPri,marginBottom:6 }}>Médecin</label>
-            <select value={filtreMedecin} onChange={e=>setFiltreMedecin(e.target.value)} style={{ ...iSt,cursor:"pointer" }}>
-              <option value="tous">Tous les médecins</option>
-              {medecins.map(m => <option key={m.id} value={m.id}>{m.nom}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textPri,marginBottom:6 }}>Date</label>
-            <input type="date" value={filtreDate} onChange={e=>setFiltreDate(e.target.value)} style={iSt}/>
-          </div>
-          <div>
-            <label style={{ display:"block",fontSize:12,fontWeight:600,color:C.textPri,marginBottom:6 }}>Type</label>
-            <select value={filtreType} onChange={e=>setFiltreType(e.target.value)} style={{ ...iSt,cursor:"pointer" }}>
-              <option value="tous">Tous les types</option>
-              <option value="arrivée">Arrivées</option>
-              <option value="départ">Départs</option>
-              <option value="maladie">Absences maladie</option>
-              <option value="urgence">Absences urgence</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Liste */}
-        <div style={{ padding:"20px 28px" }}>
-          {filtreHistorique.length === 0 ? (
-            <p style={{ padding:24,textAlign:"center",color:C.textMuted }}>Aucun événement trouvé pour ces critères</p>
-          ) : (
-            <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
-              {filtreHistorique.map((h, i) => (
-                <div key={i} style={{ padding:"14px 16px",borderRadius:12,border:"1px solid "+C.border,background:h.type==="maladie"?C.slateSoft+"33":h.type==="urgence"?C.redSoft+"33":"transparent" }}>
-                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 }}>
-                    <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-                      <div style={{ width:36,height:36,borderRadius:"50%",background:h.type==="maladie"?C.slateSoft:h.type==="urgence"?C.redSoft:C.blueSoft,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                        <span style={{ fontSize:18 }}>
-                          {h.type==="arrivée"
-                            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
-                            : h.type==="départ"
-                            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                            : h.type==="maladie" ? "M" : h.type==="urgence" ? "U" : "—"}
-                        </span>
-                      </div>
-                      <div>
-                        <p style={{ fontSize:14,fontWeight:700,color:C.textPri }}>{getMedecinNom(h.medecinId)}</p>
-                        <p style={{ fontSize:12,color:C.textSec }}>{h.type} · {fmt(h.date)}</p>
-                      </div>
-                    </div>
-                    <div style={{ textAlign:"right" }}>
-                      <p style={{ fontSize:14,fontWeight:700,color:C.textPri,fontVariantNumeric:"tabular-nums" }}>{h.heure}</p>
-                      {h.description && <p style={{ fontSize:11,color:C.textMuted,marginTop:2 }}>{h.description}</p>}
-                    </div>
-                  </div>
-                  {h.justificatif && (
-                    <div style={{ fontSize:11,color:C.textMuted,marginTop:6 }}>
-                      Justificatif : {h.justificatif}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+import { C, Card, CardHeader, Btn, Avatar, DOCTEURS, genId, today, nowTime, fmt, tarifParAge } from "./secretaire/shared.jsx"
+import ModalNouveauPatient from "./secretaire/ModalNouveauPatient.jsx"
+import ModalRechercheDossier from "./secretaire/ModalRechercheDossier.jsx"
+import ModalPermission from "./secretaire/ModalPermission.jsx"
+import ModalHistorique from "./secretaire/ModalHistorique.jsx"
 
 // ══════════════════════════════════════════════════════
 //  COMPOSANT PRINCIPAL
@@ -761,11 +151,11 @@ export default function DashboardSecretaire() {
 
   const pointerArrivee = (id) => {
     const heure = nowTime()
-    setMedecins(prev => prev.map(m => 
-      m.id === id ? { 
-        ...m, 
-        arrivee: heure, 
-        depart: null, 
+    setMedecins(prev => prev.map(m =>
+      m.id === id ? {
+        ...m,
+        arrivee: heure,
+        depart: null,
         present: true,
         historique: [...(m.historique || []), { type: 'arrivée', heure, date: today() }]
       } : m
@@ -778,10 +168,10 @@ export default function DashboardSecretaire() {
 
   const pointerDepart = (id) => {
     const heure = nowTime()
-    setMedecins(prev => prev.map(m => 
-      m.id === id ? { 
-        ...m, 
-        depart: heure, 
+    setMedecins(prev => prev.map(m =>
+      m.id === id ? {
+        ...m,
+        depart: heure,
         present: false,
         historique: [...(m.historique || []), { type: 'départ', heure, date: today() }]
       } : m
@@ -801,32 +191,32 @@ export default function DashboardSecretaire() {
     const medecin = permissionModal.medecin
     const nouvelHistorique = [
       ...historique,
-      { 
-        medecinId: medecin.id, 
-        type, 
-        heure: nowTime(), 
-        date: today(), 
-        description, 
-        dateDebut, 
-        dateFin, 
-        justificatif: justificatif ? justificatif.name : null 
+      {
+        medecinId: medecin.id,
+        type,
+        heure: nowTime(),
+        date: today(),
+        description,
+        dateDebut,
+        dateFin,
+        justificatif: justificatif ? justificatif.name : null
       }
     ]
     setHistorique(nouvelHistorique)
-    
+
     // Mettre à jour le statut du médecin si c'est aujourd'hui
     if (dateDebut <= today() && dateFin >= today()) {
-      setMedecins(prev => prev.map(m => 
-        m.id === medecin.id ? { 
-          ...m, 
-          present: false, 
-          arrivee: null, 
+      setMedecins(prev => prev.map(m =>
+        m.id === medecin.id ? {
+          ...m,
+          present: false,
+          arrivee: null,
           depart: null,
           historique: [...(m.historique || []), { type, heure: nowTime(), date: today(), description }]
         } : m
       ))
     }
-    
+
     alert(`Permission enregistrée pour ${medecin.nom} (${type})`)
   }
 
@@ -1297,14 +687,14 @@ export default function DashboardSecretaire() {
 
             {/* Liste des médecins */}
             <Card>
-              <CardHeader 
-                title="Liste des médecins" 
+              <CardHeader
+                title="Liste des médecins"
                 action={
                   <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                     <span style={{ fontSize:12, color:C.textMuted }}>{medecins.filter(m=>m.present).length}/{medecins.length} présents</span>
                     <div style={{ width:8, height:8, borderRadius:"50%", background:presenceStats.pourcentage>=80?C.green:presenceStats.pourcentage>=50?C.slate:C.red }}/>
                   </div>
-                } 
+                }
               />
               <div style={{ padding:"8px" }}>
                 {medecins.map((med, i) => (
@@ -1324,22 +714,22 @@ export default function DashboardSecretaire() {
 
                     {/* Statut */}
                     <div style={{ minWidth:110, textAlign:"center" }}>
-                      {med.present ? 
-                        <span style={{ 
+                      {med.present ?
+                        <span style={{
                           display:"inline-flex", alignItems:"center", gap:6,
-                          background:C.greenSoft, color:C.green, 
-                          padding:"4px 14px", borderRadius:20, 
-                          fontSize:12, fontWeight:700 
+                          background:C.greenSoft, color:C.green,
+                          padding:"4px 14px", borderRadius:20,
+                          fontSize:12, fontWeight:700
                         }}>
                           <span style={{ width:6, height:6, borderRadius:"50%", background:C.green, animation:"blink 2s ease-in-out infinite" }}/>
                           Présent
                         </span>
-                      : 
-                        <span style={{ 
+                      :
+                        <span style={{
                           display:"inline-flex", alignItems:"center", gap:6,
-                          background:C.redSoft, color:C.red, 
-                          padding:"4px 14px", borderRadius:20, 
-                          fontSize:12, fontWeight:700 
+                          background:C.redSoft, color:C.red,
+                          padding:"4px 14px", borderRadius:20,
+                          fontSize:12, fontWeight:700
                         }}>
                           Absent
                         </span>
