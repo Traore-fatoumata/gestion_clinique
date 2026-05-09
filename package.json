@@ -10,11 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "axios": "^1.13.6",
+    "axios": "^1.14.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+<<<<<<< HEAD
+    "react-router-dom": "^7.13.2"
+=======
     "react-icons": "^5.6.0",
     "react-router-dom": "^7.13.1"
+>>>>>>> ee7c5202908e0dfdf6c4b9d3e77f15a0ff08e124
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
