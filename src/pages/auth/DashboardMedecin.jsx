@@ -44,7 +44,25 @@ export default function DashboardMedecin() {
   },[])
 
   // Patients du jour : viennent de la file d'attente partagée (assignés par la secrétaire/chef)
-  const mesRdv = rdv.filter(r => r.docteurId === medecin.id).sort((a,b) => a.date.localeCompare(b.date))
+  // mesRdv inclut AUSSI les patients avec rendez-vous qui arrivent à la secrétaire
+  const mesRdv = [
+    ...rdv.filter(r => r.docteurId === medecin.id),
+    ...file
+      .filter(f => f.docteurId === medecin.id && f.typeVisite === "rendez_vous" && f.statut !== "termine")
+      .map(f => ({
+        id: f.rdvId || f.id,
+        patientId: f.patientId,
+        patient: f.nom,
+        docteurId: medecin.id,
+        date: today(),
+        heure: f.arrivee || "—",
+        service: f.service,
+        docteur: medecin.nom,
+        motif: f.motif || "Consultation",
+        rappelEnvoye: true,
+        fileId: f.id // garder la référence au file pour mise à jour
+      }))
+  ].sort((a,b) => (a.heure || "").localeCompare(b.heure || ""))
 
   const mesPatients = file
     .filter(f => f.docteurId === medecin.id && f.statut !== "termine")

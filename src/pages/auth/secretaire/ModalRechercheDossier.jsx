@@ -1,11 +1,11 @@
 import { useState } from "react"
 import { useClinicSettings } from "../../../hooks/useClinicSettings.jsx"
-import { C, Avatar, Btn, tarifParAge } from "./shared.jsx"
+import { today, C, Avatar, Btn, tarifParAge } from "./shared.jsx"
 
 // ══════════════════════════════════════════════════════
 //  MODAL — RECHERCHER DOSSIER EXISTANT
 // ══════════════════════════════════════════════════════
-export default function ModalRechercheDossier({ patients, onClose, onSignaler }) {
+export default function ModalRechercheDossier({ patients, rdvs, onClose, onSignaler }) {
   const { settings } = useClinicSettings()
   const [q,           setQ]           = useState("")
   const [selPatient,  setSelPatient]  = useState(null)   // patient sélectionné pour confirmer
@@ -26,9 +26,11 @@ export default function ModalRechercheDossier({ patients, onClose, onSignaler })
     setMontant(tarifParAge(p.dateNaissance, settings).toString())
   }
 
+  const rdvDuJour = selPatient ? rdvs.find(r => r.patientId === selPatient.id && r.date === today()) : null
+
   const handleConfirmer = () => {
     if (!montant) { alert("Veuillez saisir le montant de consultation."); return }
-    onSignaler(selPatient, parseInt(montant))
+    onSignaler(selPatient, parseInt(montant), rdvDuJour)
     onClose()
   }
 
@@ -54,7 +56,7 @@ export default function ModalRechercheDossier({ patients, onClose, onSignaler })
           {!selPatient && (<>
             <div style={{ position:"relative",marginBottom:16 }}>
               <svg style={{ position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",pointerEvents:"none" }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.textMuted} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Ex : ABC-A1B2C3 ou Bah Mariama..."
+              <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Ex : ABC-A1B2C3 ou Bah Mariama (RDV spécialiste)"
                 style={{ ...iSt,paddingLeft:40,background:C.bg }}
                 onFocus={e=>{ e.target.style.borderColor=C.blue; e.target.style.background=C.white }}
                 onBlur={e=>{ e.target.style.borderColor=C.border; e.target.style.background=C.bg }}/>
@@ -121,6 +123,12 @@ export default function ModalRechercheDossier({ patients, onClose, onSignaler })
               ))}
             </div>
 
+            {rdvDuJour && (
+              <div style={{ padding:"14px 16px",background:C.purpleSoft,borderRadius:12,border:"1px solid "+C.purple+"22",marginBottom:16 }}>
+                <p style={{ fontSize:13,fontWeight:700,color:C.purple }}>Rendez-vous du jour détecté</p>
+                <p style={{ fontSize:13,color:C.textPri,margin:0 }}>Patient attendu chez {rdvDuJour.docteur} ({rdvDuJour.service}) à {rdvDuJour.heure}.</p>
+              </div>
+            )}
             {selPatient.dateNaissance && (
               <div style={{ padding:"10px 14px",background:C.blueSoft,borderRadius:10,border:"1px solid "+C.blue+"33",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                 <span style={{ fontSize:13,color:C.textSec }}>Tarif calculé automatiquement selon l'âge</span>
@@ -131,7 +139,7 @@ export default function ModalRechercheDossier({ patients, onClose, onSignaler })
             <div style={{ display:"flex",gap:10 }}>
               <Btn onClick={()=>setSelPatient(null)} variant="secondary"><span style={{ display:"inline-flex",alignItems:"center",gap:5 }}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Retour</span></Btn>
               <Btn onClick={handleConfirmer} disabled={!montant} style={{ flex:1 }}>
-                Signaler au médecin chef — {montant ? parseInt(montant).toLocaleString("fr-FR")+" GNF" : ""}
+                {rdvDuJour ? `Envoyer au spécialiste ${rdvDuJour.docteur}` : `Signaler au médecin chef`}{montant ? ` — ${parseInt(montant).toLocaleString("fr-FR")} GNF` : ""}
               </Btn>
             </div>
           </>)}

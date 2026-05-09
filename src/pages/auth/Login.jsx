@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import logo from "../../assets/images/logo.jpeg"
 import { useAuth } from "../../hooks/useAuth"
@@ -10,16 +10,32 @@ export default function Login() {
   const [erreur, setErreur]         = useState("")
   const [voir, setVoir]             = useState(false)
   const navigate                    = useNavigate()
-  const { login }                   = useAuth()
+  const { login, user }             = useAuth()
 
-  const handleSubmit = (e) => {
+  useEffect(() => {
+    if (user) {
+      navigate(user.route || "/", { replace: true })
+    }
+  }, [user, navigate])
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setErreur("")
-    if (!email || !motDePasse) { setErreur("Veuillez remplir tous les champs."); return }
-    const result = login(email, motDePasse)
-    if (!result.success) { setErreur(result.error); return }
+    if (!email || !motDePasse) {
+      setErreur("Veuillez remplir tous les champs.")
+      return
+    }
+
     setChargement(true)
-    setTimeout(() => { setChargement(false); navigate(result.route) }, 1000)
+    const result = await login(email, motDePasse)
+    setChargement(false)
+
+    if (!result.success) {
+      setErreur(result.error)
+      return
+    }
+
+    navigate(result.route, { replace: true })
   }
 
   const onFocus = e => { e.target.style.borderColor="#16a34a"; e.target.style.boxShadow="0 0 0 3px rgba(22,163,74,0.15)" }

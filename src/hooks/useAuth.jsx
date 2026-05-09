@@ -1,35 +1,17 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
+import api from '../api.js'
 
 const AuthContext = createContext()
 
-// IDs médecins alignés avec INIT_MEDECINS dans DashboardMedecinChef
-// Personnel non-médecin : IDs >= 100 pour éviter les conflits
-export const UTILISATEURS = [
-  // ── Personnel non-médecin ──────────────────────────────
-  { id:101, email:"secretaire@clinique.com",   motDePasse:"1234", route:"/secretaire",             role:"secretaire",  nom:"Mariama Diallo",        titre:"Secrétaire Médicale",              specialite:""                               },
-  { id:102, email:"labo@clinique.com",          motDePasse:"1234", route:"/laboratoire",            role:"laborantin",  nom:"Dr. Aboubacar Sylla",   titre:"Biologiste · Labo",                specialite:"Laboratoire"                    },
-  { id:103, email:"infirmier@clinique.com",     motDePasse:"1234", route:"/soins-infirmiers",       role:"infirmier",   nom:"Mme. Fatoumata Diallo", titre:"Infirmière Principale",            specialite:"Soins Infirmiers"               },
-  // ── Médecin Chef (id:1 = INIT_MEDECINS[0]) ────────────
-  { id:1,   email:"chef@clinique.com",          motDePasse:"1234", route:"/dashboard-medecin-chef", role:"medecinChef", nom:"Dr. Amadou Doumbouya",  titre:"Médecin Chef",                     specialite:"Médecine générale"              },
-  // ── Médecins (IDs = INIT_MEDECINS ids) ────────────────
-  { id:2,   email:"medecin@clinique.com",       motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Camara",            titre:"Médecin — Cardiologie",            specialite:"Cardiologie"                    },
-  { id:3,   email:"generaliste@clinique.com",   motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Barry",             titre:"Médecin — Diabétologie",           specialite:"Diabétologie / Endocrinologie"  },
-  { id:4,   email:"pediatre@clinique.com",      motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Souaré",            titre:"Médecin — Pédiatrie",              specialite:"Pédiatrie"                      },
-  { id:5,   email:"gynecologue@clinique.com",   motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Keïta",   titre:"Médecin — Gynécologie / Obstétrique", specialite:"Gynécologie"                    },
-  { id:6,   email:"ophtalmologue@clinique.com", motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Bah",     titre:"Médecin — Ophtalmologie",             specialite:"Ophtalmologie"                  },
-  { id:7,   email:"traumatologue@clinique.com", motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Diallo",  titre:"Médecin — Traumatologie",             specialite:"Traumatologie"                  },
-  { id:8,   email:"neurologue@clinique.com",    motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Konaté",  titre:"Médecin — Neurologie",                specialite:"Neurologie"                     },
-  { id:9,   email:"orl@clinique.com",           motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Traoré",  titre:"Médecin — ORL",                       specialite:"ORL"                            },
-  { id:10,  email:"urologue@clinique.com",      motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Baldé",   titre:"Médecin — Urologie",                  specialite:"Urologie"                       },
-  { id:11,  email:"chirurgien@clinique.com",    motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Condé",        titre:"Médecin — Chirurgie",                 specialite:"Chirurgie"                      },
-  { id:14,  email:"dermatologue@clinique.com", motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Soumah",       titre:"Médecin — Dermatologie",              specialite:"Dermatologie"                   },
-  { id:15,  email:"oncologue@clinique.com",    motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Cissé",        titre:"Médecin — Oncologie",                 specialite:"Oncologie"                      },
-  { id:16,  email:"infectiologue@clinique.com",motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Bangoura",     titre:"Médecin — Maladies infectieuses",     specialite:"Maladies infectieuses"          },
-  { id:17,  email:"stomatologue@clinique.com", motDePasse:"1234", route:"/medecin",                role:"medecin",     nom:"Dr. Fofana",       titre:"Médecin — Stomatologie",              specialite:"Stomatologie"                   },
-  // ── Comptabilité ──────────────────────────────────────
-  { id:200, email:"comptable@clinique.com",    motDePasse:"1234", route:"/comptabilite",           role:"comptable",   nom:"M. Diallo Oumar",  titre:"Comptable",                           specialite:"Comptabilité"                   },
-]
+const ROUTE_BY_ROLE = {
+  secretaire:  '/secretaire',
+  laborantin:  '/laboratoire',
+  infirmier:   '/soins-infirmiers',
+  medecinChef: '/dashboard-medecin-chef',
+  medecin:     '/medecin',
+  comptable:   '/comptabilite',
+}
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
@@ -38,29 +20,98 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('clinique_user_v1')
-      return saved ? JSON.parse(saved) : null
-    } catch { return null }
-  })
+  const [auth, setAuth]       = useState({ user: null, token: null })
+  const [loading, setLoading] = useState(true)   // ← nouveau
 
-  const login = (email, motDePasse) => {
-    const found = UTILISATEURS.find(u => u.email === email && u.motDePasse === motDePasse)
-    if (!found) return { success: false, error: "Email ou mot de passe incorrect." }
-    const userData = { id: found.id, email: found.email, role: found.role, nom: found.nom, titre: found.titre, specialite: found.specialite, route: found.route }
-    setUser(userData)
-    localStorage.setItem('clinique_user_v1', JSON.stringify(userData))
-    return { success: true, route: found.route }
-  }
+  // Lecture du localStorage une seule fois au montage
+  useEffect(() => {
+    try {
+      const savedUser  = localStorage.getItem('clinique_user_v1')
+      const savedToken = localStorage.getItem('clinique_token_v1')
+      if (savedUser && savedToken) {
+        setAuth({ user: JSON.parse(savedUser), token: savedToken })
+      }
+    } catch {
+      localStorage.removeItem('clinique_user_v1')
+      localStorage.removeItem('clinique_token_v1')
+    } finally {
+      setLoading(false)   // ← terminé, on peut afficher l'app
+    }
+  }, [])
+
+  // Validation du token auprès du serveur (optionnelle en mode mock)
+  useEffect(() => {
+    if (!auth.token) return
+    api.defaults.headers.common.Authorization = `Bearer ${auth.token}`
+
+    const validateToken = async () => {
+      // En mode mock le token commence par "mock-" : on ne valide pas
+      if (auth.token.startsWith('mock-')) return
+      try {
+        await api.get('/api/auth/verify')
+      } catch (error) {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          setAuth({ user: null, token: null })
+          localStorage.removeItem('clinique_user_v1')
+          localStorage.removeItem('clinique_token_v1')
+          delete api.defaults.headers.common.Authorization
+        }
+      }
+    }
+
+    validateToken()
+  }, [auth.token])
+
+  const login = async (email, motDePasse) => {
+    const mockUsers = {
+      'secretaire@clinique.com':   { role: 'secretaire',  nom: 'Secrétaire', prenom: '' },
+      'chef@clinique.com':         { role: 'medecinChef', nom: 'Chef',       prenom: 'Médecin' },
+      'comptable@clinique.com':    { role: 'comptable',   nom: 'Comptable',  prenom: '' },
+      'labo@clinique.com':         { role: 'laborantin',  nom: 'Laborantin', prenom: '' },
+      'infirmier@clinique.com':    { role: 'infirmier',   nom: 'Infirmier',  prenom: '' },
+      'medecin@clinique.com':      { role: 'medecin', nom: 'Camara',   prenom: 'Dr.', specialite: 'Cardiologie' },
+      'generaliste@clinique.com':  { role: 'medecin', nom: 'Barry',    prenom: 'Dr.', specialite: 'Diabétologie' },
+      'pediatre@clinique.com':     { role: 'medecin', nom: 'Souaré',   prenom: 'Dr.', specialite: 'Pédiatrie' },
+      'gynecologue@clinique.com':  { role: 'medecin', nom: 'Keïta',    prenom: 'Dr.', specialite: 'Gynécologie' },
+      'ophtalmologue@clinique.com':{ role: 'medecin', nom: 'Bah',      prenom: 'Dr.', specialite: 'Ophtalmologie' },
+      'traumatologue@clinique.com':{ role: 'medecin', nom: 'Diallo',   prenom: 'Dr.', specialite: 'Traumatologie' },
+      'neurologue@clinique.com':   { role: 'medecin', nom: 'Konaté',   prenom: 'Dr.', specialite: 'Neurologie' },
+      'orl@clinique.com':          { role: 'medecin', nom: 'Traoré',   prenom: 'Dr.', specialite: 'ORL' },
+      'urologue@clinique.com':     { role: 'medecin', nom: 'Baldé',    prenom: 'Dr.', specialite: 'Urologie' },
+      'chirurgien@clinique.com':   { role: 'medecin', nom: 'Condé',    prenom: 'Dr.', specialite: 'Chirurgie' },
+      'dermatologue@clinique.com': { role: 'medecin', nom: 'Soumah',   prenom: 'Dr.', specialite: 'Dermatologie' },
+      'oncologue@clinique.com':    { role: 'medecin', nom: 'Cissé',    prenom: 'Dr.', specialite: 'Oncologie' },
+      'infectiologue@clinique.com':{ role: 'medecin', nom: 'Bangoura', prenom: 'Dr.', specialite: 'Maladies infectieuses' },
+      'stomatologue@clinique.com': { role: 'medecin', nom: 'Fofana',   prenom: 'Dr.', specialite: 'Stomatologie' },
+    }
+
+    const userFromServer = mockUsers[email]
+
+    // ✅ Mot de passe corrigé : '1234' (correspond au bouton démo)
+    if (!userFromServer || motDePasse !== '1234') {
+      return { success: false, error: 'Email ou mot de passe incorrect' }
+    }
+
+    const route    = ROUTE_BY_ROLE[userFromServer.role] || '/login'
+    const userData = { ...userFromServer, route, email }
+    const token    = 'mock-' + Date.now()
+
+    setAuth({ user: userData, token })
+    localStorage.setItem('clinique_user_v1',  JSON.stringify(userData))
+    localStorage.setItem('clinique_token_v1', token)
+
+    return { success: true, route }
+  }   // ✅ accolade fermante de login — manquait dans l'original
 
   const logout = () => {
-    setUser(null)
+    setAuth({ user: null, token: null })
     localStorage.removeItem('clinique_user_v1')
+    localStorage.removeItem('clinique_token_v1')
+    delete api.defaults.headers.common.Authorization
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user: auth.user, token: auth.token, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )

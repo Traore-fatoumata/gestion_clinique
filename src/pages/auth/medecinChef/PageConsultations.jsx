@@ -218,7 +218,8 @@ export default function PageConsultations({ consultations, patients, file, medec
   const [recherche,     setRecherche]     = useState("")
 
   // File d'attente = patients ajoutés par la secrétaire, pas encore consultés
-  const fileAccueil = (file || []).filter(f => f.statut !== "termine")
+  // Exclure les rendez-vous spécialistes : ils doivent aller directement au médecin de service.
+  const fileAccueil = (file || []).filter(f => f.statut !== "termine" && f.typeVisite !== "rendez_vous")
   const servicesDispo = [...new Set(consultations.map(c=>c.service))].filter(Boolean)
 
   const toutesFiltrees = [...consultations]
@@ -260,7 +261,7 @@ export default function PageConsultations({ consultations, patients, file, medec
             <div>
               <p style={{ fontSize:15, fontWeight:700, color:C.textPri }}>Patients en attente — Consultation d'accueil</p>
               <p style={{ fontSize:13, color:C.textSec }}>
-                {fileAccueil.length} patient{fileAccueil.length>1?"s":""} · Consultation payée ou rendez-vous requis pour accéder au médecin
+                {fileAccueil.length} patient{fileAccueil.length>1?"s":""} · Consultation d'accueil uniquement (les RDV spécialistes sont envoyés directement au service)
               </p>
             </div>
           </div>

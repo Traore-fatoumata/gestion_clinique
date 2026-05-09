@@ -30,8 +30,8 @@ export default function DashboardSecretaire() {
   const [showNouveau,  setShowNouveau]  = useState(false)
   const [showRecherche,setShowRecherche]= useState(false)
   const [notifications,setNotifications]= useState([
-    { id:1, type:"rdv",  message:"RDV de Sow Fatoumata demain à 09h00 — Gynécologie", lu:false, date:today() },
-    { id:2, type:"rdv",  message:"Rappel : Baldé Aissatou a un RDV le 07/04 à 08h30", lu:false, date:today() },
+    { id:1, type:"rdv",  message:"RDV de Sow Fatoumata demain à 09h00 — Gynécologie (envoyée direct au spécialiste)", lu:false, date:today() },
+    { id:2, type:"rdv",  message:"Rappel : Baldé Aissatou a un RDV le 07/04 à 08h30", lu:false, date:today() }
   ])
   const [showNotifs, setShowNotifs]=useState(false)
   const [recherchePatients, setRecherchePatients]=useState("")
@@ -81,11 +81,30 @@ export default function DashboardSecretaire() {
     alert(""+fullNom+" enregistré et ajouté à la file du médecin chef.")
   }
 
-  const handleSignaler = (patient, montant) => {
+  const handleSignaler = (patient, montant, rdv) => {
     const deja = file.find(f=>f.patientId===patient.id && f.statut !== "termine")
     if (deja) { alert(patient.nom+" est déjà dans la file d'attente."); return }
-    addToFile({ patientId:patient.id, pid:patient.pid, nom:patient.nom, arrivee:nowTime(), typeVisite:"consultation", statut:"en_attente", montantConsultation:montant||tarifParAge(patient.dateNaissance, settings), paiementConsultation:null })
-    alert(""+patient.nom+" signalé au médecin chef. Montant : "+(montant||tarifParAge(patient.dateNaissance, settings)).toLocaleString("fr-FR")+" GNF à payer à la comptabilité.")
+    const montantConsult = montant || tarifParAge(patient.dateNaissance, settings)
+    addToFile({
+      patientId: patient.id,
+      pid: patient.pid,
+      nom: patient.nom,
+      arrivee: nowTime(),
+      typeVisite: rdv ? "rendez_vous" : "consultation",
+      statut: "en_attente",
+      montantConsultation: montantConsult,
+      paiementConsultation: null,
+      service: rdv?.service || "Médecine générale",
+      docteurId: rdv?.docteurId || 1,
+      motif: rdv?.motif || "Consultation",
+      docteur: rdv?.docteur,
+      rdvId: rdv?.id,
+    })
+    if (rdv) {
+      alert(`${patient.nom} signalé directement au médecin spécialiste ${rdv.docteur} (${rdv.service}). Montant : ${montantConsult.toLocaleString("fr-FR")} GNF à payer à la comptabilité.`)
+    } else {
+      alert(`${patient.nom} signalé au médecin chef. Montant : ${montantConsult.toLocaleString("fr-FR")} GNF à payer à la comptabilité.`)
+    }
   }
 
   const envoyerRappel = (rdvId) => {
@@ -248,7 +267,7 @@ export default function DashboardSecretaire() {
 
       {/* MODALS */}
       {showNouveau   && <ModalNouveauPatient patients={patients} onClose={()=>setShowNouveau(false)} onEnregistrer={handleEnregistrer}/>}
-      {showRecherche && <ModalRechercheDossier patients={patients} onClose={()=>setShowRecherche(false)} onSignaler={handleSignaler}/>}
+      {showRecherche && <ModalRechercheDossier patients={patients} rdvs={rdvs} onClose={()=>setShowRecherche(false)} onSignaler={handleSignaler}/>}
       {permissionModal && <ModalPermission medecin={permissionModal.medecin} onClose={()=>setPermissionModal(null)} onValider={validerPermission}/>}
       {onglet === "historique" && <ModalHistorique medecins={medecins} historique={historique} onClose={()=>setOnglet("presence")}/>}
 
